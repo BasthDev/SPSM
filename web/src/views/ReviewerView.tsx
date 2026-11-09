@@ -467,53 +467,78 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                   <label>Catatan Reviewer / Alasan Pemilihan Judul & Dosen</label>
                   <textarea
                     rows={3}
+                    disabled={selectedSub.status !== 'pending_lecturer'}
                     placeholder="Contoh: Judul 2 dipilih karena urgensi dan ketersediaan data yang valid. Calon pembimbing Dr. Ahmad sangat kompeten di bidang Machine Learning."
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
                   />
                 </div>
+
+                {selectedSub.status !== 'pending_lecturer' && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+                    <Info size={18} color="#0A4C8F" />
+                    <div className="text-xs text-blue-900">
+                      <strong>Tahap Penilaian Selesai:</strong> Pengajuan ini telah diproses oleh Reviewer dengan status{' '}
+                      <span className="font-semibold text-primary">{selectedSub.status}</span>. Tindakan pengubahan dinonaktifkan.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="modal-footer justify-between">
-              <div className="footer-left-buttons">
-                <button
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={handleRequestRevision}
-                  className="btn btn-warning"
-                >
-                  <RotateCcw size={16} />
-                  <span>Minta Revisi</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={handleReject}
-                  className="btn btn-danger-outline"
-                >
-                  Tolak Pengajuan
-                </button>
-              </div>
+              {selectedSub.status === 'pending_lecturer' ? (
+                <>
+                  <div className="footer-left-buttons">
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleRequestRevision}
+                      className="btn btn-warning"
+                    >
+                      <RotateCcw size={16} />
+                      <span>Minta Revisi</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleReject}
+                      className="btn btn-danger-outline"
+                    >
+                      Tolak Pengajuan
+                    </button>
+                  </div>
 
-              <div className="footer-right-buttons">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSub(null)}
-                  className="btn btn-secondary"
-                >
-                  Tutup
-                </button>
-                <button
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={handleSubmitForwardToKaprodi}
-                  className="btn btn-primary"
-                >
-                  <Send size={16} />
-                  <span>{actionLoading ? 'Menyimpan...' : 'Teruskan ke Kaprodi'}</span>
-                </button>
-              </div>
+                  <div className="footer-right-buttons">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSub(null)}
+                      className="btn btn-secondary"
+                    >
+                      Tutup
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleSubmitForwardToKaprodi}
+                      className="btn btn-primary"
+                    >
+                      <Send size={16} />
+                      <span>{actionLoading ? 'Menyimpan...' : 'Teruskan ke Kaprodi'}</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSub(null)}
+                    className="btn btn-primary"
+                  >
+                    Tutup Lembar Penilaian
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

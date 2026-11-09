@@ -65,10 +65,6 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
           <p className="login-portal-subtitle">
             Sarana Pengajuan Skripsi Mahasiswa & Manajemen Bimbingan Akademik
           </p>
-          <div className="login-univ-tag">
-            <Building2 size={13} />
-            <span>Fakultas Teknik & Ilmu Komputer</span>
-          </div>
         </div>
 
         {errorMsg && (
@@ -115,11 +111,6 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
                 : 'Masuk / Registrasi Dosen via Google'}
             </span>
           </button>
-
-          <p className="login-help-note">
-            Akun Google yang baru pertama kali masuk akan otomatis terdaftar sebagai{' '}
-            <strong>Dosen Pembimbing</strong>. Penetapan peran khusus (Reviewer / Kaprodi) diatur oleh Administrator.
-          </p>
         </div>
 
         <div className="login-divider">
@@ -176,7 +167,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
 
         <div className="login-footer-info">
           <ShieldCheck size={14} color="#059669" />
-          <span>Sistem Terenkripsi & Terintegrasi Cloud Appwrite</span>
+          <span>Sistem Informasi Akademik Resmi & Terenkripsi</span>
         </div>
       </div>
     </div>

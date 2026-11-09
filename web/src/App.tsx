@@ -84,6 +84,7 @@ export const App: React.FC = () => {
         onRoleChange={handleRoleChange}
         activeUserName={activeName}
         activeUserEmail={activeEmail}
+        activeAvatarUrl={authState.avatarUrl}
         onLogout={handleLogout}
       />
 
@@ -108,7 +109,7 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="app-footer">
         <div>
-          © {new Date().getFullYear()} SPSM Portal — Sarana Pengajuan Skripsi Mahasiswa. Terhubung Resmi ke Appwrite Cloud.
+          © {new Date().getFullYear()} SPSM Portal — Sarana Pengajuan Skripsi Mahasiswa.
         </div>
       </footer>
     </div>

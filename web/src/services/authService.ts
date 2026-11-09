@@ -8,6 +8,7 @@ export interface AuthState {
   lecturer: Lecturer | null;
   role: UserRole;
   isAdmin: boolean;
+  avatarUrl?: string | null;
 }
 
 export const authService = {
@@ -86,7 +87,32 @@ export const authService = {
         console.warn('Error fetching lecturer doc:', e);
       }
 
-      // 3. Handle Auto-Registration for new Google users or Missing Docs
+      // 3. Retrieve Google profile picture if available
+      let avatarUrl: string | null = profile?.avatar_url || null;
+      try {
+        const session = await account.getSession('current');
+        if (session && session.providerAccessToken) {
+          const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${session.providerAccessToken}` },
+          });
+          if (googleRes.ok) {
+            const googleData = await googleRes.json();
+            if (googleData.picture) {
+              avatarUrl = googleData.picture;
+            }
+          }
+        }
+      } catch {
+        // fallback
+      }
+
+      if (!avatarUrl) {
+        avatarUrl = `https://sgp.cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(
+          acct.name || 'User'
+        )}&project=${APPWRITE_CONFIG.projectId}`;
+      }
+
+      // 4. Handle Auto-Registration for new Google users or Missing Docs
       const defaultRole: UserRole = isAdminEmail ? 'admin' : (lecturer?.role || 'lecturer');
 
       if (!profile) {
@@ -103,13 +129,26 @@ export const authService = {
               nim_or_nip: lecturer?.nip || ('DOSEN-' + acct.$id.substring(0, 6).toUpperCase()),
               department: lecturer?.department_id || 'TI',
               batch_year: 2026,
-              avatar_url: null,
+              avatar_url: avatarUrl,
               created_at: new Date().toISOString(),
             }
           );
           profile = newDoc as unknown as UserProfile;
         } catch (e) {
           console.warn('Could not auto-create user profile doc:', e);
+        }
+      } else if (avatarUrl && profile.avatar_url !== avatarUrl) {
+        // Sync new avatar URL if changed
+        try {
+          await databases.updateDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collections.users,
+            profile.$id,
+            { avatar_url: avatarUrl }
+          );
+          profile.avatar_url = avatarUrl;
+        } catch (e) {
+          console.warn('Could not update avatar URL in profile doc:', e);
         }
       }
 
@@ -154,6 +193,7 @@ export const authService = {
         lecturer,
         role: finalRole,
         isAdmin: finalRole === 'admin',
+        avatarUrl,
       };
     } catch {
       return null;

@@ -17,6 +17,7 @@ interface Props {
   onRoleChange: (role: UserRole) => void;
   activeUserName: string;
   activeUserEmail?: string;
+  activeAvatarUrl?: string | null;
   onLogout: () => void;
 }
 
@@ -27,6 +28,7 @@ export const Navbar: React.FC<Props> = ({
   onRoleChange,
   activeUserName,
   activeUserEmail,
+  activeAvatarUrl,
   onLogout,
 }) => {
   const allRoles: { id: UserRole; label: string; icon: React.ReactNode; color: string }[] = [
@@ -132,7 +134,15 @@ export const Navbar: React.FC<Props> = ({
             <span className="user-role-badge">{getRoleDisplayName(userRole)}</span>
           </div>
           <div className="user-avatar" title={activeUserEmail || activeUserName}>
-            {activeUserName.charAt(0).toUpperCase()}
+            {activeAvatarUrl ? (
+              <img
+                src={activeAvatarUrl}
+                alt={activeUserName}
+                className="user-avatar-img"
+              />
+            ) : (
+              activeUserName.charAt(0).toUpperCase()
+            )}
           </div>
           <button
             onClick={onLogout}

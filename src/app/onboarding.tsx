@@ -56,9 +56,7 @@ export default function OnboardingScreen() {
         setEmail(acct.email || '');
 
         // Generate Google / Appwrite avatar URL if available
-        const defaultAvatar = `https://sgp.cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(
-          acct.name || 'User'
-        )}&project=6af1b3b200056ab6bc1d`;
+        const defaultAvatar = await authService.fetchGoogleAvatar(acct.name);
         setAvatarUrl(defaultAvatar);
 
         // Fetch dynamic departments from Appwrite Database

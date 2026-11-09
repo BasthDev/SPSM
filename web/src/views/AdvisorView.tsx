@@ -5,19 +5,21 @@ import { StatusBadge } from '../components/StatusBadge';
 import { SubmissionDetailModal } from '../components/SubmissionDetailModal';
 import type { ThesisSubmission, Lecturer } from '../types';
 import {
-  UserCheck,
+  Users,
   BookOpen,
   GraduationCap,
   Calendar,
-  Users,
   ExternalLink,
   Award,
-  Layers,
   FileText,
   Search,
-  CheckCircle2,
-  AlertCircle,
+  CheckCircle,
   Eye,
+  Building2,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  UserCheck,
 } from 'lucide-react';
 
 interface Props {
@@ -31,6 +33,7 @@ export const AdvisorView: React.FC<Props> = ({
   currentLecturerId,
   isAdmin,
 }) => {
+  const [activeTab, setActiveTab] = useState<'students' | 'profile'>('students');
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [selectedLecturerId, setSelectedLecturerId] = useState<string>(
@@ -41,7 +44,6 @@ export const AdvisorView: React.FC<Props> = ({
   const [activeDossierSub, setActiveDossierSub] = useState<ThesisSubmission | null>(null);
 
   useEffect(() => {
-    // If not admin and lecturer ID changes, force lock
     if (!isAdmin && currentLecturerId) {
       setSelectedLecturerId(currentLecturerId);
     }
@@ -54,12 +56,12 @@ export const AdvisorView: React.FC<Props> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      // If not admin, strictly fetch data for the logged-in lecturer only
-      const targetAdvisorId = (!isAdmin && currentLecturerId)
-        ? currentLecturerId
-        : selectedLecturerId !== 'all'
-        ? selectedLecturerId
-        : undefined;
+      const targetAdvisorId =
+        !isAdmin && currentLecturerId
+          ? currentLecturerId
+          : selectedLecturerId !== 'all'
+          ? selectedLecturerId
+          : undefined;
 
       const [subs, lecs] = await Promise.all([
         submissionService.getAllSubmissions('approved', targetAdvisorId),
@@ -69,7 +71,6 @@ export const AdvisorView: React.FC<Props> = ({
       setSubmissions(subs);
       setLecturers(lecs);
 
-      // Auto-sync active quota for current lecturer if available
       if (currentLecturerId) {
         await lecturerService.syncStudentCount(currentLecturerId);
       }
@@ -84,9 +85,9 @@ export const AdvisorView: React.FC<Props> = ({
     (l) => l.$id === (isAdmin ? selectedLecturerId : currentLecturerId)
   );
 
-  // Filter based on search query
+  // Filter based on search query and lecturer isolation
   const filteredSubs = submissions.filter((s) => {
-    // Role isolation check: non-admin can NEVER see other lecturers' students
+    // Role isolation: lecturer CANNOT see others
     if (!isAdmin && currentLecturerId && s.advisor_id !== currentLecturerId) {
       return false;
     }
@@ -110,201 +111,296 @@ export const AdvisorView: React.FC<Props> = ({
     );
   });
 
+  const activeCount = filteredSubs.length;
+  const maxQuota = currentLecData?.quota || 10;
+  const remainingQuota = Math.max(0, maxQuota - activeCount);
+
   return (
-    <div className="advisor-container">
-      {/* Page Header */}
+    <div className="admin-container">
+      {/* Header Bar matching AdminView */}
       <div className="section-header">
         <div>
           <h1 className="page-title">
-            {!isAdmin ? `Bimbingan Skripsi — ${advisorName}` : 'Monitoring Dosen Pembimbing'}
+            {!isAdmin ? `Portal Dosen Pembimbing — ${advisorName}` : 'Monitoring Dosen Pembimbing'}
           </h1>
           <p className="page-desc">
             {!isAdmin
-              ? 'Daftar mahasiswa skripsi yang berada di bawah bimbingan resmi Anda setelah disahkan Kaprodi.'
-              : 'Daftar seluruh mahasiswa yang judul skripsinya telah disahkan dan diplot ke masing-masing Dosen Pembimbing.'}
+              ? 'Daftar resmi mahasiswa skripsi yang berada di bawah bimbingan Anda setelah disahkan Kaprodi.'
+              : 'Daftar seluruh mahasiswa skripsi yang telah disahkan dan diplot ke masing-masing Dosen Pembimbing.'}
           </p>
         </div>
 
-        {/* Filter Lecturer for Admin */}
-        <div className="flex items-center gap-3">
-          {isAdmin ? (
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold text-slate-600">Pilih Dosen:</label>
-              <select
-                value={selectedLecturerId}
-                onChange={(e) => setSelectedLecturerId(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">Semua Dosen Pembimbing ({submissions.length} bimbingan)</option>
-                {lecturers.map((lec) => (
-                  <option key={lec.$id} value={lec.$id}>
-                    {lec.name} ({lec.current_students || 0}/{lec.quota} mhs)
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="advisor-badge-personal">
-              <UserCheck size={16} color="#059669" />
-              <span>Data Terisolasi: Khusus Bimbingan Anda</span>
-            </div>
-          )}
+        {/* Tab Buttons matching AdminView */}
+        <div className="tab-pill-group">
+          <button
+            onClick={() => setActiveTab('students')}
+            className={`tab-pill-btn ${activeTab === 'students' ? 'active' : ''}`}
+          >
+            <Users size={16} />
+            <span>Mahasiswa Bimbingan ({activeCount})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`tab-pill-btn ${activeTab === 'profile' ? 'active' : ''}`}
+          >
+            <Award size={16} />
+            <span>Profil & Beban Kuota</span>
+          </button>
         </div>
       </div>
 
-      {/* Lecturer Quota & Workload Banner */}
-      {currentLecData && (
-        <div className="workload-summary-banner">
-          <div className="workload-info-col">
-            <div className="workload-header-row">
-              <Award size={20} color="#0A4C8F" />
-              <h2 className="workload-name">{currentLecData.name}</h2>
-              <span className="workload-nip">NIP: {currentLecData.nip}</span>
+      {/* Metrics Cards matching AdminView style */}
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-icon info">
+            <Users size={20} />
+          </div>
+          <div>
+            <div className="stat-number">{activeCount}</div>
+            <div className="stat-label">Mahasiswa Bimbingan Aktif</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon success">
+            <CheckCircle size={20} />
+          </div>
+          <div>
+            <div className="stat-number">{maxQuota}</div>
+            <div className="stat-label">Batas Kuota Bimbingan</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className={`stat-icon ${remainingQuota <= 2 ? 'warning' : 'primary'}`}>
+            <Award size={20} />
+          </div>
+          <div>
+            <div className="stat-number">{remainingQuota}</div>
+            <div className="stat-label">Sisa Kuota Tersedia</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon primary">
+            <Building2 size={20} />
+          </div>
+          <div>
+            <div className="stat-number">{currentLecData?.department_id || 'TI'}</div>
+            <div className="stat-label">Program Studi Naungan</div>
+          </div>
+        </div>
+      </div>
+
+      {/* TAB 1: MAHASISWA BIMBINGAN */}
+      {activeTab === 'students' && (
+        <div className="card tab-content mt-6">
+          <div className="card-top-action">
+            <div>
+              <h3 className="card-subhead">Daftar Mahasiswa Bimbingan Skripsi</h3>
+              <p className="card-subdesc">
+                Data mahasiswa skripsi aktif yang telah divalidasi oleh Penilai dan disahkan resmi oleh Ketua Program Studi.
+              </p>
             </div>
-            <p className="workload-expertise">
-              Bidang Keahlian: <strong>{currentLecData.expertise || 'Ilmu Komputer & Rekayasa Perangkat Lunak'}</strong>
-            </p>
+
+            {/* Filter Dosen (for Admin only) */}
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-slate-600">Pilih Dosen:</label>
+                <select
+                  value={selectedLecturerId}
+                  onChange={(e) => setSelectedLecturerId(e.target.value)}
+                  className="filter-select"
+                >
+                  <option value="all">Semua Dosen Pembimbing</option>
+                  {lecturers.map((lec) => (
+                    <option key={lec.$id} value={lec.$id}>
+                      {lec.name} ({lec.current_students || 0}/{lec.quota} mhs)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          <div className="workload-stats-row">
-            <div className="workload-stat-box">
-              <span className="stat-label">Beban Bimbingan Aktif</span>
-              <span className="stat-val font-bold text-primary">
-                {currentLecData.current_students || filteredSubs.length} Mahasiswa
+          {/* Search bar matching AdminView */}
+          <div className="filter-bar">
+            <div className="search-box">
+              <Search size={16} color="#64748B" />
+              <input
+                type="text"
+                placeholder="Cari mahasiswa, NIM, atau judul skripsi..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="filter-group">
+              <span className="text-xs text-muted font-medium">
+                Total Bimbingan: <strong>{filteredSubs.length}</strong> mahasiswa
               </span>
             </div>
-            <div className="workload-stat-box">
-              <span className="stat-label">Batas Kuota Maksimal</span>
-              <span className="stat-val font-bold text-slate-700">
-                {currentLecData.quota} Mahasiswa
-              </span>
-            </div>
-            <div className="workload-stat-box">
-              <span className="stat-label">Sisa Kuota Tersedia</span>
-              <span
-                className={`stat-val font-bold ${
-                  currentLecData.quota - (currentLecData.current_students || filteredSubs.length) <= 2
-                    ? 'text-amber-600'
-                    : 'text-emerald-600'
-                }`}
-              >
-                {Math.max(
-                  0,
-                  currentLecData.quota - (currentLecData.current_students || filteredSubs.length)
-                )}{' '}
-                Slot
-              </span>
-            </div>
+          </div>
+
+          {/* Table matching AdminView structure */}
+          <div className="table-wrapper">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Mahasiswa</th>
+                  <th>NIM & Angkatan</th>
+                  <th>Judul Skripsi Disahkan</th>
+                  <th>Tanggal Pengesahan</th>
+                  <th>Status</th>
+                  <th>Jurnal Acuan</th>
+                  <th style={{ textAlign: 'center' }}>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-muted">
+                      Memuat daftar mahasiswa bimbingan...
+                    </td>
+                  </tr>
+                ) : filteredSubs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-muted">
+                      {!isAdmin
+                        ? 'Belum ada mahasiswa bimbingan skripsi yang disahkan.'
+                        : 'Tidak ada mahasiswa bimbingan ditemukan dengan filter ini.'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSubs.map((sub) => {
+                    const student = sub.student;
+                    const chosenOption =
+                      sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
+                    const fileUrl = chosenOption?.journal_file_id
+                      ? submissionService.getFileViewUrl(chosenOption.journal_file_id)
+                      : null;
+
+                    return (
+                      <tr key={sub.$id}>
+                        <td>
+                          <div className="font-semibold text-slate-800">
+                            {student?.name || 'Mahasiswa'}
+                          </div>
+                          <div className="text-xs text-muted">
+                            {student?.email || '-'}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="font-mono font-medium text-slate-700">
+                            {student?.nim_or_nip || sub.student_id}
+                          </div>
+                          <div className="text-xs text-muted">
+                            {student?.department} ({student?.batch_year || 2026})
+                          </div>
+                        </td>
+                        <td className="max-w-md">
+                          <div className="text-xs font-semibold text-primary mb-0.5">
+                            Opsi {chosenOption?.option_number || 1}
+                          </div>
+                          <div className="font-medium text-slate-900 text-sm line-clamp-2">
+                            {chosenOption?.title || 'Judul Skripsi'}
+                          </div>
+                        </td>
+                        <td className="text-xs text-slate-500 font-mono">
+                          {new Date(
+                            sub.submitted_at || sub.$createdAt || Date.now()
+                          ).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td>
+                          <StatusBadge status={sub.status} size="sm" />
+                        </td>
+                        <td>
+                          {fileUrl && fileUrl !== '#' ? (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn-outline-pdf"
+                              title="Buka Dokumen PDF Jurnal"
+                            >
+                              <FileText size={13} />
+                              <span>PDF</span>
+                              <ExternalLink size={11} />
+                            </a>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Tanpa PDF</span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={() => setActiveDossierSub(sub)}
+                              className="btn btn-sm btn-primary flex items-center gap-1.5"
+                              title="Lihat Berkas Dossier Lengkap"
+                            >
+                              <Eye size={14} />
+                              <span>Lihat Berkas</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Search & Actions Bar */}
-      <div className="advisor-search-bar">
-        <div className="search-input-wrap">
-          <Search size={16} color="#64748B" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari nama mahasiswa, NIM, atau judul skripsi..."
-            className="search-input"
-          />
-        </div>
-        <div className="total-badge">
-          <span>Menampilkan {filteredSubs.length} Mahasiswa</span>
-        </div>
-      </div>
+      {/* TAB 2: PROFIL & BEBAN KUOTA DOSEN */}
+      {activeTab === 'profile' && currentLecData && (
+        <div className="card tab-content mt-6">
+          <div className="card-top-action">
+            <div>
+              <h3 className="card-subhead">Data Dosen Pembimbing & Penetapan Kuota</h3>
+              <p className="card-subdesc">
+                Rincian informasi akun dosen, bidang kepakaran, dan pemenuhan kuota bimbingan akademik.
+              </p>
+            </div>
+            <div className="status-dot active">Terverifikasi Aktif</div>
+          </div>
 
-      {/* Grid of Supervised Students */}
-      {loading ? (
-        <div className="loading-state-box">
-          <div className="spinner" />
-          <p>Memuat daftar mahasiswa bimbingan...</p>
-        </div>
-      ) : filteredSubs.length === 0 ? (
-        <div className="empty-box col-span-full">
-          <Users size={40} color="#94A3B8" />
-          <h4 className="text-slate-700 font-bold mt-3 text-base">
-            {!isAdmin
-              ? 'Belum Ada Mahasiswa Bimbingan'
-              : 'Tidak Ada Mahasiswa Ditemukan'}
-          </h4>
-          <p className="text-xs text-muted max-w-md text-center mt-1">
-            {!isAdmin
-              ? 'Ketika Dosen Penilai memilih Anda sebagai Dosen Pembimbing dan pengajuan telah disahkan oleh Kaprodi, data mahasiswa akan otomatis muncul di sini.'
-              : 'Tidak ada mahasiswa bimbingan yang sesuai dengan filter yang dipilih.'}
-          </p>
-        </div>
-      ) : (
-        <div className="supervised-grid mt-6">
-          {filteredSubs.map((sub) => {
-            const chosen =
-              sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
-            const fileUrl = chosen?.journal_file_id
-              ? submissionService.getFileViewUrl(chosen.journal_file_id)
-              : null;
-
-            return (
-              <div key={sub.$id} className="student-card formal-student-card">
-                <div className="student-card-header">
-                  <div>
-                    <div className="font-bold text-slate-800 text-base">
-                      {sub.student?.name || 'Mahasiswa'}
+          <div className="table-wrapper">
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>NIP / Identitas</th>
+                  <th>Nama Lengkap</th>
+                  <th>Email Institusi</th>
+                  <th>Program Studi</th>
+                  <th>Bidang Keahlian</th>
+                  <th>Kuota Maksimal</th>
+                  <th>Beban Saat Ini</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="font-mono font-bold text-primary">{currentLecData.nip}</td>
+                  <td className="font-bold text-slate-800">{currentLecData.name}</td>
+                  <td className="text-slate-600 font-mono text-xs">{currentLecData.email}</td>
+                  <td>
+                    <span className="badge badge-primary">{currentLecData.department_id}</span>
+                  </td>
+                  <td className="text-slate-700">{currentLecData.expertise || '-'}</td>
+                  <td className="font-bold text-slate-800">{currentLecData.quota} Mahasiswa</td>
+                  <td>
+                    <div className="font-bold text-primary">
+                      {activeCount} / {currentLecData.quota} Mahasiswa
                     </div>
-                    <div className="text-xs text-muted font-mono mt-0.5">
-                      NIM: {sub.student?.nim_or_nip || sub.student_id} • {sub.student?.department} (
-                      {sub.student?.batch_year})
-                    </div>
-                  </div>
-                  <StatusBadge status={sub.status} size="sm" />
-                </div>
-
-                <div className="student-thesis-box">
-                  <div className="text-xs font-semibold text-primary mb-1 flex items-center gap-1.5">
-                    <BookOpen size={14} />
-                    <span>Judul Skripsi Disahkan:</span>
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-sm leading-snug">
-                    {chosen?.title || 'Judul Skripsi'}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-2 line-clamp-3 leading-relaxed">
-                    {chosen?.background}
-                  </p>
-                </div>
-
-                <div className="student-advisor-footer">
-                  <div className="advisor-pill">
-                    <GraduationCap size={15} color="#0A4C8F" />
-                    <span>Pembimbing: {sub.advisor?.name || advisorName}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {fileUrl && fileUrl !== '#' && (
-                      <a
-                        href={fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn-outline-pdf"
-                        title="Lihat Jurnal PDF"
-                      >
-                        <FileText size={13} />
-                        <span>PDF</span>
-                        <ExternalLink size={11} />
-                      </a>
-                    )}
-                    <button
-                      onClick={() => setActiveDossierSub(sub)}
-                      className="btn-view-dossier"
-                    >
-                      <Eye size={13} />
-                      <span>Detail Berkas</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

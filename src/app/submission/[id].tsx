@@ -114,9 +114,6 @@ export default function SubmissionDetailScreen() {
     submission.options?.find((o) => o.is_selected_by_lecturer) ||
     null;
 
-  const otherOptions =
-    submission.options?.filter((o) => o.$id !== selectedOption?.$id) || [];
-
   const handleOpenPdf = (fileId?: string | null) => {
     if (!fileId) return;
     const url = submissionService.getFileViewUrl(fileId);
@@ -130,6 +127,42 @@ export default function SubmissionDetailScreen() {
       <AppHeader title="Detail Pengajuan Skripsi" showBack backHref="/dashboard" />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
+        {/* DOSSIER HEADER CARD (FORMAT RESMI BERKAS PENGAJUAN) */}
+        <View style={styles.dossierDocBanner}>
+          <View style={styles.dossierDocHeaderRow}>
+            <View style={styles.dossierDocIconWrap}>
+              <GraduationCap size={22} color="#FFFFFF" strokeWidth={2.4} />
+            </View>
+            <View style={styles.dossierDocTitles}>
+              <Text style={styles.dossierDocType}>BERKAS PENGAJUAN SKRIPSI RESMI</Text>
+              <Text style={styles.dossierDocNum}>
+                NO. DOKUMEN: SPSM-{submission.$id.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.dossierMetaGrid}>
+            <View style={styles.dossierMetaCol}>
+              <Text style={styles.dossierMetaLabel}>Tanggal Pengajuan</Text>
+              <Text style={styles.dossierMetaVal}>{formattedSubmittedDate}</Text>
+            </View>
+            <View style={styles.dossierMetaCol}>
+              <Text style={styles.dossierMetaLabel}>Status Dokumen</Text>
+              <Text style={styles.dossierMetaValHighlight}>
+                {submission.status === 'approved'
+                  ? 'Disahkan Kaprodi'
+                  : submission.status === 'waiting_kaprodi'
+                  ? 'Menunggu Kaprodi'
+                  : submission.status === 'revision'
+                  ? 'Perlu Revisi'
+                  : submission.status === 'rejected'
+                  ? 'Ditolak'
+                  : 'Tahap Penilaian Reviewer'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         {/* 1. STATUS PROGRESS TRACKER */}
         <Section style={styles.trackerCard}>
           <View style={styles.statusBadgeRow}>
@@ -507,91 +540,112 @@ export default function SubmissionDetailScreen() {
           )
         )}
 
-        {/* 4. JUDUL SKRIPSI TERPILIH (Disahkan / Dipilih) */}
-        {selectedOption ? (
-          <Section style={styles.selectedTitleSection}>
-            <View style={styles.selectedTitleHeader}>
-              <View style={styles.selectedTitleBadge}>
-                <CheckCircle2 size={14} color="#FFFFFF" strokeWidth={2.5} />
-                <Text style={styles.selectedTitleBadgeText}>
-                  JUDUL TERPILIH (OPSI #{selectedOption.option_number})
+        {/* 4. DAFTAR USULAN OPSI JUDUL SKRIPSI (1 KARTU TERSUSUN 3 JUDUL DENGAN PEMISAH LINE) */}
+        {submission.options && submission.options.length > 0 ? (
+          <Section style={styles.allOptionsUnifiedCard}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={[styles.headerIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                <BookOpen size={18} color={Colors.primary} strokeWidth={2.2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionHeading}>Daftar Usulan Opsi Judul Skripsi</Text>
+                <Text style={styles.sectionSubheading}>
+                  Rincian 3 usulan judul beserta latar belakang dan rumusan masalah
                 </Text>
               </View>
             </View>
 
-            <Text style={styles.selectedTitleText}>{selectedOption.title}</Text>
+            <View style={styles.unifiedOptionsContainer}>
+              {submission.options.map((opt, index) => {
+                const isSelected = opt.is_selected_by_lecturer;
+                const isLast = index === submission.options!.length - 1;
 
-            <View style={styles.selectedBgBox}>
-              <Text style={styles.boxLabel}>Latar Belakang & Rumusan Masalah:</Text>
-              <Text style={styles.boxText}>{selectedOption.background}</Text>
-            </View>
+                return (
+                  <View key={opt.$id} style={styles.optionBlock}>
+                    {/* Header Row: Opsi Badge + Judul Terpilih Badge */}
+                    <View style={styles.optionHeaderRow}>
+                      <View
+                        style={[
+                          styles.unifiedOptionBadge,
+                          isSelected && styles.unifiedOptionBadgeSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.unifiedOptionBadgeText,
+                            isSelected && styles.unifiedOptionBadgeTextSelected,
+                          ]}
+                        >
+                          Opsi #{opt.option_number}
+                        </Text>
+                      </View>
 
-            {selectedOption.journal_title ? (
-              <View style={styles.journalBox}>
-                <View style={styles.journalHeader}>
-                  <BookOpen size={16} color={Colors.primary} strokeWidth={2} />
-                  <Text style={styles.journalHeaderTitle}>Jurnal Referensi Pendukung</Text>
-                </View>
-                <Text style={styles.journalTitleText}>{selectedOption.journal_title}</Text>
-                <Text style={styles.journalAuthorText}>
-                  Penulis: {selectedOption.journal_author || '-'}
-                </Text>
+                      {isSelected && (
+                        <View style={styles.selectedPillBadge}>
+                          <CheckCircle2 size={13} color="#FFFFFF" strokeWidth={2.5} />
+                          <Text style={styles.selectedPillText}>Judul Terpilih / Disahkan</Text>
+                        </View>
+                      )}
+                    </View>
 
-                {selectedOption.journal_file_id ? (
-                  <TouchableOpacity
-                    style={styles.btnPdf}
-                    onPress={() => handleOpenPdf(selectedOption.journal_file_id)}
-                    activeOpacity={0.8}
-                  >
-                    <ExternalLink size={14} color="#FFFFFF" strokeWidth={2.2} />
-                    <Text style={styles.btnPdfText}>Buka Dokumen PDF Jurnal</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            ) : null}
-          </Section>
-        ) : null}
-
-        {/* 5. DAFTAR OPSI JUDUL (Jika belum ada yang dipilih, tampilkan semua) */}
-        {!selectedOption && submission.options && submission.options.length > 0 ? (
-          <View>
-            <Text style={styles.listSectionHeading}>3 Usulan Judul Skripsi</Text>
-            {submission.options.map((opt) => (
-              <Section key={opt.$id} style={styles.optionCard}>
-                <View style={styles.optionNumberBadge}>
-                  <Text style={styles.optionNumberText}>Opsi #{opt.option_number}</Text>
-                </View>
-
-                <Text style={styles.optionTitleText}>{opt.title}</Text>
-                <Text style={styles.optionBgText} numberOfLines={4}>
-                  {opt.background}
-                </Text>
-
-                {opt.journal_title ? (
-                  <View style={styles.journalSubBox}>
-                    <Text style={styles.journalSubText}>
-                      📖 Jurnal: {opt.journal_title} ({opt.journal_author})
+                    {/* Judul Skripsi */}
+                    <Text
+                      style={[
+                        styles.unifiedOptionTitle,
+                        isSelected && styles.unifiedOptionTitleSelected,
+                      ]}
+                    >
+                      {opt.title}
                     </Text>
-                  </View>
-                ) : null}
-              </Section>
-            ))}
-          </View>
-        ) : null}
 
-        {/* 6. USULAN ALTERNATIF LAINNYA (Jika ada judul terpilih) */}
-        {selectedOption && otherOptions.length > 0 ? (
-          <View style={styles.otherOptionsSection}>
-            <Text style={styles.otherOptionsHeading}>Usulan Judul Alternatif Lainnya</Text>
-            {otherOptions.map((opt) => (
-              <Section key={opt.$id} style={styles.otherOptionCard}>
-                <View style={styles.otherOptionHeader}>
-                  <Text style={styles.otherOptionNumber}>Opsi #{opt.option_number}</Text>
-                </View>
-                <Text style={styles.otherOptionTitle}>{opt.title}</Text>
-              </Section>
-            ))}
-          </View>
+                    {/* Latar Belakang & Rumusan Masalah */}
+                    <View
+                      style={[
+                        styles.unifiedBgBox,
+                        isSelected && styles.unifiedBgBoxSelected,
+                      ]}
+                    >
+                      <Text style={styles.unifiedBgLabel}>
+                        Latar Belakang & Rumusan Masalah:
+                      </Text>
+                      <Text style={styles.unifiedBgText}>{opt.background}</Text>
+                    </View>
+
+                    {/* Jurnal Acuan Pendukung (jika ada) */}
+                    {opt.journal_title ? (
+                      <View style={styles.unifiedJournalBox}>
+                        <View style={styles.unifiedJournalHeader}>
+                          <BookOpen size={13} color={Colors.primary} strokeWidth={2} />
+                          <Text style={styles.unifiedJournalTitle}>
+                            Jurnal Acuan: {opt.journal_title}
+                          </Text>
+                        </View>
+                        {opt.journal_author ? (
+                          <Text style={styles.unifiedJournalAuthor}>
+                            Penulis / Sumber: {opt.journal_author}
+                          </Text>
+                        ) : null}
+
+                        {opt.journal_file_id ? (
+                          <TouchableOpacity
+                            style={styles.btnPdfSmall}
+                            onPress={() => handleOpenPdf(opt.journal_file_id)}
+                            activeOpacity={0.8}
+                          >
+                            <ExternalLink size={12} color="#FFFFFF" strokeWidth={2.2} />
+                            <Text style={styles.btnPdfSmallText}>Lihat Berkas PDF Jurnal</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    ) : null}
+
+                    {/* Line Separator between options */}
+                    {!isLast && <View style={styles.optionDividerLine} />}
+                  </View>
+                );
+              })}
+            </View>
+          </Section>
         ) : null}
 
         {/* 7. RIWAYAT LOG CATATAN & EVALUASI */}
@@ -1421,5 +1475,208 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+
+  // Dossier Header Banner (matching Web dossier header)
+  dossierDocBanner: {
+    backgroundColor: '#0A2540',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderLeftWidth: 5,
+    borderLeftColor: '#D97706',
+  },
+  dossierDocHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14,
+  },
+  dossierDocIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dossierDocTitles: {
+    flex: 1,
+  },
+  dossierDocType: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#BAE6FD',
+    letterSpacing: 0.8,
+  },
+  dossierDocNum: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 2,
+  },
+  dossierMetaGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  dossierMetaCol: {
+    flex: 1,
+  },
+  dossierMetaLabel: {
+    fontSize: 10.5,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  dossierMetaVal: {
+    fontSize: 12.5,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  dossierMetaValHighlight: {
+    fontSize: 12.5,
+    color: '#38BDF8',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  // 4. All Options Unified Card (1 Card with 3 Options separated by dividers)
+  allOptionsUnifiedCard: {
+    padding: 18,
+    borderRadius: 22,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  unifiedOptionsContainer: {
+    marginTop: 14,
+  },
+  optionBlock: {
+    paddingVertical: 4,
+  },
+  optionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  unifiedOptionBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 9999,
+  },
+  unifiedOptionBadgeSelected: {
+    backgroundColor: '#059669',
+  },
+  unifiedOptionBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  unifiedOptionBadgeTextSelected: {
+    color: '#FFFFFF',
+  },
+  selectedPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#059669',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 9999,
+  },
+  selectedPillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  unifiedOptionTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 21,
+    marginBottom: 8,
+  },
+  unifiedOptionTitleSelected: {
+    color: '#0A4C8F',
+    fontWeight: '800',
+  },
+  unifiedBgBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  unifiedBgBoxSelected: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#DCFCE7',
+  },
+  unifiedBgLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  unifiedBgText: {
+    fontSize: 12.5,
+    color: '#334155',
+    lineHeight: 18,
+  },
+  unifiedJournalBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  unifiedJournalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  unifiedJournalTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    flex: 1,
+  },
+  unifiedJournalAuthor: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  btnPdfSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: Colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  btnPdfSmallText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  optionDividerLine: {
+    height: 1.5,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 16,
   },
 });

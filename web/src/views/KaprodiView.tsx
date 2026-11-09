@@ -396,62 +396,94 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                 </div>
               )}
 
-              {/* Kaprodi Decision Notes */}
-              <div className="form-group mt-4">
-                <label>Catatan Pengesahan Kaprodi (Opsional)</label>
-                <textarea
-                  rows={2}
-                  placeholder="Contoh: Disetujui dan disahkan. Mahasiswa dapat segera memulai bimbingan Bab 1."
-                  value={kaprodiNotes}
-                  onChange={(e) => setKaprodiNotes(e.target.value)}
-                />
-              </div>
+              {/* Kaprodi Decision Notes - only editable if waiting validation */}
+              {selectedSub.status === 'waiting_kaprodi' ? (
+                <div className="form-group mt-4">
+                  <label>Catatan Pengesahan Kaprodi (Opsional)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Contoh: Disetujui dan disahkan. Mahasiswa dapat segera memulai bimbingan Bab 1."
+                    value={kaprodiNotes}
+                    onChange={(e) => setKaprodiNotes(e.target.value)}
+                  />
+                </div>
+              ) : selectedSub.status === 'approved' ? (
+                <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+                  <CheckCircle size={20} color="#059669" />
+                  <div className="text-xs text-emerald-800">
+                    <strong>Telah Resmi Disahkan:</strong> Usulan judul dan penunjukan Dosen Pembimbing untuk mahasiswa ini telah selesai divalidasi.
+                  </div>
+                </div>
+              ) : selectedSub.status === 'rejected' ? (
+                <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-3">
+                  <XCircle size={20} color="#E11D48" />
+                  <div className="text-xs text-rose-800">
+                    <strong>Status Ditolak:</strong> Pengajuan ini telah berstatus ditolak.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+                  <Clock size={20} color="#D97706" />
+                  <div className="text-xs text-amber-800">
+                    <strong>Status Revisi:</strong> Pengajuan sedang menunggu perbaikan usulan dari mahasiswa.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer justify-between">
-              <div className="footer-left-buttons">
-                <button
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={handleRevision}
-                  className="btn btn-warning"
-                >
-                  Kembalikan untuk Revisi
-                </button>
-                <button
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={handleReject}
-                  className="btn btn-danger-outline"
-                >
-                  Tolak
-                </button>
-              </div>
+              {/* Only show decision buttons if still waiting for Kaprodi */}
+              {selectedSub.status === 'waiting_kaprodi' ? (
+                <>
+                  <div className="footer-left-buttons">
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleRevision}
+                      className="btn btn-warning"
+                    >
+                      Kembalikan untuk Revisi
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleReject}
+                      className="btn btn-danger-outline"
+                    >
+                      Tolak
+                    </button>
+                  </div>
 
-              <div className="footer-right-buttons">
-                <button
-                  type="button"
-                  onClick={() => setSelectedSub(null)}
-                  className="btn btn-secondary"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  disabled={actionLoading || selectedSub.status === 'approved'}
-                  onClick={handleApprove}
-                  className="btn btn-success"
-                >
-                  <CheckCircle size={16} />
-                  <span>
-                    {selectedSub.status === 'approved'
-                      ? 'Sudah Disahkan'
-                      : actionLoading
-                      ? 'Memproses...'
-                      : 'Sahkan Judul & Dosen'}
-                  </span>
-                </button>
-              </div>
+                  <div className="footer-right-buttons">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSub(null)}
+                      className="btn btn-secondary"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={handleApprove}
+                      className="btn btn-success"
+                    >
+                      <CheckCircle size={16} />
+                      <span>{actionLoading ? 'Memproses...' : 'Sahkan Judul & Dosen'}</span>
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSub(null)}
+                    className="btn btn-primary"
+                  >
+                    Tutup Lembar Validasi
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

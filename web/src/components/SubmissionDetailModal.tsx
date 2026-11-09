@@ -307,11 +307,11 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
 
         {/* Modal Footer */}
         <div className="modal-footer flex items-center justify-between">
-          <button onClick={handlePrint} className="btn-secondary flex items-center gap-2">
+          <button onClick={handlePrint} className="btn btn-secondary flex items-center gap-2">
             <Printer size={15} />
             <span>Cetak Berkas Dossier</span>
           </button>
-          <button onClick={onClose} className="btn-primary">
+          <button onClick={onClose} className="btn btn-primary">
             Selesai / Tutup
           </button>
         </div>

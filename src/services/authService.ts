@@ -96,6 +96,42 @@ export const authService = {
   },
 
   /**
+   * Fetch Google profile avatar URL or fallback to initials.
+   */
+  async fetchGoogleAvatar(accountName?: string): Promise<string> {
+    try {
+      const session = await account.getSession('current');
+      if (session && session.providerAccessToken) {
+        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${session.providerAccessToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.picture) return data.picture;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return `https://sgp.cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(
+      accountName || 'User'
+    )}&project=${APPWRITE_PROJECT_ID}`;
+  },
+
+  /**
+   * Update avatar URL in the user's profile document.
+   */
+  async updateAvatarUrl(docId: string, avatarUrl: string): Promise<void> {
+    try {
+      await databases.updateDocument(DATABASE_ID, COLLECTION_USERS, docId, {
+        avatar_url: avatarUrl,
+      });
+    } catch (e: any) {
+      console.warn('Gagal memperbarui avatar:', e.message);
+    }
+  },
+
+  /**
    * Sign out the current session.
    */
   async logout() {

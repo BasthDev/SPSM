@@ -39,6 +39,14 @@ export default function LoginScreen() {
             const profile = await authService.getUserProfile(acct.$id);
 
             if (profile) {
+              if (!profile.avatar_url) {
+                try {
+                  const avatar = await authService.fetchGoogleAvatar(acct.name);
+                  await authService.updateAvatarUrl(profile.$id, avatar);
+                } catch {
+                  // ignore
+                }
+              }
               router.replace('/dashboard');
             } else {
               router.replace('/onboarding');
