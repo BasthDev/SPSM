@@ -394,6 +394,21 @@ textarea:focus {
   border: 1px solid #BBF7D0;
 }
 
+.btn-danger {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #B91C1C;
+}
+
+.btn-danger:disabled {
+  background: #FCA5A5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .btn-icon-danger {
   width: 32px;
   height: 32px;
@@ -405,11 +420,136 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .btn-icon-danger:hover {
   background: #FECACA;
+}
+
+.btn-icon-secondary {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-icon-secondary:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+.action-button-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.security-alert-box {
+  background: #FEF2F2;
+  border: 1.5px solid #FECACA;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.security-alert-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #991B1B;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.security-alert-body {
+  font-size: 13px;
+  color: #7F1D1D;
+  line-height: 1.5;
+}
+
+.retype-highlight {
+  font-family: monospace;
+  font-weight: 700;
+  background: #FEE2E2;
+  color: #991B1B;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #FCA5A5;
+  user-select: all;
+}
+
+.retype-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 2px solid #CBD5E1;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0F172A;
+  margin-top: 8px;
+  outline: none;
+  background: #FFFFFF;
+}
+
+.retype-input:focus {
+  border-color: #DC2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.retype-input.matched {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.stat-metric-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.metric-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.metric-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metric-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 .btn-icon-link {

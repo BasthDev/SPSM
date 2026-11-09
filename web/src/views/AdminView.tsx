@@ -9,11 +9,16 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Check,
   X,
   Search,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
+  GraduationCap,
+  ShieldCheck,
+  Award,
+  Layers,
+  Lock,
 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
@@ -30,11 +35,17 @@ export const AdminView: React.FC = () => {
   const [searchLecturer, setSearchLecturer] = useState<string>('');
   const [filterDept, setFilterDept] = useState<string>('all');
   const [filterRole, setFilterRole] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // Modal states
+  // Modal open states
   const [isLecturerModalOpen, setIsLecturerModalOpen] = useState<boolean>(false);
   const [isDeptModalOpen, setIsDeptModalOpen] = useState<boolean>(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState<boolean>(false);
+
+  // Editing items (null means creating new)
+  const [editingLecturer, setEditingLecturer] = useState<Lecturer | null>(null);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [editingBatch, setEditingBatch] = useState<BatchYear | null>(null);
 
   // Form states
   const [lecturerForm, setLecturerForm] = useState({
@@ -45,18 +56,33 @@ export const AdminView: React.FC = () => {
     expertise: '',
     quota: 10,
     role: 'lecturer' as 'lecturer' | 'reviewer' | 'kaprodi' | 'admin',
+    is_active: true,
   });
 
   const [deptForm, setDeptForm] = useState({
     code: '',
     name: '',
     faculty: '',
+    is_active: true,
   });
 
   const [batchForm, setBatchForm] = useState({
     year: new Date().getFullYear(),
     label: '',
+    is_active: true,
   });
+
+  // Security Delete Confirmation Modal state
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: 'lecturer' | 'department' | 'batch_year';
+    id: string;
+    title: string;
+    subtitle: string;
+    expectedValue: string;
+  } | null>(null);
+  const [inputConfirmValue, setInputConfirmValue] = useState<string>('');
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -88,7 +114,37 @@ export const AdminView: React.FC = () => {
     }
   };
 
-  // Handler: Add Lecturer
+  // Open Lecturer Modal (Add or Edit)
+  const handleOpenLecturerModal = (lec?: Lecturer) => {
+    if (lec) {
+      setEditingLecturer(lec);
+      setLecturerForm({
+        nip: lec.nip,
+        name: lec.name,
+        email: lec.email,
+        department_id: lec.department_id,
+        expertise: lec.expertise || '',
+        quota: lec.quota || 10,
+        role: lec.role as any,
+        is_active: lec.is_active !== false,
+      });
+    } else {
+      setEditingLecturer(null);
+      setLecturerForm({
+        nip: '',
+        name: '',
+        email: '',
+        department_id: departments[0]?.code || 'TI',
+        expertise: '',
+        quota: 10,
+        role: 'lecturer',
+        is_active: true,
+      });
+    }
+    setIsLecturerModalOpen(true);
+  };
+
+  // Save Lecturer (Create or Update)
   const handleSaveLecturer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -97,49 +153,63 @@ export const AdminView: React.FC = () => {
         return;
       }
 
-      await lecturerService.createLecturer({
-        nip: lecturerForm.nip,
-        name: lecturerForm.name,
-        email: lecturerForm.email,
-        department_id: lecturerForm.department_id || departments[0]?.code || 'TI',
-        expertise: lecturerForm.expertise,
-        quota: Number(lecturerForm.quota),
-        current_students: 0,
-        role: lecturerForm.role,
-        is_active: true,
-      });
+      if (editingLecturer) {
+        await lecturerService.updateLecturer(editingLecturer.$id, {
+          nip: lecturerForm.nip.trim(),
+          name: lecturerForm.name.trim(),
+          email: lecturerForm.email.trim(),
+          department_id: lecturerForm.department_id,
+          expertise: lecturerForm.expertise.trim(),
+          quota: Number(lecturerForm.quota),
+          role: lecturerForm.role,
+          is_active: lecturerForm.is_active,
+        });
+        showFeedback(`Perubahan data dosen ${lecturerForm.name} berhasil disimpan!`);
+      } else {
+        await lecturerService.createLecturer({
+          nip: lecturerForm.nip.trim(),
+          name: lecturerForm.name.trim(),
+          email: lecturerForm.email.trim(),
+          department_id: lecturerForm.department_id || departments[0]?.code || 'TI',
+          expertise: lecturerForm.expertise.trim(),
+          quota: Number(lecturerForm.quota),
+          current_students: 0,
+          role: lecturerForm.role,
+          is_active: true,
+        });
+        showFeedback(`Dosen baru ${lecturerForm.name} berhasil ditambahkan!`);
+      }
 
       setIsLecturerModalOpen(false);
-      setLecturerForm({
-        nip: '',
-        name: '',
-        email: '',
-        department_id: departments[0]?.code || '',
-        expertise: '',
-        quota: 10,
-        role: 'lecturer',
-      });
-      showFeedback('Data dosen berhasil disimpan!');
       loadData();
     } catch (err: any) {
       showFeedback(`Gagal menyimpan dosen: ${err.message}`, 'error');
     }
   };
 
-  // Handler: Delete Lecturer
-  const handleDeleteLecturer = async (id: string, name: string) => {
-    if (confirm(`Apakah Anda yakin ingin menghapus data dosen ${name}?`)) {
-      try {
-        await lecturerService.deleteLecturer(id);
-        showFeedback(`Dosen ${name} berhasil dihapus.`);
-        loadData();
-      } catch (err: any) {
-        showFeedback(`Gagal menghapus dosen: ${err.message}`, 'error');
-      }
+  // Open Department Modal (Add or Edit)
+  const handleOpenDeptModal = (dept?: Department) => {
+    if (dept) {
+      setEditingDept(dept);
+      setDeptForm({
+        code: dept.code,
+        name: dept.name,
+        faculty: dept.faculty || '',
+        is_active: dept.is_active !== false,
+      });
+    } else {
+      setEditingDept(null);
+      setDeptForm({
+        code: '',
+        name: '',
+        faculty: 'Fakultas Teknik',
+        is_active: true,
+      });
     }
+    setIsDeptModalOpen(true);
   };
 
-  // Handler: Save Department
+  // Save Department
   const handleSaveDept = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -147,50 +217,172 @@ export const AdminView: React.FC = () => {
         showFeedback('Kode dan Nama Jurusan wajib diisi!', 'error');
         return;
       }
-      await masterDataService.createDepartment({
-        code: deptForm.code.toUpperCase(),
-        name: deptForm.name,
-        faculty: deptForm.faculty || 'Fakultas Teknik',
+
+      if (editingDept) {
+        await masterDataService.updateDepartment(editingDept.$id, {
+          code: deptForm.code.trim().toUpperCase(),
+          name: deptForm.name.trim(),
+          faculty: deptForm.faculty.trim() || 'Fakultas Teknik',
+          is_active: deptForm.is_active,
+        });
+        showFeedback(`Program Studi ${deptForm.name} berhasil diperbarui!`);
+      } else {
+        await masterDataService.createDepartment({
+          code: deptForm.code.trim().toUpperCase(),
+          name: deptForm.name.trim(),
+          faculty: deptForm.faculty.trim() || 'Fakultas Teknik',
+          is_active: true,
+        });
+        showFeedback(`Program Studi ${deptForm.name} berhasil ditambahkan!`);
+      }
+
+      setIsDeptModalOpen(false);
+      loadData();
+    } catch (err: any) {
+      showFeedback(`Gagal menyimpan program studi: ${err.message}`, 'error');
+    }
+  };
+
+  // Open Batch Year Modal (Add or Edit)
+  const handleOpenBatchModal = (batch?: BatchYear) => {
+    if (batch) {
+      setEditingBatch(batch);
+      setBatchForm({
+        year: batch.year,
+        label: batch.label,
+        is_active: batch.is_active !== false,
+      });
+    } else {
+      setEditingBatch(null);
+      const currYear = new Date().getFullYear();
+      setBatchForm({
+        year: currYear,
+        label: `Angkatan ${currYear} (Letting ${String(currYear).slice(-2)})`,
         is_active: true,
       });
-      setIsDeptModalOpen(false);
-      setDeptForm({ code: '', name: '', faculty: '' });
-      showFeedback('Program Studi / Departemen berhasil ditambahkan!');
-      loadData();
-    } catch (err: any) {
-      showFeedback(`Gagal menambahkan prodi: ${err.message}`, 'error');
     }
+    setIsBatchModalOpen(true);
   };
 
-  // Handler: Toggle Dept Active
-  const handleToggleDept = async (dept: Department) => {
-    try {
-      await masterDataService.updateDepartment(dept.$id, {
-        is_active: !dept.is_active,
-      });
-      loadData();
-    } catch (err: any) {
-      showFeedback(`Gagal mengupdate prodi: ${err.message}`, 'error');
-    }
-  };
-
-  // Handler: Save Batch Year
+  // Save Batch Year
   const handleSaveBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const year = Number(batchForm.year);
-      const label = batchForm.label || `Angkatan ${year} (Letting ${String(year).slice(-2)})`;
-      await masterDataService.createBatchYear({
-        year,
-        label,
-        is_active: true,
-      });
+      const label = batchForm.label.trim() || `Angkatan ${year} (Letting ${String(year).slice(-2)})`;
+
+      if (editingBatch) {
+        await masterDataService.updateBatchYear(editingBatch.$id, {
+          year,
+          label,
+          is_active: batchForm.is_active,
+        });
+        showFeedback(`Data Letting ${year} berhasil diperbarui!`);
+      } else {
+        await masterDataService.createBatchYear({
+          year,
+          label,
+          is_active: true,
+        });
+        showFeedback(`Data Letting ${year} berhasil ditambahkan!`);
+      }
+
       setIsBatchModalOpen(false);
-      setBatchForm({ year: new Date().getFullYear(), label: '' });
-      showFeedback('Data Letting / Angkatan berhasil ditambahkan!');
       loadData();
     } catch (err: any) {
-      showFeedback(`Gagal menambahkan letting: ${err.message}`, 'error');
+      showFeedback(`Gagal menyimpan letting: ${err.message}`, 'error');
+    }
+  };
+
+  // Toggle active status handlers
+  const handleToggleDeptActive = async (dept: Department) => {
+    try {
+      await masterDataService.updateDepartment(dept.$id, {
+        is_active: !dept.is_active,
+      });
+      showFeedback(`Status prodi ${dept.code} diubah menjadi ${!dept.is_active ? 'Aktif' : 'Non-aktif'}.`);
+      loadData();
+    } catch (err: any) {
+      showFeedback(`Gagal mengubah status prodi: ${err.message}`, 'error');
+    }
+  };
+
+  const handleToggleBatchActive = async (batch: BatchYear) => {
+    try {
+      await masterDataService.updateBatchYear(batch.$id, {
+        is_active: !batch.is_active,
+      });
+      showFeedback(`Status letting ${batch.year} diubah menjadi ${!batch.is_active ? 'Aktif' : 'Non-aktif'}.`);
+      loadData();
+    } catch (err: any) {
+      showFeedback(`Gagal mengubah status letting: ${err.message}`, 'error');
+    }
+  };
+
+  // TRIGGER SECURITY DELETE MODAL (Requires exact retype)
+  const triggerDeleteLecturer = (lec: Lecturer) => {
+    setInputConfirmValue('');
+    setDeleteModal({
+      isOpen: true,
+      type: 'lecturer',
+      id: lec.$id,
+      title: lec.name,
+      subtitle: `NIP: ${lec.nip} · Prodi: ${lec.department_id}`,
+      expectedValue: lec.nip,
+    });
+  };
+
+  const triggerDeleteDepartment = (dept: Department) => {
+    setInputConfirmValue('');
+    setDeleteModal({
+      isOpen: true,
+      type: 'department',
+      id: dept.$id,
+      title: `${dept.code} - ${dept.name}`,
+      subtitle: `Fakultas: ${dept.faculty}`,
+      expectedValue: dept.code,
+    });
+  };
+
+  const triggerDeleteBatch = (batch: BatchYear) => {
+    setInputConfirmValue('');
+    setDeleteModal({
+      isOpen: true,
+      type: 'batch_year',
+      id: batch.$id,
+      title: batch.label,
+      subtitle: `Tahun Angkatan: ${batch.year}`,
+      expectedValue: String(batch.year),
+    });
+  };
+
+  // EXECUTE SECURITY DELETE
+  const handleExecuteDelete = async () => {
+    if (!deleteModal) return;
+    if (inputConfirmValue.trim() !== deleteModal.expectedValue.trim()) {
+      showFeedback('Nilai konfirmasi tidak cocok. Penghapusan dibatalkan demi keamanan.', 'error');
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      if (deleteModal.type === 'lecturer') {
+        await lecturerService.deleteLecturer(deleteModal.id);
+        showFeedback(`Data dosen ${deleteModal.title} berhasil dihapus permanen.`);
+      } else if (deleteModal.type === 'department') {
+        await masterDataService.deleteDepartment(deleteModal.id);
+        showFeedback(`Program Studi ${deleteModal.title} berhasil dihapus permanen.`);
+      } else if (deleteModal.type === 'batch_year') {
+        await masterDataService.deleteBatchYear(deleteModal.id);
+        showFeedback(`Data Letting ${deleteModal.title} berhasil dihapus permanen.`);
+      }
+      setDeleteModal(null);
+      setInputConfirmValue('');
+      loadData();
+    } catch (err: any) {
+      showFeedback(`Gagal menghapus data: ${err.message}`, 'error');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -199,11 +391,26 @@ export const AdminView: React.FC = () => {
     const matchesSearch =
       l.name.toLowerCase().includes(searchLecturer.toLowerCase()) ||
       l.nip.includes(searchLecturer) ||
-      l.email.toLowerCase().includes(searchLecturer.toLowerCase());
+      l.email.toLowerCase().includes(searchLecturer.toLowerCase()) ||
+      (l.expertise && l.expertise.toLowerCase().includes(searchLecturer.toLowerCase()));
     const matchesDept = filterDept === 'all' || l.department_id === filterDept;
     const matchesRole = filterRole === 'all' || l.role === filterRole;
-    return matchesSearch && matchesDept && matchesRole;
+    const matchesStatus =
+      filterStatus === 'all'
+        ? true
+        : filterStatus === 'active'
+        ? l.is_active !== false
+        : l.is_active === false;
+    return matchesSearch && matchesDept && matchesRole && matchesStatus;
   });
+
+  // Calculate Metrics
+  const totalLecturers = lecturers.length;
+  const advisorsCount = lecturers.filter((l) => l.role === 'lecturer').length;
+  const reviewersCount = lecturers.filter((l) => l.role === 'reviewer').length;
+  const kaprodiCount = lecturers.filter((l) => l.role === 'kaprodi').length;
+  const activeDepts = departments.filter((d) => d.is_active !== false).length;
+  const activeBatches = batchYears.filter((b) => b.is_active !== false).length;
 
   return (
     <div className="admin-container">
@@ -218,9 +425,9 @@ export const AdminView: React.FC = () => {
       {/* Header Bar */}
       <div className="section-header">
         <div>
-          <h1 className="page-title">Panel Administrator</h1>
+          <h1 className="page-title">Panel Manajemen Administrator</h1>
           <p className="page-desc">
-            Kelola data Dosen, Hak Akses Peran, Master Program Studi, dan Letting Angkatan Mahasiswa.
+            Manajemen master data akademik berstandar enterprise: Dosen & Hak Akses, Program Studi, dan Letting Angkatan.
           </p>
         </div>
 
@@ -231,7 +438,7 @@ export const AdminView: React.FC = () => {
             className={`tab-pill-btn ${activeTab === 'lecturers' ? 'active' : ''}`}
           >
             <Users size={16} />
-            <span>Data Dosen ({lecturers.length})</span>
+            <span>Manajemen Dosen ({lecturers.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('departments')}
@@ -250,6 +457,69 @@ export const AdminView: React.FC = () => {
         </div>
       </div>
 
+      {/* Management-Grade Metric Bar */}
+      <div className="stat-metric-bar">
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#EFF6FF', color: '#0A4C8F' }}>
+            <Users size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{totalLecturers}</div>
+            <div className="metric-label">Total Civitas Dosen</div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#F3E8FF', color: '#6B21A8' }}>
+            <GraduationCap size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{advisorsCount}</div>
+            <div className="metric-label">Dosen Pembimbing</div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{reviewersCount}</div>
+            <div className="metric-label">Dosen Penilai / Reviewer</div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#ECFDF5', color: '#047857' }}>
+            <Award size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{kaprodiCount}</div>
+            <div className="metric-label">Ketua Program Studi (Kaprodi)</div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#E0F2FE', color: '#0369A1' }}>
+            <Building2 size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{activeDepts}</div>
+            <div className="metric-label">Program Studi Aktif</div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
+            <Layers size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{activeBatches}</div>
+            <div className="metric-label">Letting Angkatan Aktif</div>
+          </div>
+        </div>
+      </div>
+
       {/* TAB 1: DATA DOSEN */}
       {activeTab === 'lecturers' && (
         <div className="card tab-content">
@@ -259,7 +529,7 @@ export const AdminView: React.FC = () => {
                 <Search size={16} color="#94A3B8" />
                 <input
                   type="text"
-                  placeholder="Cari nama, NIP, atau email..."
+                  placeholder="Cari nama, NIP, keahlian..."
                   value={searchLecturer}
                   onChange={(e) => setSearchLecturer(e.target.value)}
                 />
@@ -279,12 +549,18 @@ export const AdminView: React.FC = () => {
                 <option value="reviewer">Reviewer</option>
                 <option value="kaprodi">Kaprodi</option>
                 <option value="lecturer">Pembimbing</option>
-                <option value="admin">Admin</option>
+                <option value="admin">Administrator</option>
+              </select>
+
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="all">Semua Status</option>
+                <option value="active">Hanya Aktif</option>
+                <option value="inactive">Non-aktif</option>
               </select>
             </div>
 
             <button
-              onClick={() => setIsLecturerModalOpen(true)}
+              onClick={() => handleOpenLecturerModal()}
               className="btn btn-primary"
             >
               <Plus size={16} />
@@ -298,20 +574,20 @@ export const AdminView: React.FC = () => {
               <thead>
                 <tr>
                   <th>NIP / NIDN</th>
-                  <th>Nama Lengkap & Gelar</th>
+                  <th>Nama Lengkap & Email</th>
                   <th>Prodi</th>
                   <th>Peran (Role)</th>
                   <th>Bidang Keahlian</th>
-                  <th>Kuota Bimbingan</th>
+                  <th>Beban Kuota</th>
                   <th>Status</th>
-                  <th>Aksi</th>
+                  <th style={{ textAlign: 'center' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLecturers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center py-6 text-muted">
-                      Tidak ada data dosen yang sesuai filter.
+                      {loading ? 'Memuat data dosen...' : 'Tidak ada data dosen yang sesuai filter.'}
                     </td>
                   </tr>
                 ) : (
@@ -325,7 +601,7 @@ export const AdminView: React.FC = () => {
                         <td className="font-mono text-xs">{lec.nip}</td>
                         <td className="font-semibold text-slate-800">
                           <div>{lec.name}</div>
-                          <div className="text-xs text-muted">{lec.email}</div>
+                          <div className="text-xs text-muted font-normal">{lec.email}</div>
                         </td>
                         <td>
                           <span className="badge badge-dept">{lec.department_id}</span>
@@ -363,19 +639,28 @@ export const AdminView: React.FC = () => {
                         </td>
                         <td>
                           <span
-                            className={`status-dot ${lec.is_active ? 'active' : 'inactive'}`}
+                            className={`status-dot ${lec.is_active !== false ? 'active' : 'inactive'}`}
                           >
-                            {lec.is_active ? 'Aktif' : 'Non-aktif'}
+                            {lec.is_active !== false ? 'Aktif' : 'Non-aktif'}
                           </span>
                         </td>
                         <td>
-                          <button
-                            onClick={() => handleDeleteLecturer(lec.$id, lec.name)}
-                            className="btn-icon-danger"
-                            title="Hapus Dosen"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <div className="action-button-group" style={{ justifyContent: 'center' }}>
+                            <button
+                              onClick={() => handleOpenLecturerModal(lec)}
+                              className="btn-icon-secondary"
+                              title="Edit Data Dosen"
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              onClick={() => triggerDeleteLecturer(lec)}
+                              className="btn-icon-danger"
+                              title="Hapus Data Dosen (Dengan Verifikasi)"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -392,12 +677,12 @@ export const AdminView: React.FC = () => {
         <div className="card tab-content">
           <div className="card-top-action">
             <div>
-              <h3 className="card-subhead">Daftar Program Studi / Jurusan</h3>
+              <h3 className="card-subhead">Master Program Studi / Jurusan</h3>
               <p className="card-subdesc">
-                Data ini menjadi pilihan dropdown bagi mahasiswa baru saat onboarding di aplikasi mobile.
+                Data master ini dijadikan acuan dropdown pendaftaran mahasiswa baru di aplikasi mobile dan plotting fakultas.
               </p>
             </div>
-            <button onClick={() => setIsDeptModalOpen(true)} className="btn btn-primary">
+            <button onClick={() => handleOpenDeptModal()} className="btn btn-primary">
               <Plus size={16} />
               <span>Tambah Program Studi</span>
             </button>
@@ -411,30 +696,54 @@ export const AdminView: React.FC = () => {
                   <th>Nama Program Studi</th>
                   <th>Fakultas</th>
                   <th>Status</th>
-                  <th>Aksi</th>
+                  <th style={{ textAlign: 'center' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {departments.map((dept) => (
-                  <tr key={dept.$id}>
-                    <td className="font-mono font-bold text-primary">{dept.code}</td>
-                    <td className="font-semibold text-slate-800">{dept.name}</td>
-                    <td className="text-slate-600">{dept.faculty}</td>
-                    <td>
-                      <span className={`status-dot ${dept.is_active ? 'active' : 'inactive'}`}>
-                        {dept.is_active ? 'Aktif' : 'Non-aktif'}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => handleToggleDept(dept)}
-                        className={`btn-sm ${dept.is_active ? 'btn-outline-danger' : 'btn-outline-success'}`}
-                      >
-                        {dept.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-                      </button>
+                {departments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-6 text-muted">
+                      {loading ? 'Memuat master prodi...' : 'Belum ada data program studi.'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  departments.map((dept) => (
+                    <tr key={dept.$id}>
+                      <td className="font-mono font-bold text-primary">{dept.code}</td>
+                      <td className="font-semibold text-slate-800">{dept.name}</td>
+                      <td className="text-slate-600">{dept.faculty}</td>
+                      <td>
+                        <span className={`status-dot ${dept.is_active !== false ? 'active' : 'inactive'}`}>
+                          {dept.is_active !== false ? 'Aktif' : 'Non-aktif'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-button-group" style={{ justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleOpenDeptModal(dept)}
+                            className="btn-icon-secondary"
+                            title="Edit Data Program Studi"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleDeptActive(dept)}
+                            className={`btn-sm ${dept.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'}`}
+                          >
+                            {dept.is_active !== false ? 'Nonaktifkan' : 'Aktifkan'}
+                          </button>
+                          <button
+                            onClick={() => triggerDeleteDepartment(dept)}
+                            className="btn-icon-danger"
+                            title="Hapus Program Studi (Dengan Verifikasi)"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -446,12 +755,12 @@ export const AdminView: React.FC = () => {
         <div className="card tab-content">
           <div className="card-top-action">
             <div>
-              <h3 className="card-subhead">Daftar Letting / Angkatan Masuk</h3>
+              <h3 className="card-subhead">Master Letting & Angkatan Mahasiswa</h3>
               <p className="card-subdesc">
-                Tahun angkatan masuk mahasiswa yang muncul di dropdown registrasi aplikasi mobile.
+                Tahun angkatan masuk resmi yang digunakan mahasiswa untuk memilih letting saat onboarding aplikasi mobile.
               </p>
             </div>
-            <button onClick={() => setIsBatchModalOpen(true)} className="btn btn-primary">
+            <button onClick={() => handleOpenBatchModal()} className="btn btn-primary">
               <Plus size={16} />
               <span>Tambah Angkatan Baru</span>
             </button>
@@ -462,34 +771,69 @@ export const AdminView: React.FC = () => {
               <thead>
                 <tr>
                   <th>Tahun</th>
-                  <th>Label Tampilan</th>
+                  <th>Label Tampilan Dropdown</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'center' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {batchYears.map((b) => (
-                  <tr key={b.$id}>
-                    <td className="font-mono font-bold">{b.year}</td>
-                    <td className="font-medium text-slate-800">{b.label}</td>
-                    <td>
-                      <span className={`status-dot ${b.is_active ? 'active' : 'inactive'}`}>
-                        {b.is_active ? 'Aktif' : 'Non-aktif'}
-                      </span>
+                {batchYears.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-6 text-muted">
+                      {loading ? 'Memuat data letting...' : 'Belum ada data letting angkatan.'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  batchYears.map((b) => (
+                    <tr key={b.$id}>
+                      <td className="font-mono font-bold">{b.year}</td>
+                      <td className="font-medium text-slate-800">{b.label}</td>
+                      <td>
+                        <span className={`status-dot ${b.is_active !== false ? 'active' : 'inactive'}`}>
+                          {b.is_active !== false ? 'Aktif' : 'Non-aktif'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-button-group" style={{ justifyContent: 'center' }}>
+                          <button
+                            onClick={() => handleOpenBatchModal(b)}
+                            className="btn-icon-secondary"
+                            title="Edit Data Letting"
+                          >
+                            <Edit2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleBatchActive(b)}
+                            className={`btn-sm ${b.is_active !== false ? 'btn-outline-danger' : 'btn-outline-success'}`}
+                          >
+                            {b.is_active !== false ? 'Nonaktifkan' : 'Aktifkan'}
+                          </button>
+                          <button
+                            onClick={() => triggerDeleteBatch(b)}
+                            className="btn-icon-danger"
+                            title="Hapus Letting (Dengan Verifikasi)"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* MODAL: Tambah Dosen */}
+      {/* MODAL 1: Tambah / Edit Dosen */}
       {isLecturerModalOpen && (
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">Tambah Data Dosen & Hak Akses</h3>
+              <h3 className="modal-title">
+                {editingLecturer ? 'Edit Data Dosen & Peran' : 'Tambah Data Dosen & Hak Akses'}
+              </h3>
               <button onClick={() => setIsLecturerModalOpen(false)} className="btn-close">
                 <X size={18} />
               </button>
@@ -497,7 +841,7 @@ export const AdminView: React.FC = () => {
             <form onSubmit={handleSaveLecturer}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>NIP / NIDN *</label>
+                  <label>NIP / NIDN Dosen *</label>
                   <input
                     type="text"
                     required
@@ -508,7 +852,7 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Nama Lengkap & Gelar *</label>
+                  <label>Nama Lengkap Beserta Gelar Akademik *</label>
                   <input
                     type="text"
                     required
@@ -519,7 +863,7 @@ export const AdminView: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Email Institusi / Akun *</label>
+                  <label>Alamat Email Institusi / Akun Login *</label>
                   <input
                     type="email"
                     required
@@ -547,7 +891,7 @@ export const AdminView: React.FC = () => {
                   </div>
 
                   <div className="form-group">
-                    <label>Peran (Role) *</label>
+                    <label>Peran dalam Sistem *</label>
                     <select
                       value={lecturerForm.role}
                       onChange={(e) =>
@@ -591,6 +935,21 @@ export const AdminView: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {editingLecturer && (
+                  <div className="form-group">
+                    <label>Status Akun Dosen</label>
+                    <select
+                      value={lecturerForm.is_active ? 'active' : 'inactive'}
+                      onChange={(e) =>
+                        setLecturerForm({ ...lecturerForm, is_active: e.target.value === 'active' })
+                      }
+                    >
+                      <option value="active">Aktif (Dapat dipilih)</option>
+                      <option value="inactive">Non-aktif</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">
@@ -602,7 +961,7 @@ export const AdminView: React.FC = () => {
                   Batal
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Simpan Data Dosen
+                  {editingLecturer ? 'Simpan Perubahan' : 'Tambahkan Dosen'}
                 </button>
               </div>
             </form>
@@ -610,12 +969,14 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: Tambah Departemen / Prodi */}
+      {/* MODAL 2: Tambah / Edit Program Studi */}
       {isDeptModalOpen && (
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">Tambah Program Studi Baru</h3>
+              <h3 className="modal-title">
+                {editingDept ? 'Edit Program Studi' : 'Tambah Program Studi Baru'}
+              </h3>
               <button onClick={() => setIsDeptModalOpen(false)} className="btn-close">
                 <X size={18} />
               </button>
@@ -623,27 +984,29 @@ export const AdminView: React.FC = () => {
             <form onSubmit={handleSaveDept}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Kode Singkatan Prodi (Misal: TI, SI, BD) *</label>
+                  <label>Kode Program Studi (Singkatan Huruf Kapital) *</label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: IF"
+                    placeholder="Contoh: TI, SI, IF, TE"
                     value={deptForm.code}
-                    onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value })}
+                    onChange={(e) => setDeptForm({ ...deptForm, code: e.target.value.toUpperCase() })}
                   />
                 </div>
+
                 <div className="form-group">
                   <label>Nama Lengkap Program Studi *</label>
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Informatika Medis"
+                    placeholder="Contoh: Teknik Informatika"
                     value={deptForm.name}
                     onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
                   />
                 </div>
+
                 <div className="form-group">
-                  <label>Fakultas</label>
+                  <label>Fakultas Naungan</label>
                   <input
                     type="text"
                     placeholder="Contoh: Fakultas Teknik"
@@ -651,7 +1014,23 @@ export const AdminView: React.FC = () => {
                     onChange={(e) => setDeptForm({ ...deptForm, faculty: e.target.value })}
                   />
                 </div>
+
+                {editingDept && (
+                  <div className="form-group">
+                    <label>Status Program Studi</label>
+                    <select
+                      value={deptForm.is_active ? 'active' : 'inactive'}
+                      onChange={(e) =>
+                        setDeptForm({ ...deptForm, is_active: e.target.value === 'active' })
+                      }
+                    >
+                      <option value="active">Aktif (Tampil di Dropdown Mobile)</option>
+                      <option value="inactive">Non-aktif</option>
+                    </select>
+                  </div>
+                )}
               </div>
+
               <div className="modal-footer">
                 <button
                   type="button"
@@ -661,7 +1040,7 @@ export const AdminView: React.FC = () => {
                   Batal
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Simpan Prodi
+                  {editingDept ? 'Simpan Perubahan' : 'Tambahkan Prodi'}
                 </button>
               </div>
             </form>
@@ -669,12 +1048,14 @@ export const AdminView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: Tambah Letting / Angkatan */}
+      {/* MODAL 3: Tambah / Edit Letting Angkatan */}
       {isBatchModalOpen && (
         <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-header">
-              <h3 className="modal-title">Tambah Tahun Letting / Angkatan</h3>
+              <h3 className="modal-title">
+                {editingBatch ? 'Edit Data Letting / Angkatan' : 'Tambah Letting Angkatan Baru'}
+              </h3>
               <button onClick={() => setIsBatchModalOpen(false)} className="btn-close">
                 <X size={18} />
               </button>
@@ -682,26 +1063,43 @@ export const AdminView: React.FC = () => {
             <form onSubmit={handleSaveBatch}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Tahun Angkatan (Contoh: 2025) *</label>
+                  <label>Tahun Angkatan Masuk *</label>
                   <input
                     type="number"
                     required
                     min={2000}
-                    max={2040}
+                    max={2100}
                     value={batchForm.year}
                     onChange={(e) => setBatchForm({ ...batchForm, year: Number(e.target.value) })}
                   />
                 </div>
+
                 <div className="form-group">
-                  <label>Label Tampilan (Opsional, otomatis jika kosong)</label>
+                  <label>Label Tampilan Dropdown *</label>
                   <input
                     type="text"
-                    placeholder="Contoh: Angkatan 2025 (Letting 25)"
+                    placeholder={`Contoh: Angkatan ${batchForm.year} (Letting ${String(batchForm.year).slice(-2)})`}
                     value={batchForm.label}
                     onChange={(e) => setBatchForm({ ...batchForm, label: e.target.value })}
                   />
                 </div>
+
+                {editingBatch && (
+                  <div className="form-group">
+                    <label>Status Letting</label>
+                    <select
+                      value={batchForm.is_active ? 'active' : 'inactive'}
+                      onChange={(e) =>
+                        setBatchForm({ ...batchForm, is_active: e.target.value === 'active' })
+                      }
+                    >
+                      <option value="active">Aktif (Tampil di Dropdown Mobile)</option>
+                      <option value="inactive">Non-aktif</option>
+                    </select>
+                  </div>
+                )}
               </div>
+
               <div className="modal-footer">
                 <button
                   type="button"
@@ -711,10 +1109,154 @@ export const AdminView: React.FC = () => {
                   Batal
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Simpan Letting
+                  {editingBatch ? 'Simpan Perubahan' : 'Tambahkan Angkatan'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: SECURITY SAFEGUARD DELETE CONFIRMATION (Requires Exact Retype) */}
+      {deleteModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{ maxWidth: 520 }}>
+            <div className="modal-header" style={{ borderBottomColor: '#FEE2E2', backgroundColor: '#FFF5F5' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: '#FEE2E2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#DC2626',
+                  }}
+                >
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ color: '#991B1B', fontSize: 16 }}>
+                    Konfirmasi Keamanan Penghapusan Data
+                  </h3>
+                  <div style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>
+                    Tindakan ini permanen dan berisiko tinggi
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setDeleteModal(null);
+                  setInputConfirmValue('');
+                }}
+                className="btn-close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="security-alert-box">
+                <div className="security-alert-header">
+                  <Lock size={16} />
+                  <span>Sistem Proteksi Master Data Akademik</span>
+                </div>
+                <div className="security-alert-body">
+                  Data yang dihapus tidak dapat dipulihkan. Menghapus record ini dapat berdampak pada relasi data pengajuan skripsi, kuota bimbingan, atau registrasi mahasiswa.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  backgroundColor: '#F8FAFC',
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  border: '1px solid #E2E8F0',
+                  marginBottom: 18,
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>
+                  Target Objek yang Dihapus:
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', marginTop: 2 }}>
+                  {deleteModal.title}
+                </div>
+                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                  {deleteModal.subtitle}
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label style={{ fontSize: 13, color: '#334155' }}>
+                  Untuk mengonfirmasi penghapusan secara aman, ketik ulang kode/nilai verifikasi berikut:{' '}
+                  <span className="retype-highlight">{deleteModal.expectedValue}</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  className={`retype-input ${
+                    inputConfirmValue.trim() === deleteModal.expectedValue.trim() ? 'matched' : ''
+                  }`}
+                  placeholder={`Ketik "${deleteModal.expectedValue}" di sini...`}
+                  value={inputConfirmValue}
+                  onChange={(e) => setInputConfirmValue(e.target.value)}
+                />
+
+                {inputConfirmValue.length > 0 && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      marginTop: 6,
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      color:
+                        inputConfirmValue.trim() === deleteModal.expectedValue.trim()
+                          ? '#059669'
+                          : '#DC2626',
+                    }}
+                  >
+                    {inputConfirmValue.trim() === deleteModal.expectedValue.trim() ? (
+                      <>
+                        <CheckCircle size={14} />
+                        <span>Verifikasi cocok. Tombol hapus telah dibuka.</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle size={14} />
+                        <span>Teks belum sesuai dengan nilai verifikasi di atas.</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer justify-between" style={{ backgroundColor: '#FFF5F5' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteModal(null);
+                  setInputConfirmValue('');
+                }}
+                className="btn btn-secondary"
+              >
+                Batal
+              </button>
+
+              <button
+                type="button"
+                disabled={inputConfirmValue.trim() !== deleteModal.expectedValue.trim() || deleteLoading}
+                onClick={handleExecuteDelete}
+                className="btn btn-danger"
+              >
+                <Trash2 size={16} />
+                <span>{deleteLoading ? 'Menghapus...' : 'Hapus Permanen Data Ini'}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

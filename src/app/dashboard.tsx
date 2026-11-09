@@ -1,38 +1,38 @@
-import React, { useCallback, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import {
-  HomeHeader,
-  Card,
   Button,
-  StatusBadge,
+  Card,
   EmptyState,
+  HomeHeader,
   LoadingScreen,
+  StatusBadge,
 } from '@/components';
+import type { ThesisSubmission, UserProfile } from '@/models/types';
 import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
-import type { UserProfile, ThesisSubmission } from '@/models/types';
 import { Colors } from '@/theme/theme';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  PlusCircle,
-  FileText,
-  ChevronRight,
-  Calendar,
-  UserCheck,
-  Clock,
-  CheckCircle2,
-  Award,
-  Sparkles,
   AlertTriangle,
+  Award,
+  Calendar,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  FileText,
   GraduationCap,
+  PlusCircle,
+  Sparkles,
+  UserCheck,
 } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -253,7 +253,7 @@ export default function DashboardScreen() {
                 </View>
               ) : null}
             </View>
-
+            )}
             {/* Bottom action prompt */}
             <View style={styles.activeCardFooter}>
               <Text style={styles.activeFooterActionText}>
@@ -337,20 +337,22 @@ export default function DashboardScreen() {
                     <Text style={styles.infoText}>{dateStr}</Text>
                   </View>
 
-                  {sub.advisor ? (
-                    <View style={styles.infoItem}>
-                      <UserCheck size={13} color={Colors.success} strokeWidth={2} />
-                      <Text style={[styles.infoText, { color: Colors.success, fontWeight: '700' }]} numberOfLines={1}>
-                        {sub.advisor.name}
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.infoItem}>
-                      <Clock size={13} color={Colors.warning} strokeWidth={2} />
-                      <Text style={[styles.infoText, { color: Colors.warning, fontWeight: '600' }]}>
-                        Menunggu Plotting
-                      </Text>
-                    </View>
+                  {sub.status !== 'revision' && sub.status !== 'rejected' && (
+                    sub.advisor ? (
+                      <View style={styles.infoItem}>
+                        <UserCheck size={13} color={Colors.success} strokeWidth={2} />
+                        <Text style={[styles.infoText, { color: Colors.success, fontWeight: '700' }]} numberOfLines={1}>
+                          {sub.advisor.name}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.infoItem}>
+                        <Clock size={13} color={Colors.warning} strokeWidth={2} />
+                        <Text style={[styles.infoText, { color: Colors.warning, fontWeight: '600' }]}>
+                          Menunggu Plotting
+                        </Text>
+                      </View>
+                    )
                   )}
                 </View>
 

@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 import { Button, GoogleIcon, LoadingScreen } from '@/components';
 import { authService } from '@/services/authService';
 import { Colors } from '@/theme/theme';
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { GraduationCap, ShieldCheck } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -128,10 +128,6 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Background Decorative Circles */}
-      <View style={styles.decorCircle1} />
-      <View style={styles.decorCircle2} />
-
       {/* Main Content Card */}
       <View style={styles.card}>
         {/* Brand Icon */}
@@ -178,27 +174,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     backgroundColor: Colors.background,
-    position: 'relative',
-  },
-  decorCircle1: {
-    position: 'absolute',
-    top: -80,
-    right: -80,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: '#E0F2FE',
-    opacity: 0.7,
-  },
-  decorCircle2: {
-    position: 'absolute',
-    bottom: -100,
-    left: -100,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: '#F1F5F9',
-    opacity: 0.8,
   },
   card: {
     width: '100%',

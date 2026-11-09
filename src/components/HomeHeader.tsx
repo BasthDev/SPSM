@@ -1,11 +1,11 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { User, LogOut, Bell } from 'lucide-react-native';
-import { Avatar } from './Avatar';
 import { Colors } from '@/theme/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { Bell, LogOut, User } from 'lucide-react-native';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar } from './Avatar';
 
 interface HomeHeaderProps {
   userName?: string;
@@ -44,7 +44,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
       <StatusBar style="light" />
 
       {/* Subtle Ambient Glow Effect overlay */}
-      <View style={styles.ambientGlow} pointerEvents="none" />
+      {/* <View style={styles.ambientGlow} pointerEvents="none" /> */}
 
       {/* Content Row */}
       <View style={styles.contentRow}>

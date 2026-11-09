@@ -1,36 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  Linking,
-  Platform,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AppHeader,
+  Avatar,
+  Button,
+  LoadingScreen,
   Section,
   StatusBadge,
-  LoadingScreen,
-  Button,
-  Avatar,
 } from '@/components';
-import { submissionService } from '@/services/submissionService';
 import type { ThesisSubmission } from '@/models/types';
+import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  AlertTriangle,
+  Award,
   BookOpen,
   CheckCircle2,
   Clock,
-  Award,
-  ShieldCheck,
   ExternalLink,
-  MessageSquare,
   GraduationCap,
+  MessageSquare,
+  ShieldCheck,
   Sparkles,
+  XCircle,
 } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import {
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function SubmissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -136,81 +138,161 @@ export default function SubmissionDetailScreen() {
             <StatusBadge status={submission.status} />
           </View>
 
-          {/* Stepper Progress Bar */}
-          <View style={styles.stepperContainer}>
+          {/* Vertical Stepper Progress Timeline */}
+          <View style={styles.verticalStepper}>
             {/* Step 1: Diajukan */}
-            <View style={styles.stepCol}>
-              <View style={[styles.stepCircle, styles.stepCircleActive]}>
-                <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+            <View style={styles.vStepItem}>
+              <View style={styles.vStepLeft}>
+                <View style={[styles.vStepCircle, styles.vStepCircleCompleted]}>
+                  <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+                </View>
+                <View
+                  style={[
+                    styles.vStepLine,
+                    (currentStage >= 2 || submission.status === 'revision' || submission.status === 'rejected') &&
+                      styles.vStepLineActive,
+                  ]}
+                />
               </View>
-              <Text style={[styles.stepLabel, styles.stepLabelActive]}>1. Diajukan</Text>
-              <Text style={styles.stepDesc}>Mahasiswa</Text>
+              <View style={styles.vStepRight}>
+                <View style={styles.vStepHeader}>
+                  <Text style={styles.vStepTitle}>1. Pengajuan Usulan Judul</Text>
+                  <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
+                    <Text style={styles.vBadgeTextSuccess}>Selesai</Text>
+                  </View>
+                </View>
+                <Text style={styles.vStepDesc}>
+                  3 usulan judul dan latar belakang diajukan oleh Mahasiswa.
+                </Text>
+                <Text style={styles.vStepDate}>{formattedSubmittedDate}</Text>
+              </View>
             </View>
-
-            <View
-              style={[
-                styles.stepLine,
-                currentStage >= 2 ? styles.stepLineActive : null,
-              ]}
-            />
 
             {/* Step 2: Review Dosen Penilai */}
-            <View style={styles.stepCol}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  currentStage >= 2 ? styles.stepCircleActive : null,
-                  currentStage === 1 && submission.status !== 'rejected' && styles.stepCirclePending,
-                ]}
-              >
-                {currentStage >= 2 ? (
-                  <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
-                ) : (
-                  <Clock size={16} color={Colors.primary} strokeWidth={2.2} />
-                )}
+            <View style={styles.vStepItem}>
+              <View style={styles.vStepLeft}>
+                <View
+                  style={[
+                    styles.vStepCircle,
+                    currentStage >= 2 && styles.vStepCircleCompleted,
+                    currentStage === 1 && submission.status === 'pending_lecturer' && styles.vStepCircleActive,
+                    submission.status === 'revision' && styles.vStepCircleWarning,
+                    submission.status === 'rejected' && styles.vStepCircleDanger,
+                  ]}
+                >
+                  {currentStage >= 2 ? (
+                    <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+                  ) : submission.status === 'revision' ? (
+                    <AlertTriangle size={15} color="#FFFFFF" strokeWidth={2.5} />
+                  ) : submission.status === 'rejected' ? (
+                    <XCircle size={15} color="#FFFFFF" strokeWidth={2.5} />
+                  ) : (
+                    <Clock size={16} color={Colors.primary} strokeWidth={2.2} />
+                  )}
+                </View>
+                <View
+                  style={[
+                    styles.vStepLine,
+                    currentStage >= 3 && styles.vStepLineActive,
+                  ]}
+                />
               </View>
-              <Text
-                style={[
-                  styles.stepLabel,
-                  currentStage >= 2 ? styles.stepLabelActive : null,
-                ]}
-              >
-                2. Review Dosen
-              </Text>
-              <Text style={styles.stepDesc}>Plotting Judul</Text>
+              <View style={styles.vStepRight}>
+                <View style={styles.vStepHeader}>
+                  <Text style={styles.vStepTitle}>2. Verifikasi Dosen Penilai</Text>
+                  {submission.status === 'pending_lecturer' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeActive]}>
+                      <Text style={styles.vBadgeTextActive}>Sedang Berlangsung</Text>
+                    </View>
+                  )}
+                  {currentStage >= 2 && (
+                    <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
+                      <Text style={styles.vBadgeTextSuccess}>Terverifikasi</Text>
+                    </View>
+                  )}
+                  {submission.status === 'revision' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeWarning]}>
+                      <Text style={styles.vBadgeTextWarning}>Perlu Revisi</Text>
+                    </View>
+                  )}
+                  {submission.status === 'rejected' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeDanger]}>
+                      <Text style={styles.vBadgeTextDanger}>Ditolak</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.vStepDesc}>
+                  {submission.status === 'pending_lecturer' &&
+                    'Dosen Penilai sedang menelaah kelayakan judul dan menentukan calon Dosen Pembimbing.'}
+                  {currentStage >= 2 &&
+                    'Judul terpilih telah disepakati dan usulan calon Dosen Pembimbing telah direkomendasikan.'}
+                  {submission.status === 'revision' &&
+                    'Dosen Penilai meminta revisi usulan judul. Silakan periksa catatan dan ajukan ulang judul baru.'}
+                  {submission.status === 'rejected' &&
+                    'Usulan judul ditolak. Anda dapat membuat pengajuan baru di halaman Dashboard.'}
+                </Text>
+              </View>
             </View>
 
-            <View
-              style={[
-                styles.stepLine,
-                currentStage >= 3 ? styles.stepLineActive : null,
-              ]}
-            />
-
             {/* Step 3: Pengesahan Kaprodi */}
-            <View style={styles.stepCol}>
-              <View
-                style={[
-                  styles.stepCircle,
-                  currentStage >= 3 ? styles.stepCircleActive : null,
-                  currentStage === 2 && styles.stepCirclePending,
-                ]}
-              >
-                {currentStage >= 3 ? (
-                  <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
-                ) : (
-                  <Award size={16} color={currentStage === 2 ? Colors.primary : Colors.textTertiary} strokeWidth={2.2} />
-                )}
+            <View style={[styles.vStepItem, styles.vStepItemLast]}>
+              <View style={styles.vStepLeft}>
+                <View
+                  style={[
+                    styles.vStepCircle,
+                    currentStage >= 3 && styles.vStepCircleCompleted,
+                    currentStage === 2 && styles.vStepCircleActive,
+                    (submission.status === 'revision' || submission.status === 'rejected') &&
+                      styles.vStepCircleInactive,
+                  ]}
+                >
+                  {currentStage >= 3 ? (
+                    <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+                  ) : currentStage === 2 ? (
+                    <Award size={16} color={Colors.primary} strokeWidth={2.2} />
+                  ) : (
+                    <Award size={16} color={Colors.textTertiary} strokeWidth={2} />
+                  )}
+                </View>
               </View>
-              <Text
-                style={[
-                  styles.stepLabel,
-                  currentStage >= 3 ? styles.stepLabelActive : null,
-                ]}
-              >
-                3. Sah Kaprodi
-              </Text>
-              <Text style={styles.stepDesc}>Tanda Tangan</Text>
+              <View style={styles.vStepRight}>
+                <View style={styles.vStepHeader}>
+                  <Text style={styles.vStepTitle}>3. Pengesahan SK Kaprodi</Text>
+                  {submission.status === 'approved' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
+                      <Text style={styles.vBadgeTextSuccess}>Resmi Disahkan</Text>
+                    </View>
+                  )}
+                  {submission.status === 'waiting_kaprodi' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeActive]}>
+                      <Text style={styles.vBadgeTextActive}>Menunggu Pengesahan</Text>
+                    </View>
+                  )}
+                  {currentStage === 1 && (
+                    <View style={[styles.vStepBadge, styles.vBadgeInactive]}>
+                      <Text style={styles.vBadgeTextInactive}>Menunggu Review</Text>
+                    </View>
+                  )}
+                  {(submission.status === 'revision' || submission.status === 'rejected') && (
+                    <View style={[styles.vStepBadge, styles.vBadgeInactive]}>
+                      <Text style={styles.vBadgeTextInactive}>Tidak Diproses</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.vStepDesc}>
+                  {submission.status === 'approved' &&
+                    `SK Pengesahan Judul resmi diterbitkan dan ditandatangani oleh ${submission.kaprodiName || 'Ketua Program Studi'}.`}
+                  {submission.status === 'waiting_kaprodi' &&
+                    'Menunggu validasi akhir dan penerbitan Surat Keputusan oleh Kaprodi.'}
+                  {currentStage === 1 &&
+                    'Pengesahan SK akan diproses setelah lolos verifikasi Dosen Penilai.'}
+                  {(submission.status === 'revision' || submission.status === 'rejected') &&
+                    'Tahap pengesahan ditiadakan karena pengajuan tidak berlanjut.'}
+                </Text>
+                {formattedApprovalDate ? (
+                  <Text style={styles.vStepDate}>Disahkan: {formattedApprovalDate}</Text>
+                ) : null}
+              </View>
             </View>
           </View>
 
@@ -218,15 +300,15 @@ export default function SubmissionDetailScreen() {
           <View style={styles.statusDescriptionBox}>
             <Text style={styles.statusDescriptionText}>
               {submission.status === 'pending_lecturer' &&
-                '💡 Pengajuan Anda sedang dalam antrean pemeriksaan oleh Dosen Penilai untuk penentuan judul terbaik dan calon pembimbing.'}
+                'Pengajuan Anda sedang dalam antrean pemeriksaan oleh Dosen Penilai untuk penentuan judul terbaik dan calon pembimbing.'}
               {submission.status === 'waiting_kaprodi' &&
-                '⚡ Dosen Penilai telah memilih usulan judul dan menentukan Dosen Pembimbing. Menunggu validasi & pengesahan final oleh Ketua Program Studi.'}
+                'Dosen Penilai telah memilih usulan judul dan menentukan Dosen Pembimbing. Menunggu validasi & pengesahan final oleh Ketua Program Studi.'}
               {submission.status === 'approved' &&
-                '🎉 Selamat! Pengajuan judul dan Dosen Pembimbing Anda telah resmi disahkan oleh Kaprodi.'}
+                'Selamat! Pengajuan judul dan Dosen Pembimbing Anda telah resmi disahkan oleh Kaprodi.'}
               {submission.status === 'revision' &&
-                '⚠️ Diperlukan perbaikan pada usulan judul skripsi Anda. Silakan cek catatan tim penilai di bawah.'}
+                'Usulan judul skripsi Anda perlu diperbaiki. Anda dapat mengajukan judul baru dari halaman Dashboard.'}
               {submission.status === 'rejected' &&
-                '❌ Usulan judul ini belum dapat diterima. Anda dapat mengajukan judul baru melalui halaman Dashboard.'}
+                'Usulan judul ini telah ditolak. Anda dapat membuat pengajuan baru melalui halaman Dashboard.'}
             </Text>
           </View>
         </Section>
@@ -281,79 +363,81 @@ export default function SubmissionDetailScreen() {
           </Section>
         )}
 
-        {/* 3. DETAIL DOSEN PEMBIMBING (Jika sudah diplot/disahkan) */}
-        {submission.advisor ? (
-          <Section style={styles.advisorSection}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={styles.headerIconCircle}>
-                <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
+        {/* 3. DETAIL DOSEN PEMBIMBING (Disembunyikan jika status Ditolak atau Perlu Revisi) */}
+        {submission.status !== 'revision' && submission.status !== 'rejected' && (
+          submission.advisor ? (
+            <Section style={styles.advisorSection}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.headerIconCircle}>
+                  <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
+                </View>
+                <View>
+                  <Text style={styles.sectionHeading}>Dosen Pembimbing Skripsi</Text>
+                  <Text style={styles.sectionSubheading}>
+                    {submission.status === 'approved'
+                      ? 'Resmi ditetapkan sebagai Pembimbing Utama'
+                      : 'Diusulkan oleh Reviewer (Menunggu Pengesahan)'}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.sectionHeading}>Dosen Pembimbing Skripsi</Text>
-                <Text style={styles.sectionSubheading}>
-                  {submission.status === 'approved'
-                    ? 'Resmi ditetapkan sebagai Pembimbing Utama'
-                    : 'Diusulkan oleh Reviewer (Menunggu Pengesahan)'}
-                </Text>
-              </View>
-            </View>
 
-            <View style={styles.advisorCard}>
-              <View style={styles.advisorTopRow}>
-                <Avatar
-                  name={submission.advisor.name}
-                  size={58}
-                  backgroundColor={Colors.primary}
-                />
-                <View style={styles.advisorMainInfo}>
-                  <Text style={styles.advisorName}>{submission.advisor.name}</Text>
-                  <Text style={styles.advisorNip}>NIP / NIDN: {submission.advisor.nip}</Text>
-                  <View style={styles.advisorProdiPill}>
-                    <Text style={styles.advisorProdiText}>
-                      Prodi: {submission.advisor.department_id}
+              <View style={styles.advisorCard}>
+                <View style={styles.advisorTopRow}>
+                  <Avatar
+                    name={submission.advisor.name}
+                    size={58}
+                    backgroundColor={Colors.primary}
+                  />
+                  <View style={styles.advisorMainInfo}>
+                    <Text style={styles.advisorName}>{submission.advisor.name}</Text>
+                    <Text style={styles.advisorNip}>NIP / NIDN: {submission.advisor.nip}</Text>
+                    <View style={styles.advisorProdiPill}>
+                      <Text style={styles.advisorProdiText}>
+                        Prodi: {submission.advisor.department_id}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.advisorDivider} />
+
+                <View style={styles.advisorMetaCol}>
+                  <View style={styles.advisorMetaRow}>
+                    <Text style={styles.advisorMetaLabel}>Bidang Keahlian / Riset:</Text>
+                    <Text style={styles.advisorMetaValue}>
+                      {submission.advisor.expertise || 'Umum'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.advisorMetaRow}>
+                    <Text style={styles.advisorMetaLabel}>Email Institusi:</Text>
+                    <Text style={styles.advisorMetaValueMono}>
+                      {submission.advisor.email}
+                    </Text>
+                  </View>
+
+                  <View style={styles.advisorMetaRow}>
+                    <Text style={styles.advisorMetaLabel}>Status Kuota Bimbingan:</Text>
+                    <Text style={styles.advisorQuotaValue}>
+                      {submission.advisor.current_students || 0} / {submission.advisor.quota} Mahasiswa Terisi
                     </Text>
                   </View>
                 </View>
               </View>
-
-              <View style={styles.advisorDivider} />
-
-              <View style={styles.advisorMetaCol}>
-                <View style={styles.advisorMetaRow}>
-                  <Text style={styles.advisorMetaLabel}>Bidang Keahlian / Riset:</Text>
-                  <Text style={styles.advisorMetaValue}>
-                    {submission.advisor.expertise || 'Umum'}
-                  </Text>
-                </View>
-
-                <View style={styles.advisorMetaRow}>
-                  <Text style={styles.advisorMetaLabel}>Email Institusi:</Text>
-                  <Text style={styles.advisorMetaValueMono}>
-                    {submission.advisor.email}
-                  </Text>
-                </View>
-
-                <View style={styles.advisorMetaRow}>
-                  <Text style={styles.advisorMetaLabel}>Status Kuota Bimbingan:</Text>
-                  <Text style={styles.advisorQuotaValue}>
-                    {submission.advisor.current_students || 0} / {submission.advisor.quota} Mahasiswa Terisi
+            </Section>
+          ) : (
+            <Section style={styles.advisorPendingSection}>
+              <View style={styles.advisorPendingContent}>
+                <Clock size={24} color={Colors.warning} strokeWidth={2.2} />
+                <View style={styles.advisorPendingTexts}>
+                  <Text style={styles.advisorPendingTitle}>Dosen Pembimbing Belum Ditetapkan</Text>
+                  <Text style={styles.advisorPendingSubtitle}>
+                    Tim Dosen Penilai sedang meninjau bidang keahlian yang paling relevan dengan opsi judul Anda.
                   </Text>
                 </View>
               </View>
-            </View>
-          </Section>
-        ) : (
-          <Section style={styles.advisorPendingSection}>
-            <View style={styles.advisorPendingContent}>
-              <Clock size={24} color={Colors.warning} strokeWidth={2.2} />
-              <View style={styles.advisorPendingTexts}>
-                <Text style={styles.advisorPendingTitle}>Dosen Pembimbing Belum Ditetapkan</Text>
-                <Text style={styles.advisorPendingSubtitle}>
-                  Tim Dosen Penilai sedang meninjau bidang keahlian yang paling relevan dengan opsi judul Anda.
-                </Text>
-              </View>
-            </View>
-          </Section>
+            </Section>
+          )
         )}
 
         {/* 4. JUDUL SKRIPSI TERPILIH (Disahkan / Dipilih) */}
@@ -544,58 +628,131 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     marginTop: 2,
   },
-  stepperContainer: {
+  verticalStepper: {
+    paddingVertical: 4,
+    marginBottom: 16,
+  },
+  vStepItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 6,
-    marginBottom: 18,
+    position: 'relative',
   },
-  stepCol: {
-    alignItems: 'center',
-    width: 82,
+  vStepItemLast: {
+    marginBottom: 0,
   },
-  stepCircle: {
+  vStepLeft: {
+    alignItems: 'center',
+    width: 38,
+    marginRight: 12,
+  },
+  vStepCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    zIndex: 2,
   },
-  stepCircleActive: {
+  vStepCircleCompleted: {
     backgroundColor: Colors.primary,
   },
-  stepCirclePending: {
+  vStepCircleActive: {
     backgroundColor: '#EFF6FF',
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: Colors.primary,
   },
-  stepLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textTertiary,
-    textAlign: 'center',
+  vStepCircleWarning: {
+    backgroundColor: '#F59E0B',
   },
-  stepLabelActive: {
-    color: Colors.text,
-    fontWeight: '800',
+  vStepCircleDanger: {
+    backgroundColor: '#EF4444',
   },
-  stepDesc: {
-    fontSize: 9.5,
-    color: Colors.textTertiary,
-    marginTop: 1,
-  },
-  stepLine: {
-    flex: 1,
-    height: 2.5,
+  vStepCircleInactive: {
     backgroundColor: '#E2E8F0',
-    marginBottom: 24,
-    marginHorizontal: 4,
   },
-  stepLineActive: {
+  vStepLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 4,
+    minHeight: 46,
+  },
+  vStepLineActive: {
     backgroundColor: Colors.primary,
+  },
+  vStepRight: {
+    flex: 1,
+    paddingBottom: 22,
+  },
+  vStepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 4,
+  },
+  vStepTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  vStepDesc: {
+    fontSize: 12.5,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  vStepDate: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  vStepBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  vBadgeSuccess: {
+    backgroundColor: '#ECFDF5',
+  },
+  vBadgeTextSuccess: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  vBadgeActive: {
+    backgroundColor: '#EFF6FF',
+  },
+  vBadgeTextActive: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  vBadgeWarning: {
+    backgroundColor: '#FFFBEB',
+  },
+  vBadgeTextWarning: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  vBadgeDanger: {
+    backgroundColor: '#FEF2F2',
+  },
+  vBadgeTextDanger: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  vBadgeInactive: {
+    backgroundColor: '#F1F5F9',
+  },
+  vBadgeTextInactive: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   statusDescriptionBox: {
     backgroundColor: '#F8FAFC',
