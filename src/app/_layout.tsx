@@ -1,4 +1,10 @@
 import { Stack } from 'expo-router';
+import { LogBox } from 'react-native';
+
+// Ignore benign warning from having both the app scheme ('spsm') and Appwrite OAuth scheme ('appwrite-callback-...')
+LogBox.ignoreLogs([
+  'Linking found multiple possible URI schemes in your Expo config',
+]);
 
 /**
  * Root layout — defines the root Stack navigator.

@@ -1,17 +1,18 @@
-import { Colors } from '@/theme/theme';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
-import { Bell, LogOut, User } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { LogOut, User, Bell } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from './Avatar';
+import { Colors } from '@/theme/theme';
 
 interface HomeHeaderProps {
   userName?: string;
+  userNim?: string;
+  userDepartmentName?: string;
   userSubtitle?: string;
   avatarUrl?: string | null;
-  greeting?: string;
   onProfilePress?: () => void;
   onSignOutPress?: () => void;
   onNotificationPress?: () => void;
@@ -20,9 +21,10 @@ interface HomeHeaderProps {
 
 export const HomeHeader: React.FC<HomeHeaderProps> = ({
   userName,
+  userNim,
+  userDepartmentName,
   userSubtitle,
   avatarUrl,
-  greeting = 'Selamat Datang',
   onProfilePress,
   onSignOutPress,
   onNotificationPress,
@@ -43,35 +45,45 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
     >
       <StatusBar style="light" />
 
-      {/* Subtle Ambient Glow Effect overlay */}
-      {/* <View style={styles.ambientGlow} pointerEvents="none" /> */}
-
       {/* Content Row */}
       <View style={styles.contentRow}>
-        {/* Left: Avatar + Greeting + Nama */}
+        {/* Left: Avatar + Biodata (Nama, NIM, Nama Lengkap Prodi) */}
         <TouchableOpacity
           style={styles.profileSection}
           onPress={onProfilePress}
           activeOpacity={0.85}
         >
           <View style={styles.avatarBorder}>
-            <Avatar name={displayName} source={avatarUrl} size={46} backgroundColor="#2563EB" />
+            <Avatar name={displayName} source={avatarUrl} size={48} backgroundColor="#1E3A5F" />
           </View>
 
           <View style={styles.userTextCol}>
-            <Text style={styles.greetingText}>{greeting}</Text>
+            {/* Nama Lengkap Mahasiswa */}
             <Text style={styles.userNameText} numberOfLines={1}>
               {displayName}
             </Text>
-            {userSubtitle ? (
-              <Text style={styles.userSubtitleText} numberOfLines={1}>
+
+            {/* NIM */}
+            {userNim ? (
+              <Text style={styles.userNimText} numberOfLines={1}>
+                NIM: {userNim}
+              </Text>
+            ) : null}
+
+            {/* Nama Lengkap Program Studi */}
+            {userDepartmentName ? (
+              <Text style={styles.userDeptText} numberOfLines={1}>
+                {userDepartmentName}
+              </Text>
+            ) : userSubtitle ? (
+              <Text style={styles.userDeptText} numberOfLines={1}>
                 {userSubtitle}
               </Text>
             ) : null}
           </View>
         </TouchableOpacity>
 
-        {/* Right: Glassmorphic Action Buttons */}
+        {/* Right: Action Buttons */}
         <View style={styles.rightActionsRow}>
           {onNotificationPress ? (
             <TouchableOpacity
@@ -79,7 +91,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
               onPress={onNotificationPress}
               activeOpacity={0.75}
             >
-              <Bell size={18} color="#fff" strokeWidth={2} />
+              <Bell size={18} color="#FFFFFF" strokeWidth={2} />
               {hasUnreadNotification && <View style={styles.unreadDot} />}
             </TouchableOpacity>
           ) : null}
@@ -90,7 +102,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
               onPress={onProfilePress}
               activeOpacity={0.75}
             >
-              <User size={18} color="#fff" strokeWidth={2} />
+              <User size={18} color="#FFFFFF" strokeWidth={2} />
             </TouchableOpacity>
           ) : null}
 
@@ -100,7 +112,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
               onPress={onSignOutPress}
               activeOpacity={0.75}
             >
-              <LogOut size={17} color="#fff" strokeWidth={2} />
+              <LogOut size={17} color="#FFFFFF" strokeWidth={2} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -112,25 +124,11 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 const styles = StyleSheet.create({
   gradientContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    shadowColor: '#0A4C8F',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  ambientGlow: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingBottom: 20,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.15)',
   },
   contentRow: {
     flexDirection: 'row',
@@ -145,32 +143,32 @@ const styles = StyleSheet.create({
   },
   avatarBorder: {
     borderWidth: 2,
-    borderColor: '#ffffff',
-    borderRadius: 25,
+    borderColor: '#FFFFFF',
+    borderRadius: 26,
     padding: 1,
   },
   userTextCol: {
     marginLeft: 12,
     flex: 1,
   },
-  greetingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#BAE6FD',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
   userNameText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginTop: 1,
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
-  userSubtitleText: {
-    fontSize: 12,
+  userNimText: {
+    fontSize: 12.5,
+    fontWeight: '600',
     color: '#E0F2FE',
+    marginTop: 2,
+    letterSpacing: 0.2,
+  },
+  userDeptText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#BAE6FD',
     marginTop: 1,
-    fontWeight: '500',
   },
   rightActionsRow: {
     flexDirection: 'row',
@@ -180,13 +178,12 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    position: 'relative',
+    borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   unreadDot: {
     position: 'absolute',

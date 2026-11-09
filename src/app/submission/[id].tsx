@@ -20,7 +20,6 @@ import {
   GraduationCap,
   MessageSquare,
   ShieldCheck,
-  Sparkles,
   XCircle,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -313,54 +312,121 @@ export default function SubmissionDetailScreen() {
           </View>
         </Section>
 
-        {/* 2. LEMBAR PENGESAHAN RESMI DARI KAPRODI (Jika status Approved) */}
+        {/* 2. LEMBAR PENGESAHAN RESMI AKADEMIK (SERTIFIKAT SK RESMI KAPRODI) */}
         {submission.status === 'approved' && (
-          <Section style={styles.certificateCard}>
-            <View style={styles.certificateHeader}>
-              <View style={styles.certificateSeal}>
-                <Award size={26} color="#059669" strokeWidth={2.2} />
-              </View>
-              <View style={styles.certificateHeaderTexts}>
-                <View style={styles.certificateTagRow}>
-                  <ShieldCheck size={14} color="#059669" strokeWidth={2.5} />
-                  <Text style={styles.certificateTagText}>TERVERIFIKASI & DISAHKAN</Text>
+          <View style={styles.certFrameOuter}>
+            <View style={styles.certFrameInner}>
+              {/* Kop Surat Dokumen Resmi */}
+              <View style={styles.certKopHeader}>
+                <View style={styles.certEmblemBox}>
+                  <GraduationCap size={24} color="#0A4C8F" strokeWidth={2.2} />
                 </View>
-                <Text style={styles.certificateTitle}>Surat Keputusan Pengesahan Judul</Text>
-              </View>
-            </View>
+                <Text style={styles.certKopInstansi}>
+                  KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET, DAN TEKNOLOGI
+                </Text>
+                <Text style={styles.certKopUniv}>
+                  SISTEM INFORMASI TUGAS AKHIR & SKRIPSI MAHASISWA
+                </Text>
+                <Text style={styles.certKopProdi}>
+                  PROGRAM SARJANA STRATA SATU (S-1)
+                </Text>
 
-            <View style={styles.certificateBody}>
-              <View style={styles.certificateRow}>
-                <Text style={styles.certificateLabel}>No. Registrasi SK:</Text>
-                <Text style={styles.certificateValueMono}>
-                  SK-SPSM/{new Date(submission.submitted_at).getFullYear()}/{submission.$id.slice(-6).toUpperCase()}
+                {/* Garis Ganda Kop Surat Resmi Standar Indonesia */}
+                <View style={styles.certKopDoubleLine}>
+                  <View style={styles.certKopLineThick} />
+                  <View style={styles.certKopLineThin} />
+                </View>
+              </View>
+
+              {/* Judul Surat Keputusan */}
+              <View style={styles.certTitleBlock}>
+                <Text style={styles.certDocType}>SURAT KEPUTUSAN PENGESAHAN</Text>
+                <Text style={styles.certDocSubject}>PENETAPAN JUDUL SKRIPSI & DOSEN PEMBIMBING</Text>
+                <Text style={styles.certDocNumber}>
+                  Nomor: SK-SPSM/{new Date(submission.submitted_at).getFullYear()}/{submission.$id.slice(-6).toUpperCase()}
                 </Text>
               </View>
 
-              <View style={styles.certificateRow}>
-                <Text style={styles.certificateLabel}>Tanggal Pengesahan:</Text>
-                <Text style={styles.certificateValueBold}>
-                  {formattedApprovalDate || formattedSubmittedDate}
-                </Text>
-              </View>
+              {/* Kalimat Pengantar / Konsiderans Formal */}
+              <Text style={styles.certPreamble}>
+                Berdasarkan hasil verifikasi dan rapat penelaahan usulan tugas akhir, Ketua Program Studi dengan ini menerangkan dan mengesahkan usulan penelitian skripsi serta penetapan Dosen Pembimbing untuk:
+              </Text>
 
-              <View style={styles.certificateRow}>
-                <Text style={styles.certificateLabel}>Pejabat Pengesah:</Text>
-                <Text style={styles.certificateValueBold}>
-                  {submission.kaprodiName || 'Ketua Program Studi (Kaprodi)'}
-                </Text>
-              </View>
+              {/* Rincian Berkas Biodata & Usulan Terpilih */}
+              <View style={styles.certDataGrid}>
+                {selectedOption ? (
+                  <View style={styles.certDataRow}>
+                    <Text style={styles.certDataLabel}>Judul Skripsi Disahkan:</Text>
+                    <Text style={styles.certDataValueTitle}>
+                      &ldquo;{selectedOption.title}&rdquo;
+                    </Text>
+                  </View>
+                ) : null}
 
-              {submission.kaprodiNotes ? (
-                <View style={styles.certificateNotesBox}>
-                  <Text style={styles.certificateNotesLabel}>Catatan Resmi Kaprodi:</Text>
-                  <Text style={styles.certificateNotesText}>
-                    &ldquo;{submission.kaprodiNotes}&rdquo;
+                {submission.advisor ? (
+                  <View style={styles.certDataRow}>
+                    <Text style={styles.certDataLabel}>Dosen Pembimbing Utama:</Text>
+                    <Text style={styles.certDataValueBold}>
+                      {submission.advisor.name}
+                    </Text>
+                    <Text style={styles.certDataSubtext}>
+                      NIP/NIDN: {submission.advisor.nip} · Keahlian: {submission.advisor.expertise || 'Umum'}
+                    </Text>
+                  </View>
+                ) : null}
+
+                <View style={styles.certDataRow}>
+                  <Text style={styles.certDataLabel}>Tanggal Resmi Pengesahan:</Text>
+                  <Text style={styles.certDataValue}>
+                    {formattedApprovalDate || formattedSubmittedDate}
                   </Text>
                 </View>
-              ) : null}
+
+                {submission.kaprodiNotes ? (
+                  <View style={styles.certDataRow}>
+                    <Text style={styles.certDataLabel}>Ketentuan / Catatan Kaprodi:</Text>
+                    <Text style={styles.certDataNotes}>
+                      {submission.kaprodiNotes}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Bagian Tanda Tangan & Cap Stempel Digital Resmi */}
+              <View style={styles.certSignSection}>
+                <View style={styles.certSignRightCol}>
+                  <Text style={styles.certSignDate}>
+                    Ditetapkan pada: {formattedApprovalDate || formattedSubmittedDate}
+                  </Text>
+                  <Text style={styles.certSignRole}>Ketua Program Studi,</Text>
+
+                  {/* Stempel & Verifikasi Digital Elektronik */}
+                  <View style={styles.certDigitalSealContainer}>
+                    <View style={styles.certStampCircle}>
+                      <ShieldCheck size={20} color="#059669" strokeWidth={2.4} />
+                      <Text style={styles.certStampText}>DISAHKAN DIGITAL</Text>
+                      <Text style={styles.certStampSub}>SPSM VALIDATED</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.certSignName}>
+                    {submission.kaprodiName || 'Ketua Program Studi'}
+                  </Text>
+                  <Text style={styles.certSignNip}>
+                    Pejabat Berwenang Pengesah SK
+                  </Text>
+                </View>
+              </View>
+
+              {/* Watermark / Footer Pengaman */}
+              <View style={styles.certSecurityFooter}>
+                <ShieldCheck size={13} color="#059669" strokeWidth={2.2} />
+                <Text style={styles.certSecurityText}>
+                  Dokumen ini telah disahkan secara elektronik melalui SPSM Cloud dan memiliki kekuatan hukum akademik resmi.
+                </Text>
+              </View>
             </View>
-          </Section>
+          </View>
         )}
 
         {/* 3. DETAIL DOSEN PEMBIMBING (Disembunyikan jika status Ditolak atau Perlu Revisi) */}
@@ -401,23 +467,24 @@ export default function SubmissionDetailScreen() {
 
                 <View style={styles.advisorDivider} />
 
+                {/* Vertical Stack: Bidang & Keahlian, Email, Kuota Bimbingan */}
                 <View style={styles.advisorMetaCol}>
-                  <View style={styles.advisorMetaRow}>
-                    <Text style={styles.advisorMetaLabel}>Bidang Keahlian / Riset:</Text>
-                    <Text style={styles.advisorMetaValue}>
+                  <View style={styles.advisorFieldBlock}>
+                    <Text style={styles.advisorFieldLabel}>Bidang Keahlian & Minat Riset:</Text>
+                    <Text style={styles.advisorFieldValue}>
                       {submission.advisor.expertise || 'Umum'}
                     </Text>
                   </View>
 
-                  <View style={styles.advisorMetaRow}>
-                    <Text style={styles.advisorMetaLabel}>Email Institusi:</Text>
-                    <Text style={styles.advisorMetaValueMono}>
+                  <View style={styles.advisorFieldBlock}>
+                    <Text style={styles.advisorFieldLabel}>Alamat Email Institusi:</Text>
+                    <Text style={styles.advisorFieldValueMono}>
                       {submission.advisor.email}
                     </Text>
                   </View>
 
-                  <View style={styles.advisorMetaRow}>
-                    <Text style={styles.advisorMetaLabel}>Status Kuota Bimbingan:</Text>
+                  <View style={styles.advisorFieldBlock}>
+                    <Text style={styles.advisorFieldLabel}>Status Kuota Bimbingan:</Text>
                     <Text style={styles.advisorQuotaValue}>
                       {submission.advisor.current_students || 0} / {submission.advisor.quota} Mahasiswa Terisi
                     </Text>
@@ -445,7 +512,7 @@ export default function SubmissionDetailScreen() {
           <Section style={styles.selectedTitleSection}>
             <View style={styles.selectedTitleHeader}>
               <View style={styles.selectedTitleBadge}>
-                <Sparkles size={14} color="#FFFFFF" strokeWidth={2.5} />
+                <CheckCircle2 size={14} color="#FFFFFF" strokeWidth={2.5} />
                 <Text style={styles.selectedTitleBadgeText}>
                   JUDUL TERPILIH (OPSI #{selectedOption.option_number})
                 </Text>
@@ -768,102 +835,237 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // 2. Lembar Pengesahan Resmi
-  certificateCard: {
-    padding: 20,
-    borderRadius: 22,
-    backgroundColor: '#F0FDF4',
+  // 2. Lembar Pengesahan Resmi Akademik (Sertifikat SK Formal)
+  certFrameOuter: {
+    padding: 3,
+    borderRadius: 16,
+    backgroundColor: '#1E3A5F',
     borderWidth: 1.5,
-    borderColor: '#BBF7D0',
-    marginBottom: 16,
+    borderColor: '#0A4C8F',
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  certificateHeader: {
-    flexDirection: 'row',
+  certFrameInner: {
+    backgroundColor: '#FAFAF9',
+    borderRadius: 13,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  certKopHeader: {
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  certificateSeal: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#DCFCE7',
+  certEmblemBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#0A4C8F',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 8,
   },
-  certificateHeaderTexts: {
-    flex: 1,
+  certKopInstansi: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#334155',
+    textAlign: 'center',
+    letterSpacing: 0.8,
   },
-  certificateTagRow: {
-    flexDirection: 'row',
+  certKopUniv: {
+    fontSize: 11.5,
+    fontWeight: '900',
+    color: '#0A4C8F',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginTop: 2,
+  },
+  certKopProdi: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+    textAlign: 'center',
+    marginTop: 1,
+  },
+  certKopDoubleLine: {
+    width: '100%',
+    marginTop: 10,
+  },
+  certKopLineThick: {
+    height: 2.5,
+    backgroundColor: '#0F172A',
+  },
+  certKopLineThin: {
+    height: 1,
+    backgroundColor: '#0F172A',
+    marginTop: 2,
+  },
+  certTitleBlock: {
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
+    marginVertical: 12,
   },
-  certificateTagText: {
+  certDocType: {
+    fontSize: 13.5,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+  },
+  certDocSubject: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1E3A5F',
+    textAlign: 'center',
+    marginTop: 2,
+    letterSpacing: 0.4,
+  },
+  certDocNumber: {
     fontSize: 10.5,
-    fontWeight: '800',
-    color: '#059669',
-    letterSpacing: 0.6,
-  },
-  certificateTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#064E3B',
-  },
-  certificateBody: {
-    gap: 8,
-  },
-  certificateRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(5, 150, 105, 0.1)',
-  },
-  certificateLabel: {
-    fontSize: 12,
-    color: '#047857',
-    fontWeight: '500',
-  },
-  certificateValueMono: {
-    fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontWeight: '700',
-    color: '#064E3B',
+    color: '#475569',
+    marginTop: 4,
   },
-  certificateValueBold: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#064E3B',
+  certPreamble: {
+    fontSize: 11.5,
+    color: '#334155',
+    lineHeight: 17,
+    textAlign: 'justify',
+    marginBottom: 12,
   },
-  certificateNotesBox: {
+  certDataGrid: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#CBD5E1',
+    padding: 12,
+    gap: 10,
+    marginBottom: 14,
   },
-  certificateNotesLabel: {
-    fontSize: 10.5,
+  certDataRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 6,
+  },
+  certDataLabel: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#059669',
+    color: '#64748B',
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
     marginBottom: 2,
   },
-  certificateNotesText: {
-    fontSize: 12,
-    color: '#1E293B',
+  certDataValueTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    lineHeight: 18,
+  },
+  certDataValueBold: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0A4C8F',
+  },
+  certDataSubtext: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  certDataValue: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  certDataNotes: {
+    fontSize: 11.5,
+    color: '#334155',
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+  certSignSection: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginVertical: 10,
+  },
+  certSignRightCol: {
+    alignItems: 'center',
+    minWidth: 200,
+  },
+  certSignDate: {
+    fontSize: 10.5,
+    color: '#475569',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  certSignRole: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  certDigitalSealContainer: {
+    marginVertical: 6,
+  },
+  certStampCircle: {
+    borderWidth: 2,
+    borderColor: '#059669',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+  },
+  certStampText: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    color: '#047857',
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  certStampSub: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  certSignName: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    textDecorationLine: 'underline',
+    marginTop: 8,
+  },
+  certSignNip: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  certSecurityFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 10,
+    marginTop: 6,
+  },
+  certSecurityText: {
+    fontSize: 9.5,
+    color: '#64748B',
+    flex: 1,
+    lineHeight: 13,
   },
 
   // 3. Dosen Pembimbing
   advisorSection: {
     padding: 18,
-    borderRadius: 22,
+    borderRadius: 20,
     marginBottom: 16,
   },
   sectionHeaderRow: {
@@ -925,34 +1127,34 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   advisorMetaCol: {
-    gap: 6,
+    gap: 10,
   },
-  advisorMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  advisorFieldBlock: {
+    paddingVertical: 2,
   },
-  advisorMetaLabel: {
-    fontSize: 11.5,
+  advisorFieldLabel: {
+    fontSize: 11,
     color: Colors.textTertiary,
-    fontWeight: '500',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
-  advisorMetaValue: {
-    fontSize: 12,
-    fontWeight: '600',
+  advisorFieldValue: {
+    fontSize: 13.5,
+    fontWeight: '700',
     color: Colors.text,
-    maxWidth: '60%',
-    textAlign: 'right',
+    lineHeight: 18,
   },
-  advisorMetaValueMono: {
-    fontSize: 12,
+  advisorFieldValueMono: {
+    fontSize: 13,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   advisorQuotaValue: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     color: '#059669',
   },
   advisorPendingSection: {

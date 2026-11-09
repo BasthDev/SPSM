@@ -7,6 +7,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppHeader, Section, Input, Dropdown, Button, Stepper, Avatar } from '@/components';
@@ -17,7 +18,7 @@ import {
   FALLBACK_BATCH_YEARS,
 } from '@/models/types';
 import { Colors } from '@/theme/theme';
-import { User, BookOpen, CheckCircle2 } from 'lucide-react-native';
+import { User, BookOpen, CheckCircle2, LogOut } from 'lucide-react-native';
 
 const STEPS = ['Data Pribadi', 'Akademik', 'Konfirmasi'];
 
@@ -147,6 +148,20 @@ export default function OnboardingScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert('Keluar Akun', 'Apakah Anda ingin keluar dan menggunakan akun Google lain?', [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Keluar',
+        style: 'destructive',
+        onPress: async () => {
+          await authService.logout();
+          router.replace('/login');
+        },
+      },
+    ]);
   };
 
   const selectedDeptLabel =
@@ -295,6 +310,13 @@ export default function OnboardingScreen() {
         title="Registrasi Profil"
         showBack={currentStep > 0}
         onBack={handleBack}
+        rightAction={
+          <View style={styles.logoutHeaderBtn}>
+            <LogOut size={16} color={Colors.error} strokeWidth={2.2} />
+            <Text style={styles.logoutHeaderText}>Keluar</Text>
+          </View>
+        }
+        onRightAction={handleSignOut}
       />
 
       <ScrollView
@@ -335,6 +357,16 @@ export default function OnboardingScreen() {
             />
           )}
         </View>
+
+        {/* Logout Link */}
+        <TouchableOpacity
+          style={styles.bottomSignOutLink}
+          onPress={handleSignOut}
+          activeOpacity={0.7}
+        >
+          <LogOut size={15} color={Colors.textTertiary} strokeWidth={2} />
+          <Text style={styles.bottomSignOutText}>Ganti Akun Google / Keluar</Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -428,5 +460,35 @@ const styles = StyleSheet.create({
   },
   buttonFull: {
     flex: 1,
+  },
+  logoutHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  logoutHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.error,
+  },
+  bottomSignOutLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 24,
+    paddingVertical: 10,
+  },
+  bottomSignOutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    textDecorationLine: 'underline',
   },
 });

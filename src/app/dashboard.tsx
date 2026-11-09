@@ -6,9 +6,11 @@ import {
   LoadingScreen,
   StatusBadge,
 } from '@/components';
-import type { ThesisSubmission, UserProfile } from '@/models/types';
+import type { ThesisSubmission, UserProfile, DepartmentItem } from '@/models/types';
+import { FALLBACK_DEPARTMENTS } from '@/models/types';
 import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
+import { academicService } from '@/services/academicService';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -21,7 +23,7 @@ import {
   FileText,
   GraduationCap,
   PlusCircle,
-  Sparkles,
+  ShieldCheck,
   UserCheck,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
@@ -40,6 +42,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
 
   // Function to load all dashboard data freshly from Appwrite
   const loadDashboardData = useCallback(async (isInitial = false) => {
@@ -54,9 +57,15 @@ export default function DashboardScreen() {
 
       setUser(profile);
 
-      // Fetch submissions with full hydrated details (options, advisor, logs, kaprodi approval date)
-      const subs = await submissionService.getStudentSubmissionsWithDetails(acct.$id);
+      // Fetch submissions and master departments simultaneously
+      const [subs, depts] = await Promise.all([
+        submissionService.getStudentSubmissionsWithDetails(acct.$id),
+        academicService.getDepartments(),
+      ]);
       setSubmissions(subs);
+      if (depts && depts.length > 0) {
+        setDepartments(depts);
+      }
     } catch {
       if (isInitial) {
         router.replace('/login');
@@ -103,9 +112,25 @@ export default function DashboardScreen() {
 
   if (loading) return <LoadingScreen message="Memuat dashboard..." />;
 
-  const formattedDept = user?.department
-    ? user.department.replace(/_/g, ' ').toUpperCase()
-    : 'MAHASISWA';
+  // Resolve full department name (not code)
+  const getDepartmentFullName = (deptCodeOrName?: string) => {
+    if (!deptCodeOrName) return 'Program Studi Mahasiswa';
+    const found = departments.find(
+      (d) =>
+        d.code.toLowerCase() === deptCodeOrName.toLowerCase() ||
+        d.name.toLowerCase() === deptCodeOrName.toLowerCase()
+    );
+    if (found) return found.name;
+    const fallback = FALLBACK_DEPARTMENTS.find(
+      (d) => d.value.toLowerCase() === deptCodeOrName.toLowerCase()
+    );
+    if (fallback) {
+      return fallback.label.split('(')[0].trim();
+    }
+    return deptCodeOrName.replace(/_/g, ' ');
+  };
+
+  const departmentFullName = getDepartmentFullName(user?.department);
 
   // Guard: Hide submission button if there is an active / non-rejected submission
   const activeSubmission = submissions.find((s) => s.status !== 'rejected' && s.status !== 'revision');
@@ -113,12 +138,12 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.flex}>
-      {/* Modern Curved Gradient Header with Google Avatar */}
+      {/* Formal Academic Header: Nama, NIM, Nama Lengkap Program Studi */}
       <HomeHeader
         userName={user?.name}
-        userSubtitle={`NIM: ${user?.nim_or_nip} · ${formattedDept}`}
+        userNim={user?.nim_or_nip}
+        userDepartmentName={departmentFullName}
         avatarUrl={user?.avatar_url}
-        greeting="Selamat Datang 👋"
         onProfilePress={() => router.push('/profile')}
         onSignOutPress={handleSignOut}
       />
@@ -173,49 +198,55 @@ export default function DashboardScreen() {
             ]}
             onPress={() => router.push(`/submission/${activeSubmission.$id}` as any)}
           >
-            {/* Top Row: Icon + Title + Status Badge */}
-            <View style={styles.activeCardTop}>
-              <View style={styles.activeIconCircle}>
+            {/* Top Bar: Category Pill & Status Badge */}
+            <View style={styles.activeTopMetaRow}>
+              <View style={styles.activeCategoryPill}>
                 {activeSubmission.status === 'approved' ? (
-                  <Award size={24} color="#059669" strokeWidth={2.4} />
+                  <Award size={15} color="#059669" strokeWidth={2.4} />
                 ) : activeSubmission.status === 'waiting_kaprodi' ? (
-                  <Sparkles size={22} color="#4F46E5" strokeWidth={2.4} />
+                  <ShieldCheck size={15} color="#0A4C8F" strokeWidth={2.4} />
                 ) : activeSubmission.status === 'revision' ? (
-                  <AlertTriangle size={22} color="#D97706" strokeWidth={2.4} />
+                  <AlertTriangle size={15} color="#D97706" strokeWidth={2.4} />
                 ) : (
-                  <Clock size={22} color={Colors.primary} strokeWidth={2.4} />
+                  <Clock size={15} color={Colors.primary} strokeWidth={2.4} />
                 )}
-              </View>
-
-              <View style={styles.activeHeaderTexts}>
-                <Text style={styles.activeCategoryLabel}>
+                <Text
+                  style={[
+                    styles.activeCategoryLabel,
+                    activeSubmission.status === 'approved' && { color: '#059669' },
+                    activeSubmission.status === 'waiting_kaprodi' && { color: '#0A4C8F' },
+                    activeSubmission.status === 'revision' && { color: '#D97706' },
+                  ]}
+                >
                   {activeSubmission.status === 'approved'
                     ? 'SK PENGESAHAN RESMI'
                     : activeSubmission.status === 'waiting_kaprodi'
-                    ? 'PROSES PENGESAHAN'
+                    ? 'PROSES PENGESAHAN KAPRODI'
                     : activeSubmission.status === 'revision'
-                    ? 'PERLU PERBAIKAN'
-                    : 'SEDANG DIPERIKSA'}
-                </Text>
-                <Text style={styles.activeMainHeading}>
-                  {activeSubmission.status === 'approved'
-                    ? 'Judul & Pembimbing Disahkan'
-                    : activeSubmission.status === 'waiting_kaprodi'
-                    ? 'Menunggu Pengesahan Kaprodi'
-                    : activeSubmission.status === 'revision'
-                    ? 'Revisi Usulan Judul'
-                    : 'Dalam Antrean Dosen Penilai'}
+                    ? 'PERLU PERBAIKAN / REVISI'
+                    : 'SEDANG DIPERIKSA REVIEWER'}
                 </Text>
               </View>
 
               <StatusBadge status={activeSubmission.status} size="sm" />
             </View>
 
-            {/* Middle Section: Display Chosen Title / Advisor / Approval Date */}
+            {/* Main Heading: Full width! */}
+            <Text style={styles.activeMainHeading}>
+              {activeSubmission.status === 'approved'
+                ? 'Judul & Dosen Pembimbing Resmi Disahkan'
+                : activeSubmission.status === 'waiting_kaprodi'
+                ? 'Menunggu Pengesahan Kaprodi'
+                : activeSubmission.status === 'revision'
+                ? 'Revisi Usulan Judul Skripsi'
+                : 'Dalam Antrean Review Dosen Penilai'}
+            </Text>
+
+            {/* Middle Section: Display Full Chosen Title (no truncation) */}
             {activeSubmission.selectedOption ? (
               <View style={styles.highlightChosenBox}>
                 <Text style={styles.highlightBoxLabel}>Judul Skripsi Terpilih:</Text>
-                <Text style={styles.highlightChosenTitle} numberOfLines={2}>
+                <Text style={styles.highlightChosenTitle}>
                   {activeSubmission.selectedOption.title}
                 </Text>
               </View>
@@ -323,8 +354,8 @@ export default function DashboardScreen() {
                   <StatusBadge status={sub.status} size="sm" />
                 </View>
 
-                {/* Title Highlight */}
-                <Text style={styles.cardThesisTitle} numberOfLines={2}>
+                {/* Title Highlight - Show Full Title */}
+                <Text style={styles.cardThesisTitle}>
                   {displayTitle}
                 </Text>
 
@@ -429,47 +460,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDF4',
   },
   cardWaitingKaprodi: {
-    borderColor: '#C7D2FE',
-    backgroundColor: '#F5F3FF',
+    borderColor: '#BAE6FD',
+    backgroundColor: '#F0F9FF',
   },
   cardRevision: {
     borderColor: '#FED7AA',
     backgroundColor: '#FFF7ED',
   },
-  activeCardTop: {
+  activeTopMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    width: '100%',
   },
-  activeIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+  activeCategoryPill: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  activeHeaderTexts: {
-    flex: 1,
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   activeCategoryLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.textTertiary,
+    color: Colors.textSecondary,
     letterSpacing: 0.6,
   },
   activeMainHeading: {
-    fontSize: 15,
+    fontSize: 16.5,
     fontWeight: '800',
     color: Colors.text,
     letterSpacing: -0.3,
-    marginTop: 1,
+    marginBottom: 12,
+    lineHeight: 23,
+    width: '100%',
   },
   highlightChosenBox: {
     backgroundColor: '#FFFFFF',
