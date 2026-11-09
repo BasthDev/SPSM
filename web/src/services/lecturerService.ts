@@ -34,6 +34,20 @@ export const lecturerService = {
     }
   },
 
+  async getLecturerByUserId(userId: string): Promise<Lecturer | null> {
+    try {
+      const res = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.lecturers,
+        [Query.equal('user_id', userId), Query.limit(1)]
+      );
+      return res.documents.length > 0 ? (res.documents[0] as unknown as Lecturer) : null;
+    } catch (err) {
+      console.error('Error getting lecturer by user_id:', err);
+      return null;
+    }
+  },
+
   async createLecturer(data: Omit<Lecturer, '$id'>): Promise<Lecturer> {
     const res = await databases.createDocument(
       APPWRITE_CONFIG.databaseId,
@@ -51,6 +65,31 @@ export const lecturerService = {
       id,
       data
     );
+
+    // If role changed and user_id or email exists, sync role to users collection
+    if (data.role && (res.user_id || res.email)) {
+      try {
+        const userQueries = res.user_id
+          ? [Query.equal('user_id', res.user_id)]
+          : [Query.equal('email', res.email)];
+        const userDocs = await databases.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.users,
+          userQueries
+        );
+        for (const u of userDocs.documents) {
+          await databases.updateDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collections.users,
+            u.$id,
+            { role: data.role }
+          );
+        }
+      } catch (err) {
+        console.warn('Sync role to users collection warning:', err);
+      }
+    }
+
     return res as unknown as Lecturer;
   },
 
@@ -63,16 +102,37 @@ export const lecturerService = {
     return true;
   },
 
-  async incrementStudentCount(id: string): Promise<void> {
+  /**
+   * Recalculates and synchronizes the active quota (current_students)
+   * for a lecturer based on actually approved thesis submissions.
+   */
+  async syncStudentCount(advisorId: string): Promise<number> {
+    if (!advisorId) return 0;
     try {
-      const lecturer = await this.getLecturerById(id);
-      if (lecturer) {
-        await this.updateLecturer(id, {
-          current_students: (lecturer.current_students || 0) + 1,
-        });
-      }
+      const res = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.thesisSubmissions,
+        [
+          Query.equal('advisor_id', advisorId),
+          Query.equal('status', 'approved'),
+          Query.limit(200),
+        ]
+      );
+      const count = res.total ?? res.documents.length;
+      await databases.updateDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.lecturers,
+        advisorId,
+        { current_students: count }
+      );
+      return count;
     } catch (err) {
-      console.error('Failed to increment student count:', err);
+      console.error('Failed to sync student count:', err);
+      return 0;
     }
+  },
+
+  async incrementStudentCount(id: string): Promise<void> {
+    await this.syncStudentCount(id);
   },
 };

@@ -9,11 +9,17 @@ import type {
 } from '../types';
 
 export const submissionService = {
-  async getAllSubmissions(statusFilter?: SubmissionStatus): Promise<ThesisSubmission[]> {
+  async getAllSubmissions(
+    statusFilter?: SubmissionStatus,
+    advisorIdFilter?: string
+  ): Promise<ThesisSubmission[]> {
     try {
       const queries = [Query.orderDesc('$createdAt'), Query.limit(100)];
       if (statusFilter) {
         queries.push(Query.equal('status', statusFilter));
+      }
+      if (advisorIdFilter && advisorIdFilter !== 'all') {
+        queries.push(Query.equal('advisor_id', advisorIdFilter));
       }
 
       const res = await databases.listDocuments(
@@ -162,9 +168,9 @@ export const submissionService = {
       }
     );
 
-    // 2. Increment advisor current_students
+    // 2. Automatically sync and increment advisor quota
     if (advisorId) {
-      await lecturerService.incrementStudentCount(advisorId);
+      await lecturerService.syncStudentCount(advisorId);
     }
 
     // 3. Add approval log
@@ -185,7 +191,8 @@ export const submissionService = {
   async rejectSubmission(
     submissionId: string,
     actorName: string,
-    notes: string
+    notes: string,
+    advisorId?: string
   ): Promise<void> {
     await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
@@ -195,6 +202,10 @@ export const submissionService = {
         status: 'rejected',
       }
     );
+
+    if (advisorId) {
+      await lecturerService.syncStudentCount(advisorId);
+    }
 
     await databases.createDocument(
       APPWRITE_CONFIG.databaseId,
@@ -213,7 +224,8 @@ export const submissionService = {
   async requestRevision(
     submissionId: string,
     actorName: string,
-    notes: string
+    notes: string,
+    advisorId?: string
   ): Promise<void> {
     await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
@@ -223,6 +235,10 @@ export const submissionService = {
         status: 'revision',
       }
     );
+
+    if (advisorId) {
+      await lecturerService.syncStudentCount(advisorId);
+    }
 
     await databases.createDocument(
       APPWRITE_CONFIG.databaseId,

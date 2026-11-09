@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { submissionService } from '../services/submissionService';
 import { StatusBadge } from '../components/StatusBadge';
+import { SubmissionDetailModal } from '../components/SubmissionDetailModal';
 import type { ThesisSubmission } from '../types';
 import {
   Award,
@@ -14,6 +15,7 @@ import {
   FileCheck,
   AlertCircle,
   MessageSquare,
+  Eye,
 } from 'lucide-react';
 
 interface Props {
@@ -24,6 +26,7 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedSub, setSelectedSub] = useState<ThesisSubmission | null>(null);
+  const [activeDossierSub, setActiveDossierSub] = useState<ThesisSubmission | null>(null);
   const [kaprodiNotes, setKaprodiNotes] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -246,13 +249,23 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                         <StatusBadge status={sub.status} size="sm" />
                       </td>
                       <td>
-                        <button
-                          onClick={() => handleOpenDetail(sub)}
-                          className="btn-sm btn-primary"
-                        >
-                          <span>Validasi</span>
-                          <ChevronRight size={14} />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setActiveDossierSub(sub)}
+                            className="btn-sm btn-secondary"
+                            title="Lihat Berkas Lengkap"
+                          >
+                            <Eye size={13} />
+                            <span>Berkas</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenDetail(sub)}
+                            className="btn-sm btn-primary"
+                          >
+                            <span>Validasi</span>
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -443,6 +456,12 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
           </div>
         </div>
       )}
+
+      {/* Formal Dossier Modal */}
+      <SubmissionDetailModal
+        submission={activeDossierSub}
+        onClose={() => setActiveDossierSub(null)}
+      />
     </div>
   );
 };

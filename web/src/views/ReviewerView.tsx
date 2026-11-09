@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { submissionService } from '../services/submissionService';
 import { lecturerService } from '../services/lecturerService';
 import { StatusBadge } from '../components/StatusBadge';
+import { SubmissionDetailModal } from '../components/SubmissionDetailModal';
 import type { ThesisSubmission, Lecturer, SubmissionStatus } from '../types';
 import {
   FileText,
@@ -15,6 +16,7 @@ import {
   Send,
   AlertTriangle,
   Info,
+  Eye,
 } from 'lucide-react';
 
 interface Props {
@@ -27,6 +29,7 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeFilter, setActiveFilter] = useState<string>('pending_lecturer');
   const [selectedSub, setSelectedSub] = useState<ThesisSubmission | null>(null);
+  const [activeDossierSub, setActiveDossierSub] = useState<ThesisSubmission | null>(null);
 
   // Review Form state
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
@@ -319,13 +322,23 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                         )}
                       </td>
                       <td>
-                        <button
-                          onClick={() => handleOpenReview(sub)}
-                          className="btn-sm btn-primary"
-                        >
-                          <span>Tinjau & Plot</span>
-                          <ChevronRight size={14} />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setActiveDossierSub(sub)}
+                            className="btn-sm btn-secondary"
+                            title="Lihat Berkas Lengkap"
+                          >
+                            <Eye size={13} />
+                            <span>Berkas</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenReview(sub)}
+                            className="btn-sm btn-primary"
+                          >
+                            <span>Tinjau</span>
+                            <ChevronRight size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -505,6 +518,12 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
           </div>
         </div>
       )}
+
+      {/* Formal Dossier Modal */}
+      <SubmissionDetailModal
+        submission={activeDossierSub}
+        onClose={() => setActiveDossierSub(null)}
+      />
     </div>
   );
 };

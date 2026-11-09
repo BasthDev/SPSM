@@ -16,6 +16,7 @@ export default function RootLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="dashboard" />
+      <Stack.Screen name="logout" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="profile" />
       <Stack.Screen name="submission" />
     </Stack>

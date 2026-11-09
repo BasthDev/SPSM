@@ -1,40 +1,81 @@
 import React from 'react';
 import type { UserRole } from '../types';
-import { GraduationCap, ShieldCheck, FileCheck, Award, UserCheck, Bell } from 'lucide-react';
+import {
+  GraduationCap,
+  ShieldCheck,
+  FileCheck,
+  Award,
+  UserCheck,
+  LogOut,
+  User,
+} from 'lucide-react';
 
 interface Props {
   currentRole: UserRole;
+  userRole: UserRole;
+  isAdmin: boolean;
   onRoleChange: (role: UserRole) => void;
   activeUserName: string;
+  activeUserEmail?: string;
+  onLogout: () => void;
 }
 
-export const Navbar: React.FC<Props> = ({ currentRole, onRoleChange, activeUserName }) => {
-  const roles: { id: UserRole; label: string; icon: React.ReactNode; color: string }[] = [
+export const Navbar: React.FC<Props> = ({
+  currentRole,
+  userRole,
+  isAdmin,
+  onRoleChange,
+  activeUserName,
+  activeUserEmail,
+  onLogout,
+}) => {
+  const allRoles: { id: UserRole; label: string; icon: React.ReactNode; color: string }[] = [
     {
       id: 'admin',
       label: 'Admin Portal',
-      icon: <ShieldCheck size={16} />,
+      icon: <ShieldCheck size={15} />,
       color: '#0A4C8F',
     },
     {
       id: 'reviewer',
       label: 'Dosen Reviewer',
-      icon: <FileCheck size={16} />,
+      icon: <FileCheck size={15} />,
       color: '#D97706',
     },
     {
       id: 'kaprodi',
       label: 'Kaprodi',
-      icon: <Award size={16} />,
+      icon: <Award size={15} />,
       color: '#059669',
     },
     {
       id: 'lecturer',
       label: 'Dosen Pembimbing',
-      icon: <UserCheck size={16} />,
+      icon: <UserCheck size={15} />,
       color: '#7C3AED',
     },
   ];
+
+  // If user is Admin, they can switch to any view.
+  // Otherwise, filter to only show their own role tab.
+  const visibleRoles = isAdmin
+    ? allRoles
+    : allRoles.filter((r) => r.id === userRole);
+
+  const getRoleDisplayName = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrator';
+      case 'reviewer':
+        return 'Dosen Penilai / Reviewer';
+      case 'kaprodi':
+        return 'Ketua Program Studi';
+      case 'lecturer':
+        return 'Dosen Pembimbing';
+      default:
+        return 'Pengguna';
+    }
+  };
 
   return (
     <header className="navbar">
@@ -45,53 +86,62 @@ export const Navbar: React.FC<Props> = ({ currentRole, onRoleChange, activeUserN
             <GraduationCap size={24} color="#FFFFFF" />
           </div>
           <div>
-            <div className="brand-title">SPSM Portal</div>
-            <div className="brand-subtitle">Dosen, Kaprodi & Admin</div>
+            <div className="brand-title">SPSM PORTAL</div>
+            <div className="brand-subtitle">Sarana Pengajuan Skripsi Mahasiswa</div>
           </div>
         </div>
 
-        {/* Role Selector Tabs */}
-        <div className="role-selector">
-          <span className="role-selector-label">Mode Peran:</span>
-          <div className="role-pills">
-            {roles.map((r) => {
-              const isActive = currentRole === r.id;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => onRoleChange(r.id)}
-                  className={`role-pill ${isActive ? 'active' : ''}`}
-                  style={{
-                    backgroundColor: isActive ? r.color : 'transparent',
-                    color: isActive ? '#FFFFFF' : '#475569',
-                    borderColor: isActive ? r.color : '#E2E8F0',
-                  }}
-                >
-                  {r.icon}
-                  <span>{r.label}</span>
-                </button>
-              );
-            })}
+        {/* Role Selector Tabs (Visible to Admin or Multi-role) */}
+        {visibleRoles.length > 1 ? (
+          <div className="role-selector">
+            <span className="role-selector-label">Navigasi Peran:</span>
+            <div className="role-pills">
+              {visibleRoles.map((r) => {
+                const isActive = currentRole === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => onRoleChange(r.id)}
+                    className={`role-pill ${isActive ? 'active' : ''}`}
+                    style={{
+                      backgroundColor: isActive ? r.color : 'transparent',
+                      color: isActive ? '#FFFFFF' : '#475569',
+                      borderColor: isActive ? r.color : '#E2E8F0',
+                    }}
+                  >
+                    {r.icon}
+                    <span>{r.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="single-role-indicator">
+            <span className="single-role-pill">
+              {allRoles.find((r) => r.id === currentRole)?.icon}
+              <span>{getRoleDisplayName(currentRole)}</span>
+            </span>
+          </div>
+        )}
 
-        {/* User Profile */}
+        {/* User Profile & Logout */}
         <div className="navbar-user">
           <div className="user-info">
             <span className="user-name">{activeUserName}</span>
-            <span className="user-role-badge">
-              {currentRole === 'admin'
-                ? 'Administrator'
-                : currentRole === 'reviewer'
-                ? 'Dosen Penilai'
-                : currentRole === 'kaprodi'
-                ? 'Ketua Program Studi'
-                : 'Dosen Pembimbing'}
-            </span>
+            <span className="user-role-badge">{getRoleDisplayName(userRole)}</span>
           </div>
-          <div className="user-avatar">
+          <div className="user-avatar" title={activeUserEmail || activeUserName}>
             {activeUserName.charAt(0).toUpperCase()}
           </div>
+          <button
+            onClick={onLogout}
+            className="btn-logout"
+            title="Keluar dari Akun"
+          >
+            <LogOut size={16} />
+            <span className="logout-text">Keluar</span>
+          </button>
         </div>
       </div>
     </header>
