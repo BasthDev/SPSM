@@ -316,6 +316,11 @@ export const AdvisorView: React.FC<Props> = ({
                         </td>
                         <td>
                           <StatusBadge status={sub.status} size="sm" />
+                          {sub.status === 'approved' && sub.nomor_surat && (
+                            <div className="mt-1 font-mono text-[10px] text-emerald-700 font-bold">
+                              {sub.nomor_surat}
+                            </div>
+                          )}
                         </td>
                         <td>
                           {fileUrl && fileUrl !== '#' ? (

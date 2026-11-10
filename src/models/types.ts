@@ -87,6 +87,9 @@ export interface ThesisSubmission {
   kaprodiName?: string | null;
   kaprodiNotes?: string | null;
   reviewerNotes?: string | null;
+  nomor_surat?: string | null;
+  urutan_surat?: string | null;
+  sk_generated_at?: string | null;
 }
 
 /** Individual title option within a submission */

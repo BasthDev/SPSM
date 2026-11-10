@@ -83,6 +83,9 @@ export interface ThesisSubmission {
   preferredAdvisor2?: Lecturer; // Pilihan awal mahasiswa #2
   options?: SubmissionOption[];
   logs?: ApprovalLog[];
+  nomor_surat?: string | null;
+  urutan_surat?: string | null;
+  sk_generated_at?: string | null;
 }
 
 export interface SystemSettings {

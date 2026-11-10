@@ -9,6 +9,48 @@ import type {
 } from '../types';
 
 /**
+ * Helper to extract 2-letter prodi code for Nomor Surat
+ */
+export function extractProdiCode(dept?: string): string {
+  if (!dept) return 'TI';
+  const clean = dept.trim().toUpperCase();
+  if (clean.includes('BISNIS DIGITAL') || clean.startsWith('BD')) return 'BD';
+  if (clean.includes('INFORMATIKA') || clean.startsWith('TI')) return 'TI';
+  if (clean.includes('SISTEM INFORMASI') || clean.startsWith('SI')) return 'SI';
+  if (clean.includes('ELEKTRO') || clean.startsWith('TE')) return 'TE';
+  if (clean.includes('MESIN') || clean.startsWith('TM')) return 'TM';
+  if (clean.includes('SIPIL') || clean.startsWith('TS')) return 'TS';
+  if (clean.includes('MANAJEMEN') || clean.startsWith('MN')) return 'MN';
+  if (clean.includes('AKUNTANSI') || clean.startsWith('AK')) return 'AK';
+  if (clean.length <= 4) return clean;
+  return clean.split(' ').map((w) => w[0]).join('').slice(0, 4) || 'TI';
+}
+
+/**
+ * Helper to extract 2-digit angkatan for Nomor Surat
+ */
+export function extractAngkatan(batchYear?: number | string): string {
+  if (!batchYear) return '23';
+  const str = String(batchYear).trim();
+  return str.length >= 2 ? str.slice(-2) : str.padStart(2, '0');
+}
+
+/**
+ * Helper to format official Nomor Surat: URUTAN/SPSM/PRODI/ANGKATAN/TAHUN
+ * Contoh: 01/SPSM/BD/23/2026
+ */
+export function formatNomorSurat(
+  urutanNum: number,
+  prodiCode: string,
+  angkatan: string,
+  year: number = new Date().getFullYear()
+): { nomor_surat: string; urutan: string } {
+  const urutan = String(urutanNum).padStart(2, '0');
+  const nomor_surat = `${urutan}/SPSM/${prodiCode}/${angkatan}/${year}`;
+  return { nomor_surat, urutan };
+}
+
+/**
  * Helper to parse embedded relevance table data from background text.
  */
 function parseOptionRelevance(opt: SubmissionOption): SubmissionOption {
@@ -135,6 +177,40 @@ export const submissionService = {
               }
             }
 
+            // Hydrate Nomor Surat & Urutan if approved
+            const kaprodiLog = sub.logs.find(
+              (l) => l.action === 'DISAHKAN_KAPRODI' || l.action?.toUpperCase().includes('KAPRODI')
+            );
+            if (kaprodiLog && kaprodiLog.notes) {
+              try {
+                if (kaprodiLog.notes.startsWith('{')) {
+                  const parsed = JSON.parse(kaprodiLog.notes);
+                  sub.nomor_surat = parsed.nomor_surat || null;
+                  sub.urutan_surat = parsed.urutan || null;
+                  sub.sk_generated_at = parsed.generated_at || kaprodiLog.created_at;
+                  if (parsed.text) {
+                    kaprodiLog.notes = parsed.text;
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }
+
+            // Fallback for approved submissions if not saved in log yet
+            if (sub.status === 'approved' && !sub.nomor_surat) {
+              const year = sub.$createdAt ? new Date(sub.$createdAt).getFullYear() : new Date().getFullYear();
+              const prodi = extractProdiCode(sub.student?.department);
+              const angkatan = extractAngkatan(sub.student?.batch_year);
+              const approvedList = submissions.filter((s) => s.status === 'approved');
+              const idx = approvedList.indexOf(sub);
+              const seq = idx >= 0 ? approvedList.length - idx : 1;
+              const { nomor_surat, urutan } = formatNomorSurat(seq, prodi, angkatan, year);
+              sub.nomor_surat = nomor_surat;
+              sub.urutan_surat = urutan;
+              sub.sk_generated_at = sub.$createdAt || new Date().toISOString();
+            }
+
             // Hydrate per-option revision/rejection notes if present
             const decisionLog = sub.logs.find(
               (l) => l.action === 'MINTA_REVISI' || l.action === 'DITOLAK'
@@ -259,7 +335,65 @@ export const submissionService = {
       await lecturerService.syncStudentCount(advisor2Id.trim());
     }
 
-    // 3. Add approval log
+    // 3. Generate Nomor Surat Otomatis: URUTAN/SPSM/PRODI/ANGKATAN/TAHUN
+    const currentYear = new Date().getFullYear();
+    let approvedCountThisYear = 0;
+    try {
+      const approvedRes = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.thesisSubmissions,
+        [Query.equal('status', 'approved'), Query.limit(100)]
+      );
+      approvedCountThisYear = approvedRes.documents.filter((doc) => {
+        const docYear = new Date(doc.$createdAt).getFullYear();
+        return docYear === currentYear;
+      }).length;
+    } catch {
+      approvedCountThisYear = 1;
+    }
+
+    // Determine prodi & angkatan from student user profile
+    let prodiCode = 'TI';
+    let angkatan = '23';
+    let studentId = '';
+    try {
+      const subDoc = await databases.getDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.thesisSubmissions,
+        submissionId
+      );
+      studentId = subDoc.student_id;
+      if (subDoc.student_id) {
+        const userRes = await databases.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.users,
+          [Query.equal('user_id', subDoc.student_id), Query.limit(1)]
+        );
+        if (userRes.documents.length > 0) {
+          const u = userRes.documents[0] as unknown as UserProfile;
+          prodiCode = extractProdiCode(u.department);
+          angkatan = extractAngkatan(u.batch_year);
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    const { nomor_surat, urutan } = formatNomorSurat(
+      approvedCountThisYear,
+      prodiCode,
+      angkatan,
+      currentYear
+    );
+
+    // 4. Add approval log with structured payload including nomor_surat
+    const logPayload = {
+      nomor_surat,
+      urutan,
+      text: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.',
+      generated_at: new Date().toISOString(),
+    };
+
     await databases.createDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.approvalLogs,
@@ -268,10 +402,31 @@ export const submissionService = {
         submission_id: submissionId,
         actor_id: kaprodiName,
         action: 'DISAHKAN_KAPRODI',
-        notes: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.',
+        notes: JSON.stringify(logPayload),
         created_at: new Date().toISOString(),
       }
     );
+
+    // 5. Relate to 'surat' table in database if available
+    try {
+      await databases.createDocument(
+        APPWRITE_CONFIG.databaseId,
+        'surat',
+        ID.unique(),
+        {
+          submission_id: submissionId,
+          student_id: studentId,
+          nomor_surat,
+          urutan,
+          prodi: prodiCode,
+          angkatan,
+          tahun: currentYear,
+          created_at: new Date().toISOString(),
+        }
+      );
+    } catch {
+      // Optional if surat collection doesn't exist yet in Appwrite
+    }
   },
 
   /**

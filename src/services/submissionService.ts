@@ -15,6 +15,48 @@ import {
 } from '@/models/types';
 
 /**
+ * Helper to extract 2-letter prodi code for Nomor Surat
+ */
+export function extractProdiCode(dept?: string): string {
+  if (!dept) return 'TI';
+  const clean = dept.trim().toUpperCase();
+  if (clean.includes('BISNIS DIGITAL') || clean.startsWith('BD')) return 'BD';
+  if (clean.includes('INFORMATIKA') || clean.startsWith('TI')) return 'TI';
+  if (clean.includes('SISTEM INFORMASI') || clean.startsWith('SI')) return 'SI';
+  if (clean.includes('ELEKTRO') || clean.startsWith('TE')) return 'TE';
+  if (clean.includes('MESIN') || clean.startsWith('TM')) return 'TM';
+  if (clean.includes('SIPIL') || clean.startsWith('TS')) return 'TS';
+  if (clean.includes('MANAJEMEN') || clean.startsWith('MN')) return 'MN';
+  if (clean.includes('AKUNTANSI') || clean.startsWith('AK')) return 'AK';
+  if (clean.length <= 4) return clean;
+  return clean.split(' ').map((w) => w[0]).join('').slice(0, 4) || 'TI';
+}
+
+/**
+ * Helper to extract 2-digit angkatan for Nomor Surat
+ */
+export function extractAngkatan(batchYear?: number | string): string {
+  if (!batchYear) return '23';
+  const str = String(batchYear).trim();
+  return str.length >= 2 ? str.slice(-2) : str.padStart(2, '0');
+}
+
+/**
+ * Helper to format official Nomor Surat: URUTAN/SPSM/PRODI/ANGKATAN/TAHUN
+ * Contoh: 01/SPSM/BD/23/2026
+ */
+export function formatNomorSurat(
+  urutanNum: number,
+  prodiCode: string,
+  angkatan: string,
+  year: number = new Date().getFullYear()
+): { nomor_surat: string; urutan: string } {
+  const urutan = String(urutanNum).padStart(2, '0');
+  const nomor_surat = `${urutan}/SPSM/${prodiCode}/${angkatan}/${year}`;
+  return { nomor_surat, urutan };
+}
+
+/**
  * Helper to parse embedded relevance table data from background text.
  */
 function parseOptionRelevance(opt: SubmissionOption): SubmissionOption {
@@ -102,6 +144,17 @@ export const submissionService = {
 
       // 3. Record student's 2 preferred advisors in an initial log
       if (preferredAdvisor1Id || preferredAdvisor2Id) {
+        let name1 = '';
+        let name2 = '';
+        if (preferredAdvisor1Id) {
+          const l1 = await this.getLecturer(preferredAdvisor1Id);
+          if (l1?.name) name1 = l1.name;
+        }
+        if (preferredAdvisor2Id) {
+          const l2 = await this.getLecturer(preferredAdvisor2Id);
+          if (l2?.name) name2 = l2.name;
+        }
+
         await databases.createDocument(
           DATABASE_ID,
           COLLECTION_APPROVAL_LOGS,
@@ -113,6 +166,8 @@ export const submissionService = {
             notes: JSON.stringify({
               pref1: preferredAdvisor1Id || null,
               pref2: preferredAdvisor2Id || null,
+              pref1_name: name1 || null,
+              pref2_name: name2 || null,
             }),
             created_at: new Date().toISOString(),
           }
@@ -193,6 +248,16 @@ export const submissionService = {
       );
       return doc as unknown as LecturerItem;
     } catch {
+      try {
+        const res = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_LECTURERS,
+          [Query.equal('user_id', advisorId), Query.limit(1)]
+        );
+        if (res.documents.length > 0) return res.documents[0] as unknown as LecturerItem;
+      } catch {
+        // ignore
+      }
       return null;
     }
   },
@@ -247,8 +312,16 @@ export const submissionService = {
     if (studentLog && studentLog.notes) {
       try {
         const parsed = JSON.parse(studentLog.notes);
-        if (parsed.pref1) sub.preferredAdvisor1 = await this.getLecturer(parsed.pref1);
-        if (parsed.pref2) sub.preferredAdvisor2 = await this.getLecturer(parsed.pref2);
+        if (parsed.pref1) {
+          sub.preferredAdvisor1 =
+            (await this.getLecturer(parsed.pref1)) ||
+            (parsed.pref1_name ? ({ name: parsed.pref1_name, $id: parsed.pref1 } as LecturerItem) : null);
+        }
+        if (parsed.pref2) {
+          sub.preferredAdvisor2 =
+            (await this.getLecturer(parsed.pref2)) ||
+            (parsed.pref2_name ? ({ name: parsed.pref2_name, $id: parsed.pref2 } as LecturerItem) : null);
+        }
       } catch {
         // ignore
       }
@@ -265,6 +338,28 @@ export const submissionService = {
       sub.kaprodiApprovalDate = kaprodiLog.created_at;
       sub.kaprodiName = kaprodiLog.actor_id;
       sub.kaprodiNotes = kaprodiLog.notes;
+
+      // Extract nomor_surat if available
+      if (kaprodiLog.notes && kaprodiLog.notes.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(kaprodiLog.notes);
+          sub.nomor_surat = parsed.nomor_surat || null;
+          sub.urutan_surat = parsed.urutan || null;
+          sub.sk_generated_at = parsed.generated_at || kaprodiLog.created_at;
+          if (parsed.text) sub.kaprodiNotes = parsed.text;
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    // Fallback nomor surat if approved
+    if (sub.status === 'approved' && !sub.nomor_surat) {
+      const year = sub.$createdAt ? new Date(sub.$createdAt).getFullYear() : new Date().getFullYear();
+      const { nomor_surat, urutan } = formatNomorSurat(1, 'TI', '23', year);
+      sub.nomor_surat = nomor_surat;
+      sub.urutan_surat = urutan;
+      sub.sk_generated_at = sub.kaprodiApprovalDate || sub.$createdAt || new Date().toISOString();
     }
 
     // Find Reviewer log
@@ -324,8 +419,16 @@ export const submissionService = {
           if (studentLog && studentLog.notes) {
             try {
               const parsed = JSON.parse(studentLog.notes);
-              if (parsed.pref1) sub.preferredAdvisor1 = await this.getLecturer(parsed.pref1);
-              if (parsed.pref2) sub.preferredAdvisor2 = await this.getLecturer(parsed.pref2);
+              if (parsed.pref1) {
+                sub.preferredAdvisor1 =
+                  (await this.getLecturer(parsed.pref1)) ||
+                  (parsed.pref1_name ? ({ name: parsed.pref1_name, $id: parsed.pref1 } as LecturerItem) : null);
+              }
+              if (parsed.pref2) {
+                sub.preferredAdvisor2 =
+                  (await this.getLecturer(parsed.pref2)) ||
+                  (parsed.pref2_name ? ({ name: parsed.pref2_name, $id: parsed.pref2 } as LecturerItem) : null);
+              }
             } catch {
               // ignore
             }
@@ -341,6 +444,26 @@ export const submissionService = {
             sub.kaprodiApprovalDate = kaprodiLog.created_at;
             sub.kaprodiName = kaprodiLog.actor_id;
             sub.kaprodiNotes = kaprodiLog.notes;
+
+            if (kaprodiLog.notes && kaprodiLog.notes.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(kaprodiLog.notes);
+                sub.nomor_surat = parsed.nomor_surat || null;
+                sub.urutan_surat = parsed.urutan || null;
+                sub.sk_generated_at = parsed.generated_at || kaprodiLog.created_at;
+                if (parsed.text) sub.kaprodiNotes = parsed.text;
+              } catch {
+                // ignore
+              }
+            }
+          }
+
+          if (sub.status === 'approved' && !sub.nomor_surat) {
+            const year = sub.$createdAt ? new Date(sub.$createdAt).getFullYear() : new Date().getFullYear();
+            const { nomor_surat, urutan } = formatNomorSurat(1, 'TI', '23', year);
+            sub.nomor_surat = nomor_surat;
+            sub.urutan_surat = urutan;
+            sub.sk_generated_at = sub.kaprodiApprovalDate || sub.$createdAt || new Date().toISOString();
           }
 
           // Parse per-title rejection/revision notes if available

@@ -88,6 +88,18 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
               </div>
             </div>
 
+            {submission.nomor_surat && (
+              <div className="dossier-meta-card" style={{ borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }}>
+                <div className="meta-card-label text-emerald-700">
+                  <Award size={13} />
+                  <span>Nomor SK Pengesahan</span>
+                </div>
+                <div className="meta-card-val font-mono font-bold text-emerald-800">
+                  {submission.nomor_surat} {submission.urutan_surat ? `(Urutan #${submission.urutan_surat})` : ''}
+                </div>
+              </div>
+            )}
+
             <div className="dossier-meta-card">
               <div className="meta-card-label">
                 <ShieldCheck size={13} />

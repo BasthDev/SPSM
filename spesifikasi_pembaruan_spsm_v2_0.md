@@ -97,3 +97,5 @@ contoh : 01/SPSM/BD/23/2026
 
 juga untuk NO. DOKUMEN: SPSM-6AF2DC410034D8AC2BDA
 di mobile detail/id dan di web ahrus menggunan 1 data yang sama
+
+lalu saat approve oleh kaprodi, maka nomor surat akan di generate otomatis, serta di simpan dalam database di tabel surat dengan relasi ke pengajuan user, jadi nanti sudah verid, di mobile mahasiswa akan muncul tombol download sk, nanti juga aku akan buatkan sk template yang akan di download oleh mahasiswa, untuk sekarang bisa kita simpan di adlam database sebagai file pdf/word

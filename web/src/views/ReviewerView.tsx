@@ -340,6 +340,11 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                       </td>
                       <td>
                         <StatusBadge status={sub.status} />
+                        {sub.status === 'approved' && sub.nomor_surat && (
+                          <div className="mt-1 font-mono text-[10px] text-emerald-700 font-bold">
+                            {sub.nomor_surat}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {sub.advisor ? (

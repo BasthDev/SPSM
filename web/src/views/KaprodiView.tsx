@@ -306,6 +306,11 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                       </td>
                       <td>
                         <StatusBadge status={sub.status} />
+                        {sub.status === 'approved' && sub.nomor_surat && (
+                          <div className="mt-1 font-mono text-[10px] text-emerald-700 font-bold">
+                            {sub.nomor_surat}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {sub.advisor ? (
@@ -335,9 +340,9 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                           </button>
                           <button
                             onClick={() => handleOpenDetail(sub)}
-                            className="btn-sm btn-primary"
+                            className={`btn-sm ${sub.status === 'approved' ? 'btn-outline-primary' : 'btn-primary'}`}
                           >
-                            <span>Validasi SK</span>
+                            <span>{sub.status === 'approved' ? 'Lihat SK' : 'Validasi SK'}</span>
                             <ChevronRight size={14} />
                           </button>
                         </div>
@@ -536,10 +541,17 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                   />
                 </div>
               ) : selectedSub.status === 'approved' ? (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
-                  <CheckCircle size={20} color="#059669" />
-                  <div className="text-xs text-emerald-800">
-                    <strong>Telah Resmi Disahkan:</strong> Surat Keputusan penetapan judul dan 2 Dosen Pembimbing telah diterbitkan.
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle size={20} color="#059669" />
+                    <div className="text-xs text-emerald-800">
+                      <strong>Telah Resmi Disahkan:</strong> Surat Keputusan penetapan judul dan 2 Dosen Pembimbing telah diterbitkan.
+                      {selectedSub.nomor_surat && (
+                        <div className="mt-1 font-mono font-bold text-emerald-950">
+                          Nomor SK: {selectedSub.nomor_surat} {selectedSub.urutan_surat ? `(Urutan #${selectedSub.urutan_surat})` : ''}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : selectedSub.status === 'rejected' ? (

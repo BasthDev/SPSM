@@ -3,7 +3,13 @@ import { lecturerService } from '../services/lecturerService';
 import { masterDataService } from '../services/masterDataService';
 import { settingsService } from '../services/settingsService';
 import { submissionService } from '../services/submissionService';
-import type { Lecturer, Department, BatchYear, SystemSettings } from '../types';
+import type { Lecturer, Department, BatchYear, SystemSettings, ThesisSubmission } from '../types';
+import {
+  BarChart3,
+  Clock,
+  TrendingUp,
+  FileText,
+} from 'lucide-react';
 import {
   Users,
   Building2,
@@ -24,7 +30,10 @@ import {
 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'lecturers' | 'departments' | 'batch_years' | 'settings'>('lecturers');
+  const [activeTab, setActiveTab] = useState<'lecturers' | 'departments' | 'batch_years' | 'settings' | 'reports'>('lecturers');
+  const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
+  const [reportSearch, setReportSearch] = useState<string>('');
+  const [reportDeptFilter, setReportDeptFilter] = useState<string>('all');
 
   const [settings, setSettings] = useState<SystemSettings>({
     is_active: true,
@@ -122,6 +131,19 @@ export const AdminView: React.FC = () => {
       showFeedback(`Gagal memuat data: ${err.message}`, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsLoading(true);
+    try {
+      await settingsService.updateSettings(settings);
+      showFeedback('Pengaturan masa pengajuan berhasil disimpan!', 'success');
+    } catch (err: any) {
+      showFeedback(`Gagal menyimpan pengaturan: ${err.message}`, 'error');
+    } finally {
+      setSettingsLoading(false);
     }
   };
 

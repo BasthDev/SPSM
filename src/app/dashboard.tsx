@@ -30,6 +30,7 @@ import {
 import { useCallback, useState } from 'react';
 import {
   Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -279,12 +280,36 @@ export default function DashboardScreen() {
                 : 'Dalam Antrean Review Dosen Penilai'}
             </Text>
 
-            {/* Middle Section: Display Full Chosen Title (no truncation) */}
-            {activeSubmission.selectedOption ? (
+            {/* Middle Section: Display 3 Proposed Titles if pending review, OR 1 Selected Title if reviewed */}
+            {activeSubmission.status === 'pending_lecturer' && activeSubmission.options && activeSubmission.options.length > 0 ? (
+              <View style={styles.dashboardThreeTitlesBox}>
+                <Text style={styles.dashboardThreeTitlesLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
+                {activeSubmission.options.map((opt) => (
+                  <View key={opt.$id} style={styles.dashboardOptionRow}>
+                    <View style={styles.dashboardOptionBadge}>
+                      <Text style={styles.dashboardOptionBadgeText}>#{opt.option_number}</Text>
+                    </View>
+                    <Text style={styles.dashboardOptionText} numberOfLines={2}>
+                      {opt.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : activeSubmission.selectedOption ? (
               <View style={styles.highlightChosenBox}>
                 <Text style={styles.highlightBoxLabel}>Judul Skripsi Terpilih:</Text>
                 <Text style={styles.highlightChosenTitle}>
                   {activeSubmission.selectedOption.title}
+                </Text>
+              </View>
+            ) : null}
+
+            {/* Nomor SK jika sudah disahkan */}
+            {activeSubmission.status === 'approved' && activeSubmission.nomor_surat ? (
+              <View style={styles.activeSkNumberRow}>
+                <Award size={14} color="#059669" strokeWidth={2.4} />
+                <Text style={styles.activeSkNumberText}>
+                  Nomor SK: {activeSubmission.nomor_surat}
                 </Text>
               </View>
             ) : null}
@@ -369,11 +394,6 @@ export default function DashboardScreen() {
               year: 'numeric',
             });
 
-            const displayTitle =
-              sub.selectedOption?.title ||
-              sub.options?.[0]?.title ||
-              'Usulan 3 Opsi Judul Skripsi';
-
             return (
               <Card
                 key={sub.$id}
@@ -391,10 +411,36 @@ export default function DashboardScreen() {
                   <StatusBadge status={sub.status} size="sm" />
                 </View>
 
-                {/* Title Highlight - Show Full Title */}
-                <Text style={styles.cardThesisTitle}>
-                  {displayTitle}
-                </Text>
+                {/* Title Highlight: Show 3 options if in progress (pending_lecturer), or 1 chosen title if reviewed/approved */}
+                {sub.status === 'pending_lecturer' && sub.options && sub.options.length > 1 ? (
+                  <View style={styles.listCardMultiBox}>
+                    <Text style={styles.listCardMultiLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
+                    {sub.options.map((opt) => (
+                      <View key={opt.$id} style={styles.listCardOptRow}>
+                        <View style={styles.listCardOptBadge}>
+                          <Text style={styles.listCardOptBadgeText}>#{opt.option_number}</Text>
+                        </View>
+                        <Text style={styles.listCardOptText} numberOfLines={2}>
+                          {opt.title}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={styles.cardThesisTitle}>
+                      {sub.selectedOption?.title || sub.options?.[0]?.title || 'Usulan 3 Opsi Judul Skripsi'}
+                    </Text>
+                    {sub.status === 'approved' && sub.nomor_surat && (
+                      <View style={styles.listCardSkRow}>
+                        <Award size={12} color="#059669" strokeWidth={2.4} />
+                        <Text style={styles.listCardSkText}>
+                          No. SK: {sub.nomor_surat}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.cardDivider} />
 
@@ -722,5 +768,122 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: Colors.primary,
+  },
+
+  // 3 Titles in Active Dashboard Card
+  dashboardThreeTitlesBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+    gap: 8,
+  },
+  dashboardThreeTitlesLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  dashboardOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  dashboardOptionBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 1,
+  },
+  dashboardOptionBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  dashboardOptionText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: Colors.text,
+    lineHeight: 17,
+  },
+  activeSkNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 10,
+  },
+  activeSkNumberText: {
+    fontSize: 12,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#065F46',
+  },
+
+  // 3 Titles in Riwayat List Card
+  listCardMultiBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 6,
+  },
+  listCardMultiLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  listCardOptRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  listCardOptBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 1,
+  },
+  listCardOptBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  listCardOptText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+    lineHeight: 16,
+  },
+  listCardSkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: -4,
+    marginBottom: 8,
+  },
+  listCardSkText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#059669',
   },
 });

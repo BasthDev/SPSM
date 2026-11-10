@@ -17,16 +17,21 @@ import {
   CheckCircle2,
   Clock,
   ExternalLink,
+  FileCheck,
   GraduationCap,
   MessageSquare,
+  Share2,
   TableProperties,
+  X,
   XCircle,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Linking,
+  Modal,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -38,6 +43,7 @@ export default function SubmissionDetailScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState<ThesisSubmission | null>(null);
+  const [showSkModal, setShowSkModal] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -85,7 +91,7 @@ export default function SubmissionDetailScreen() {
 
   const formattedSubmittedDate = new Date(submission.submitted_at).toLocaleDateString('id-ID', {
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -94,7 +100,7 @@ export default function SubmissionDetailScreen() {
   const formattedApprovalDate = submission.kaprodiApprovalDate
     ? new Date(submission.kaprodiApprovalDate).toLocaleDateString('id-ID', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
@@ -122,6 +128,70 @@ export default function SubmissionDetailScreen() {
     }
   };
 
+  const handleShareSk = async () => {
+    if (!submission) return;
+    const content = `SURAT KEPUTUSAN PENGESAHAN JUDUL & DOSEN PEMBIMBING SKRIPSI
+Nomor Surat: ${submission.nomor_surat || '-'}
+No. Dokumen: SPSM-${submission.$id.toUpperCase()}
+Urutan Pengesahan: ke-${submission.urutan_surat || '01'}
+
+Judul Skripsi Disahkan:
+"${selectedOption?.title || '-'}"
+
+Dosen Pembimbing 1 (Utama):
+${submission.advisor?.name || '-'} (NIP: ${submission.advisor?.nip || '-'})
+
+Dosen Pembimbing 2 (Pendamping):
+${submission.advisor2?.name || '-'} (NIP: ${submission.advisor2?.nip || '-'})
+
+Tanggal Pengesahan: ${formattedApprovalDate || '-'}
+Disahkan oleh Kaprodi: ${submission.kaprodiName || 'Ketua Program Studi'}
+Catatan Pengesahan: ${submission.kaprodiNotes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.'}
+
+Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
+
+    try {
+      await Share.share({
+        title: `SK Pengesahan Skripsi - ${submission.nomor_surat || submission.$id}`,
+        message: content,
+      });
+    } catch (err) {
+      console.warn('Share error:', err);
+    }
+  };
+
+  const formatLogNotes = (notes: string | null, action: string) => {
+    if (!notes) return '';
+    if (action === 'PENGAJUAN_MAHASISWA') {
+      try {
+        const parsed = JSON.parse(notes);
+        const name1 =
+          submission?.preferredAdvisor1?.name ||
+          parsed.pref1_name ||
+          (parsed.pref1 ? `Dosen ID: ${parsed.pref1}` : 'Tidak ditentukan');
+        const name2 =
+          submission?.preferredAdvisor2?.name ||
+          parsed.pref2_name ||
+          (parsed.pref2 ? `Dosen ID: ${parsed.pref2}` : 'Tidak ditentukan');
+        return `Usulan Calon Pembimbing:\n• Prioritas 1: ${name1}\n• Prioritas 2: ${name2}`;
+      } catch {
+        return notes;
+      }
+    }
+    if (notes.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(notes);
+        if (parsed.nomor_surat) {
+          return `Nomor SK: ${parsed.nomor_surat}\n${parsed.text || 'Disahkan oleh Kaprodi.'}`;
+        }
+        return parsed.text || parsed.notes || notes;
+      } catch {
+        return notes;
+      }
+    }
+    return notes;
+  };
+
   const statusLabel =
     submission.status === 'approved'
       ? 'Disahkan Kaprodi'
@@ -141,16 +211,20 @@ export default function SubmissionDetailScreen() {
         {/* HEADER CARD — Ringkasan Pengajuan */}
         <Section style={styles.headerCard}>
           <View style={styles.headerTopRow}>
-            <View style={styles.headerIconBox}>
-              <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
+            <View style={styles.headerLeftCol}>
+              <View style={styles.headerIconBox}>
+                <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
+              </View>
+              <View style={styles.headerTexts}>
+                <Text style={styles.headerTitle} numberOfLines={1}>Pengajuan Skripsi</Text>
+                <Text style={styles.headerId} numberOfLines={1} ellipsizeMode="middle">
+                  NO. DOKUMEN: SPSM-{submission.$id.toUpperCase()}
+                </Text>
+              </View>
             </View>
-            <View style={styles.headerTexts}>
-              <Text style={styles.headerTitle}>Pengajuan Skripsi</Text>
-              <Text style={styles.headerId}>
-                SPSM-{submission.$id.slice(-8).toUpperCase()}
-              </Text>
+            <View style={styles.headerBadgeWrap}>
+              <StatusBadge status={submission.status} size="sm" />
             </View>
-            <StatusBadge status={submission.status} />
           </View>
 
           <View style={styles.headerDivider} />
@@ -166,6 +240,46 @@ export default function SubmissionDetailScreen() {
             </View>
           </View>
         </Section>
+
+        {/* SK PENGESAHAN RESMI CARD (Spesifikasi v2.0) */}
+        {submission.status === 'approved' && (
+          <Section style={styles.skOfficialCard}>
+            <View style={styles.skOfficialTop}>
+              <View style={styles.skOfficialBadge}>
+                <Award size={15} color="#059669" strokeWidth={2.4} />
+                <Text style={styles.skOfficialBadgeText}>SK RESMI DISAHKAN</Text>
+              </View>
+              {submission.urutan_surat && (
+                <View style={styles.skUrutanBadge}>
+                  <Text style={styles.skUrutanBadgeText}>Urutan #{submission.urutan_surat}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.skNumberBox}>
+              <Text style={styles.skNumberLabel}>NOMOR SURAT KEPUTUSAN:</Text>
+              <Text style={styles.skNumberValue}>{submission.nomor_surat || '-'}</Text>
+            </View>
+
+            <View style={styles.skButtonRow}>
+              <TouchableOpacity
+                style={styles.skDownloadBtn}
+                onPress={() => setShowSkModal(true)}
+                activeOpacity={0.8}
+              >
+                <FileCheck size={16} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.skDownloadBtnText}>Unduh / Cetak Dokumen SK</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.skShareBtn}
+                onPress={handleShareSk}
+                activeOpacity={0.8}
+              >
+                <Share2 size={16} color={Colors.primary} strokeWidth={2.2} />
+              </TouchableOpacity>
+            </View>
+          </Section>
+        )}
 
         {/* 1. STATUS PROGRESS TRACKER */}
         <Section style={styles.trackerCard}>
@@ -726,13 +840,15 @@ export default function SubmissionDetailScreen() {
                         ? 'Pengesahan Resmi oleh Kaprodi'
                         : log.action === 'MINTA_REVISI'
                         ? 'Permintaan Revisi Judul'
+                        : log.action === 'PENGAJUAN_MAHASISWA'
+                        ? 'Usulan Pengajuan oleh Mahasiswa'
                         : log.action}
                     </Text>
 
                     {log.notes ? (
                       <View style={styles.logNotesBox}>
                         <Text style={styles.logNotesText}>
-                          &ldquo;{log.notes}&rdquo;
+                          {formatLogNotes(log.notes, log.action)}
                         </Text>
                       </View>
                     ) : null}
@@ -743,6 +859,138 @@ export default function SubmissionDetailScreen() {
           </Section>
         ) : null}
       </ScrollView>
+
+      {/* MODAL SK PENGESAHAN MAHASISWA */}
+      <Modal
+        visible={showSkModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowSkModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalHeaderTitle}>Lembar Keputusan Pengesahan</Text>
+                <Text style={styles.modalHeaderSubtitle}>Dokumen Resmi SK Pembimbing Skripsi</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSkModal(false)}
+                style={styles.modalCloseBtn}
+              >
+                <X size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Body / Official SK Sheet */}
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Kop Dokumen */}
+              <View style={styles.skDocHeader}>
+                <View style={styles.skDocLogo}>
+                  <GraduationCap size={28} color={Colors.primary} strokeWidth={2.4} />
+                </View>
+                <Text style={styles.skDocInstitution}>SISTEM PENGAJUAN SKRIPSI MAHASISWA (SPSM)</Text>
+                <Text style={styles.skDocTitle}>SURAT KEPUTUSAN PENGESAHAN</Text>
+                <Text style={styles.skDocSubtitle}>
+                  PENETAPAN JUDUL SKRIPSI DAN PENGANGKATAN DOSEN PEMBIMBING
+                </Text>
+                <View style={styles.skDocDoubleLine} />
+              </View>
+
+              {/* Nomor Surat & Tanggal */}
+              <View style={styles.skDocMetaRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.skDocMetaLabel}>NOMOR SURAT KEPUTUSAN</Text>
+                  <Text style={styles.skDocMetaValHighlight}>{submission.nomor_surat || '-'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.skDocMetaLabel}>URUTAN PENETAPAN</Text>
+                  <Text style={styles.skDocMetaVal}>ke-{submission.urutan_surat || '01'}</Text>
+                </View>
+              </View>
+
+              {/* Data Pengajuan */}
+              <View style={styles.skDocSection}>
+                <Text style={styles.skDocSectionTitle}>I. IDENTITAS PENGAJUAN</Text>
+                <View style={styles.skDocRow}>
+                  <Text style={styles.skDocColLabel}>No. Dokumen:</Text>
+                  <Text style={styles.skDocColValue}>SPSM-{submission.$id.toUpperCase()}</Text>
+                </View>
+                <View style={styles.skDocRow}>
+                  <Text style={styles.skDocColLabel}>Tanggal Pengajuan:</Text>
+                  <Text style={styles.skDocColValue}>{formattedSubmittedDate}</Text>
+                </View>
+                <View style={styles.skDocRow}>
+                  <Text style={styles.skDocColLabel}>Tanggal Pengesahan:</Text>
+                  <Text style={styles.skDocColValue}>{formattedApprovalDate || '-'}</Text>
+                </View>
+              </View>
+
+              {/* Judul Skripsi Terpilih */}
+              <View style={styles.skDocSection}>
+                <Text style={styles.skDocSectionTitle}>II. JUDUL SKRIPSI YANG DISAHKAN</Text>
+                <View style={styles.skDocTitleBox}>
+                  <Text style={styles.skDocChosenTitle}>
+                    &ldquo;{selectedOption?.title || 'Judul skripsi terpilih'}&rdquo;
+                  </Text>
+                </View>
+              </View>
+
+              {/* Tim Dosen Pembimbing */}
+              <View style={styles.skDocSection}>
+                <Text style={styles.skDocSectionTitle}>III. SUSUNAN DOSEN PEMBIMBING</Text>
+                <View style={styles.skDocAdvisorBox}>
+                  <Text style={styles.skDocAdvisorRole}>1. Dosen Pembimbing Utama (Pembimbing 1):</Text>
+                  <Text style={styles.skDocAdvisorName}>{submission.advisor?.name || '-'}</Text>
+                  <Text style={styles.skDocAdvisorNip}>NIP/NIDN: {submission.advisor?.nip || '-'}</Text>
+                </View>
+
+                {submission.advisor2 && (
+                  <View style={[styles.skDocAdvisorBox, { marginTop: 8 }]}>
+                    <Text style={styles.skDocAdvisorRole}>2. Dosen Pembimbing Pendamping (Pembimbing 2):</Text>
+                    <Text style={styles.skDocAdvisorName}>{submission.advisor2.name}</Text>
+                    <Text style={styles.skDocAdvisorNip}>NIP/NIDN: {submission.advisor2.nip || '-'}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Pengesahan Digital Kaprodi */}
+              <View style={styles.skDocSignSection}>
+                <Text style={styles.skDocSignCity}>Disahkan secara digital oleh:</Text>
+                <Text style={styles.skDocSignRole}>Ketua Program Studi</Text>
+                <View style={styles.skDocStampBox}>
+                  <CheckCircle2 size={16} color="#059669" strokeWidth={2.4} />
+                  <Text style={styles.skDocStampText}>DIGITALLY VERIFIED & APPROVED</Text>
+                </View>
+                <Text style={styles.skDocSignName}>{submission.kaprodiName || 'Ketua Program Studi'}</Text>
+                {formattedApprovalDate && (
+                  <Text style={styles.skDocSignDate}>{formattedApprovalDate}</Text>
+                )}
+              </View>
+            </ScrollView>
+
+            {/* Modal Footer */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalShareBtn}
+                onPress={handleShareSk}
+                activeOpacity={0.8}
+              >
+                <Share2 size={16} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.modalShareBtnText}>Bagikan / Simpan Ringkasan SK</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCloseActionBtn}
+                onPress={() => setShowSkModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalCloseActionText}>Tutup</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -775,34 +1023,50 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  headerLeftCol: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
   },
   headerIconBox: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 12,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   headerTexts: {
     flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14.5,
+    fontWeight: '800',
     color: Colors.text,
   },
   headerId: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: Colors.textTertiary,
+    color: Colors.textSecondary,
     fontWeight: '600',
     marginTop: 2,
+  },
+  headerBadgeWrap: {
+    flexShrink: 0,
+    alignItems: 'flex-end',
   },
   headerDivider: {
     height: 1,
@@ -1481,5 +1745,354 @@ const styles = StyleSheet.create({
     color: '#334155',
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+
+  // SK Official Card
+  skOfficialCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+  },
+  skOfficialTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  skOfficialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#D1FAE5',
+  },
+  skOfficialBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  skUrutanBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  skUrutanBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+  },
+  skNumberBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  skNumberLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  skNumberValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#065F46',
+  },
+  skButtonRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  skDownloadBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#059669',
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  skDownloadBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  skShareBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+
+  // Modal SK Pengesahan
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    maxHeight: '90%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  modalHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  modalHeaderSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  skDocHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  skDocLogo: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  skDocInstitution: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  skDocTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.text,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  skDocSubtitle: {
+    fontSize: 10,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+    maxWidth: 280,
+  },
+  skDocDoubleLine: {
+    width: '100%',
+    height: 3,
+    backgroundColor: Colors.text,
+    marginTop: 12,
+    borderRadius: 2,
+  },
+  skDocMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  skDocMetaLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  skDocMetaValHighlight: {
+    fontSize: 13,
+    fontWeight: '800',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#065F46',
+    marginTop: 2,
+  },
+  skDocMetaVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  skDocSection: {
+    marginBottom: 14,
+  },
+  skDocSectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Colors.textTertiary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  skDocRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  skDocColLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  skDocColValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  skDocTitleBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary,
+  },
+  skDocChosenTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primary,
+    lineHeight: 18,
+  },
+  skDocAdvisorBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  skDocAdvisorRole: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+  },
+  skDocAdvisorName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  skDocAdvisorNip: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  skDocSignSection: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  skDocSignCity: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+  },
+  skDocSignRole: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: 2,
+  },
+  skDocStampBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginVertical: 10,
+  },
+  skDocStampText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  skDocSignName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Colors.text,
+    textDecorationLine: 'underline',
+  },
+  skDocSignDate: {
+    fontSize: 10,
+    color: Colors.textTertiary,
+    marginTop: 2,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  modalShareBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  modalShareBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  modalCloseActionBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textSecondary,
   },
 });
