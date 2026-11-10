@@ -1,0 +1,27 @@
+tambah tabel relevasi di halaman create, tepat di bawah kolom referensi
+
+di halaman web reviewer, saat akan tolak, judul yang dipilih akan masuk ke data tole jadi contoh pesan:
+judul 1 : perlu revisi,
+
+
+jika dosen reviewe tekan tolak, makan ke 3 judul yang di tolak akan di piluh semua dan tampil do mobile app
+
+
+di web reviewer calon pembmibing ada 2, bukan 1,
+
+
+mahasisaw bisa pilih 2 pembimbing di halaan create
+
+reviewe punya akasee ganti kedua pembinging, begitu juga kaprodi walaupun sudah di set oleh reviewer
+
+
+admin bisa membuat sebuah date range untuk masa pengajuan, dapat di ubah / perpajnang oleh admin, app mobile mahasisaw akan ambil data ini dari database , jiak masa pembukaan belum aktif, makan merak belu bisa mengajukan,
+dan di admin nanti ada opsi ini minimal:
+status aktif/nonaktif
+masa pengajuan date - date,
+
+
+kemudia aku mau 1 fiturn dari backed dimana dia akan mentotal kan seururh penajuan yang masuk , nantinya utnuk total akan di ambil dari total penjauan dengan status verif dari reviewer, untuk status ditolak/revise akan di kelaurkan dari total pengajuan yang di inputkan oleh mahasiswa
+
+
+lalu mahasisa dnegan status revisi / tolak masi bisa melakukan pengajuan baru, walau di luar masa pengajuan.

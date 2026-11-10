@@ -21,7 +21,9 @@ export const academicService = {
         COLLECTION_DEPARTMENTS,
         [Query.equal('is_active', true), Query.limit(50)]
       );
-      return response.documents as unknown as DepartmentItem[];
+      return (response.documents as unknown as DepartmentItem[]).filter(
+        (d) => d.code !== 'SETTINGS_SYS'
+      );
     } catch (e: any) {
       console.warn('Failed to fetch departments from db, using fallback:', e.message);
       return [];

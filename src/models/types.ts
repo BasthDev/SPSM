@@ -76,7 +76,10 @@ export interface ThesisSubmission {
   $createdAt?: string;
   $updatedAt?: string;
   // Hydrated details
-  advisor?: LecturerItem | null;
+  advisor?: LecturerItem | null; // Pembimbing 1 (Utama)
+  advisor2?: LecturerItem | null; // Pembimbing 2 (Pendamping)
+  preferredAdvisor1?: LecturerItem | null; // Calon Pembimbing 1 pilihan mahasiswa
+  preferredAdvisor2?: LecturerItem | null; // Calon Pembimbing 2 pilihan mahasiswa
   options?: SubmissionOption[];
   logs?: ApprovalLog[];
   selectedOption?: SubmissionOption | null;
@@ -97,6 +100,12 @@ export interface SubmissionOption {
   journal_author: string;
   journal_file_id: string | null;
   is_selected_by_lecturer: boolean;
+  // Relevance Table parsed fields
+  relevance_variable?: string; // Variabel / Fokus Penelitian
+  relevance_methodology?: string; // Metodologi Jurnal
+  relevance_note?: string; // Kesesuaian / Relevansi dengan Topik Mahasiswa
+  // Title-specific revision/rejection notes from Reviewer
+  revision_note?: string;
 }
 
 /** Approval log entry */
@@ -117,6 +126,18 @@ export interface OptionFormData {
   journalTitle?: string;
   journalAuthor?: string;
   pdfFile?: any;
+  // Relevance Table fields
+  relevanceVariable?: string;
+  relevanceMethodology?: string;
+  relevanceNote?: string;
+}
+
+/** System Settings for submission period */
+export interface SystemSettings {
+  is_active: boolean;
+  start_date: string;
+  end_date: string;
+  academic_year: string;
 }
 
 /** Onboarding form data */

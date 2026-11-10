@@ -10,7 +10,9 @@ export const masterDataService = {
         APPWRITE_CONFIG.collections.departments,
         [Query.orderAsc('name'), Query.limit(100)]
       );
-      return res.documents as unknown as Department[];
+      return (res.documents as unknown as Department[]).filter(
+        (d) => d.code !== 'SETTINGS_SYS'
+      );
     } catch (err) {
       console.error('Error fetching departments:', err);
       return [];

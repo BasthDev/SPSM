@@ -3,7 +3,7 @@ import { submissionService } from '../services/submissionService';
 import { lecturerService } from '../services/lecturerService';
 import { StatusBadge } from '../components/StatusBadge';
 import { SubmissionDetailModal } from '../components/SubmissionDetailModal';
-import type { ThesisSubmission, Lecturer, SubmissionStatus } from '../types';
+import type { ThesisSubmission, Lecturer } from '../types';
 import {
   FileText,
   CheckCircle,
@@ -17,6 +17,8 @@ import {
   AlertTriangle,
   Info,
   Eye,
+  Award,
+  TableProperties,
 } from 'lucide-react';
 
 interface Props {
@@ -31,12 +33,23 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
   const [selectedSub, setSelectedSub] = useState<ThesisSubmission | null>(null);
   const [activeDossierSub, setActiveDossierSub] = useState<ThesisSubmission | null>(null);
 
-  // Review Form state
+  // Review Form state: 2 Advisors
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
-  const [selectedAdvisorId, setSelectedAdvisorId] = useState<string>('');
+  const [selectedAdvisor1Id, setSelectedAdvisor1Id] = useState<string>('');
+  const [selectedAdvisor2Id, setSelectedAdvisor2Id] = useState<string>('');
   const [reviewNotes, setReviewNotes] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Structured Rejection / Revision Modal state
+  const [rejectModal, setRejectModal] = useState<{
+    isOpen: boolean;
+    type: 'revision' | 'rejected';
+    noteOpt1: string;
+    noteOpt2: string;
+    noteOpt3: string;
+    generalNotes: string;
+  } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -65,22 +78,32 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
 
   const handleOpenReview = (sub: ThesisSubmission) => {
     setSelectedSub(sub);
-    // Find already selected option if any, else default to option 1
     const alreadySelected = sub.options?.find((o) => o.is_selected_by_lecturer);
     setSelectedOptionId(alreadySelected?.$id || sub.options?.[0]?.$id || '');
-    setSelectedAdvisorId(sub.advisor_id || '');
+
+    // Set advisors from existing assignment or fallback to student's preferred advisors
+    setSelectedAdvisor1Id(
+      sub.advisor?.$id || sub.preferredAdvisor1?.$id || lecturers[0]?.$id || ''
+    );
+    setSelectedAdvisor2Id(
+      sub.advisor2?.$id || sub.preferredAdvisor2?.$id || ''
+    );
     setReviewNotes('');
   };
 
-  // Submit review: Choose title & assign advisor, forward to Kaprodi
+  // Submit review: Choose title & assign BOTH advisors, forward to Kaprodi
   const handleSubmitForwardToKaprodi = async () => {
     if (!selectedSub) return;
     if (!selectedOptionId) {
       showFeedback('Pilih salah satu dari 3 opsi judul yang disetujui!', 'error');
       return;
     }
-    if (!selectedAdvisorId) {
-      showFeedback('Pilih Dosen Pembimbing untuk mahasiswa ini!', 'error');
+    if (!selectedAdvisor1Id) {
+      showFeedback('Pilih Dosen Pembimbing 1 (Utama) untuk mahasiswa ini!', 'error');
+      return;
+    }
+    if (selectedAdvisor1Id && selectedAdvisor2Id && selectedAdvisor1Id === selectedAdvisor2Id) {
+      showFeedback('Dosen Pembimbing 1 dan Dosen Pembimbing 2 tidak boleh orang yang sama!', 'error');
       return;
     }
 
@@ -89,11 +112,12 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
       await submissionService.reviewAndSelectTitle(
         selectedSub.$id,
         selectedOptionId,
-        selectedAdvisorId,
+        selectedAdvisor1Id,
+        selectedAdvisor2Id,
         reviewerName,
         reviewNotes
       );
-      showFeedback('Verifikasi berhasil! Pengajuan telah diteruskan ke Kaprodi untuk pengesahan final.');
+      showFeedback('Verifikasi berhasil! Judul terpilih dan 2 Dosen Pembimbing telah diteruskan ke Kaprodi.');
       setSelectedSub(null);
       loadData();
     } catch (err: any) {
@@ -103,18 +127,56 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
     }
   };
 
-  // Request revision
-  const handleRequestRevision = async () => {
+  // Open Structured Rejection or Revision Modal
+  const openDecisionModal = (type: 'revision' | 'rejected') => {
     if (!selectedSub) return;
-    if (!reviewNotes) {
-      showFeedback('Berikan catatan revisi agar mahasiswa tahu apa yang harus diperbaiki!', 'error');
+    setRejectModal({
+      isOpen: true,
+      type,
+      noteOpt1: '',
+      noteOpt2: '',
+      noteOpt3: '',
+      generalNotes: reviewNotes || '',
+    });
+  };
+
+  // Submit Structured Rejection or Revision
+  const handleConfirmDecision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSub || !rejectModal) return;
+
+    if (!rejectModal.noteOpt1 && !rejectModal.noteOpt2 && !rejectModal.noteOpt3) {
+      showFeedback('Harap berikan catatan minimal untuk salah satu opsi judul!', 'error');
       return;
     }
 
     setActionLoading(true);
     try {
-      await submissionService.requestRevision(selectedSub.$id, reviewerName, reviewNotes);
-      showFeedback('Status pengajuan berhasil diubah menjadi Perlu Revisi.');
+      if (rejectModal.type === 'revision') {
+        await submissionService.requestRevision(
+          selectedSub.$id,
+          reviewerName,
+          rejectModal.noteOpt1,
+          rejectModal.noteOpt2,
+          rejectModal.noteOpt3,
+          rejectModal.generalNotes,
+          selectedSub.advisor_id
+        );
+        showFeedback('Status pengajuan diubah menjadi Perlu Revisi. Ketiga opsi memuat catatan.');
+      } else {
+        await submissionService.rejectSubmission(
+          selectedSub.$id,
+          reviewerName,
+          rejectModal.noteOpt1,
+          rejectModal.noteOpt2,
+          rejectModal.noteOpt3,
+          rejectModal.generalNotes,
+          selectedSub.advisor_id
+        );
+        showFeedback('Pengajuan telah ditolak. Ketiga opsi ditandai ditolak dengan catatan.');
+      }
+
+      setRejectModal(null);
       setSelectedSub(null);
       loadData();
     } catch (err: any) {
@@ -124,205 +186,185 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
     }
   };
 
-  // Reject submission
-  const handleReject = async () => {
-    if (!selectedSub) return;
-    if (!reviewNotes) {
-      showFeedback('Berikan alasan penolakan pada kolom catatan!', 'error');
-      return;
-    }
-    if (!confirm('Apakah Anda yakin ingin menolak pengajuan ini? Mahasiswa akan dapat mengajukan ulang.')) {
-      return;
-    }
-
-    setActionLoading(true);
-    try {
-      await submissionService.rejectSubmission(selectedSub.$id, reviewerName, reviewNotes);
-      showFeedback('Pengajuan telah ditolak.');
-      setSelectedSub(null);
-      loadData();
-    } catch (err: any) {
-      showFeedback(`Gagal: ${err.message}`, 'error');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const filteredSubmissions = submissions.filter((s) => {
+  // Filter Submissions
+  const filteredSubmissions = submissions.filter((sub) => {
     if (activeFilter === 'all') return true;
-    return s.status === activeFilter;
+    return sub.status === activeFilter;
   });
 
+  // Calculate Metrics (Aggregating verified submissions)
+  const totalVerified = submissionService.calculateTotalVerified(submissions);
   const pendingCount = submissions.filter((s) => s.status === 'pending_lecturer').length;
   const waitingKaprodiCount = submissions.filter((s) => s.status === 'waiting_kaprodi').length;
   const approvedCount = submissions.filter((s) => s.status === 'approved').length;
+  const rejectedCount = submissions.filter((s) => s.status === 'rejected' || s.status === 'revision').length;
 
   return (
     <div className="reviewer-container">
       {/* Toast Feedback */}
       {feedback && (
         <div className={`feedback-toast ${feedback.type}`}>
-          {feedback.type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+          <AlertTriangle size={18} />
           <span>{feedback.message}</span>
         </div>
       )}
 
-      {/* Header & Stats */}
+      {/* Header */}
       <div className="section-header">
         <div>
-          <h1 className="page-title">Panel Reviewer Dosen Penilai</h1>
+          <h1 className="page-title">Panel Verifikasi Dosen Penilai (Reviewer)</h1>
           <p className="page-desc">
-            Tinjau 3 usulan judul mahasiswa, pilih 1 judul terbaik, dan tetapkan Dosen Pembimbing yang relevan.
+            Periksa kelayakan proposal 3 judul skripsi, telaah tabel relevansi penelitian, dan plot 2 Dosen Pembimbing.
           </p>
         </div>
       </div>
 
-      {/* Quick Stat Cards */}
-      <div className="stat-grid">
-        <div
-          className={`stat-card ${activeFilter === 'pending_lecturer' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('pending_lecturer')}
-        >
-          <div className="stat-icon warning">
+      {/* Metric Cards Bar */}
+      <div className="stat-metric-bar">
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#EFF6FF', color: '#0A4C8F' }}>
             <Clock size={20} />
           </div>
           <div>
-            <div className="stat-number">{pendingCount}</div>
-            <div className="stat-label">Menunggu Review Dosen</div>
+            <div className="metric-val">{pendingCount}</div>
+            <div className="metric-label">Perlu Diperiksa</div>
           </div>
         </div>
 
-        <div
-          className={`stat-card ${activeFilter === 'waiting_kaprodi' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('waiting_kaprodi')}
-        >
-          <div className="stat-icon info">
-            <Send size={20} />
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
+            <Award size={20} />
           </div>
           <div>
-            <div className="stat-number">{waitingKaprodiCount}</div>
-            <div className="stat-label">Menunggu Pengesahan Kaprodi</div>
+            <div className="metric-val">{totalVerified}</div>
+            <div className="metric-label">Pengajuan Sah / Terverifikasi</div>
           </div>
         </div>
 
-        <div
-          className={`stat-card ${activeFilter === 'approved' ? 'active' : ''}`}
-          onClick={() => setActiveFilter('approved')}
-        >
-          <div className="stat-icon success">
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#F0FDF4', color: '#16A34A' }}>
             <CheckCircle size={20} />
           </div>
           <div>
-            <div className="stat-number">{approvedCount}</div>
-            <div className="stat-label">Telah Disetujui</div>
+            <div className="metric-val">{approvedCount}</div>
+            <div className="metric-label">Disahkan Kaprodi</div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}>
+            <RotateCcw size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{rejectedCount}</div>
+            <div className="metric-label">Revisi / Ditolak</div>
           </div>
         </div>
       </div>
 
-      {/* Submissions List */}
-      <div className="card mt-6">
-        <div className="card-top-action">
-          <h3 className="card-subhead">Daftar Pengajuan Judul Mahasiswa</h3>
-          <div className="tab-pill-group">
-            <button
-              onClick={() => setActiveFilter('pending_lecturer')}
-              className={`tab-pill-btn ${activeFilter === 'pending_lecturer' ? 'active' : ''}`}
-            >
-              Menunggu Review ({pendingCount})
-            </button>
-            <button
-              onClick={() => setActiveFilter('waiting_kaprodi')}
-              className={`tab-pill-btn ${activeFilter === 'waiting_kaprodi' ? 'active' : ''}`}
-            >
-              Ke Kaprodi ({waitingKaprodiCount})
-            </button>
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`tab-pill-btn ${activeFilter === 'all' ? 'active' : ''}`}
-            >
-              Semua Pengajuan ({submissions.length})
-            </button>
-          </div>
-        </div>
+      {/* Filter Tabs */}
+      <div className="filter-pill-bar">
+        <button
+          onClick={() => setActiveFilter('pending_lecturer')}
+          className={`filter-pill ${activeFilter === 'pending_lecturer' ? 'active' : ''}`}
+        >
+          <span>Menunggu Review</span>
+          <span className="filter-pill-badge">{pendingCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveFilter('waiting_kaprodi')}
+          className={`filter-pill ${activeFilter === 'waiting_kaprodi' ? 'active' : ''}`}
+        >
+          <span>Diteruskan ke Kaprodi</span>
+          <span className="filter-pill-badge">{waitingKaprodiCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveFilter('approved')}
+          className={`filter-pill ${activeFilter === 'approved' ? 'active' : ''}`}
+        >
+          <span>Disahkan</span>
+          <span className="filter-pill-badge">{approvedCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveFilter('all')}
+          className={`filter-pill ${activeFilter === 'all' ? 'active' : ''}`}
+        >
+          <span>Semua Pengajuan</span>
+          <span className="filter-pill-badge">{submissions.length}</span>
+        </button>
+      </div>
 
+      {/* Submissions Table */}
+      <div className="table-card">
         <div className="table-wrapper">
           <table className="custom-table">
             <thead>
               <tr>
-                <th>Mahasiswa</th>
-                <th>Jurusan & Angkatan</th>
-                <th>Tanggal Pengajuan</th>
-                <th>Usulan Judul</th>
+                <th>Mahasiswa & NIM</th>
+                <th>Prodi & Letting</th>
+                <th>Usulan Judul & Opsi Terpilih</th>
                 <th>Status</th>
-                <th>Dosen Pembimbing</th>
-                <th>Aksi</th>
+                <th>Dosen Pembimbing Diplot</th>
+                <th style={{ textAlign: 'center' }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filteredSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-muted">
-                    Tidak ada pengajuan pada kategori ini.
+                  <td colSpan={6} className="text-center py-8 text-muted">
+                    {loading ? 'Memuat data pengajuan...' : 'Tidak ada pengajuan pada kategori ini.'}
                   </td>
                 </tr>
               ) : (
                 filteredSubmissions.map((sub) => {
-                  const student = sub.student;
-                  const chosenOption = sub.options?.find((o) => o.is_selected_by_lecturer);
+                  const selectedOpt =
+                    sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
+
                   return (
                     <tr key={sub.$id}>
                       <td>
-                        <div className="font-semibold text-slate-800">
-                          {student?.name || 'Mahasiswa'}
+                        <div className="font-bold text-slate-800">{sub.student?.name || 'Mahasiswa'}</div>
+                        <div className="text-xs text-muted font-mono">{sub.student?.nim_or_nip}</div>
+                      </td>
+                      <td>
+                        <span className="dept-badge">{sub.student?.department || 'TI'}</span>
+                        <div className="text-xs text-muted mt-1">Letting {sub.student?.batch_year || 2026}</div>
+                      </td>
+                      <td>
+                        <div className="font-semibold text-slate-800 max-w-md line-clamp-2">
+                          {selectedOpt?.title || '(Belum ada judul)'}
                         </div>
-                        <div className="text-xs text-muted font-mono">
-                          NIM: {student?.nim_or_nip || sub.student_id}
+                        <div className="text-xs text-muted mt-1">
+                          {sub.options?.length || 0} opsi usulan judul diajukan
                         </div>
                       </td>
                       <td>
-                        <div>{student?.department || '-'}</div>
-                        <div className="text-xs text-muted">{student?.batch_year || '-'}</div>
-                      </td>
-                      <td className="text-xs text-slate-500 font-mono">
-                        {new Date(
-                          sub.submitted_at || sub.$createdAt || Date.now()
-                        ).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="max-w-md">
-                        {chosenOption ? (
-                          <div className="text-xs">
-                            <span className="badge badge-success-outline mr-1">
-                              Opsi {chosenOption.option_number}
-                            </span>
-                            <span className="font-medium text-slate-800">{chosenOption.title}</span>
-                          </div>
-                        ) : (
-                          <div className="text-xs text-muted">
-                            3 opsi judul diajukan:
-                            <div className="truncate font-medium text-slate-700">
-                              1. {sub.options?.[0]?.title || '-'}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <StatusBadge status={sub.status} size="sm" />
+                        <StatusBadge status={sub.status} />
                       </td>
                       <td>
                         {sub.advisor ? (
-                          <div className="text-xs font-medium text-slate-800">
-                            {sub.advisor.name}
+                          <div className="advisor-info-stack">
+                            <div className="text-xs font-bold text-slate-800">
+                              1. {sub.advisor.name}
+                            </div>
+                            {sub.advisor2 && (
+                              <div className="text-xs font-semibold text-slate-600">
+                                2. {sub.advisor2.name}
+                              </div>
+                            )}
+                          </div>
+                        ) : sub.preferredAdvisor1 || sub.preferredAdvisor2 ? (
+                          <div className="text-xs text-blue-700 font-medium">
+                            <span>Usulan Mhs:</span>
+                            <div>1. {sub.preferredAdvisor1?.name || '-'}</div>
+                            {sub.preferredAdvisor2 && <div>2. {sub.preferredAdvisor2.name}</div>}
                           </div>
                         ) : (
                           <span className="text-xs text-muted italic">Belum diplot</span>
                         )}
                       </td>
                       <td>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 justify-center">
                           <button
                             onClick={() => setActiveDossierSub(sub)}
                             className="btn-sm btn-secondary"
@@ -349,7 +391,7 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
         </div>
       </div>
 
-      {/* MODAL TINJAU & PLOTTING DOSEN */}
+      {/* MODAL TINJAU & PLOTTING DUA DOSEN */}
       {selectedSub && (
         <div className="modal-backdrop">
           <div className="modal-card modal-large">
@@ -367,7 +409,25 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
             </div>
 
             <div className="modal-body">
-              {/* Option Cards Comparison */}
+              {/* Usulan Dosen Pembimbing oleh Mahasiswa */}
+              {(selectedSub.preferredAdvisor1 || selectedSub.preferredAdvisor2) && (
+                <div className="p-3.5 mb-4 rounded-xl bg-blue-50 border border-blue-200 text-xs">
+                  <div className="font-bold text-blue-900 mb-1 flex items-center gap-1.5">
+                    <Info size={14} />
+                    <span>Referensi Calon Dosen Pembimbing Pilihan Mahasiswa:</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-blue-800">
+                    <div>
+                      <strong>Prioritas 1:</strong> {selectedSub.preferredAdvisor1?.name || '(Tidak memilih)'}
+                    </div>
+                    <div>
+                      <strong>Prioritas 2:</strong> {selectedSub.preferredAdvisor2?.name || '(Tidak memilih)'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Option Cards Comparison with Tabel Relevansi */}
               <div className="title-options-review-grid">
                 {selectedSub.options?.map((opt) => {
                   const isChecked = selectedOptionId === opt.$id;
@@ -398,21 +458,51 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                         <p className="option-text">{opt.background}</p>
                       </div>
 
-                      <div className="option-section">
-                        <span className="option-label">Jurnal Acuan:</span>
-                        <p className="option-journal">
-                          <strong>{opt.journal_title}</strong>
-                          <br />
-                          <span className="text-muted">Penulis: {opt.journal_author}</span>
-                        </p>
-                      </div>
+                      {/* Tabel Relevansi Penelitian (Spesifikasi v2.0) */}
+                      {(opt.relevance_variable || opt.relevance_methodology || opt.relevance_note) && (
+                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 mt-2 text-xs">
+                          <div className="font-bold text-primary mb-1.5 flex items-center gap-1">
+                            <TableProperties size={13} />
+                            <span>Tabel Relevansi Penelitian:</span>
+                          </div>
+                          {opt.relevance_variable && (
+                            <div className="mb-1">
+                              <span className="text-muted font-semibold">Variabel/Fokus:</span>{' '}
+                              <span className="text-slate-800">{opt.relevance_variable}</span>
+                            </div>
+                          )}
+                          {opt.relevance_methodology && (
+                            <div className="mb-1">
+                              <span className="text-muted font-semibold">Metodologi:</span>{' '}
+                              <span className="text-slate-800">{opt.relevance_methodology}</span>
+                            </div>
+                          )}
+                          {opt.relevance_note && (
+                            <div>
+                              <span className="text-muted font-semibold">Kesesuaian:</span>{' '}
+                              <span className="text-slate-800">{opt.relevance_note}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {opt.journal_title ? (
+                        <div className="option-section mt-2">
+                          <span className="option-label">Jurnal Acuan:</span>
+                          <p className="option-journal">
+                            <strong>{opt.journal_title}</strong>
+                            <br />
+                            <span className="text-muted">Penulis: {opt.journal_author}</span>
+                          </p>
+                        </div>
+                      ) : null}
 
                       {fileUrl && fileUrl !== '#' && (
                         <a
                           href={fileUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="file-link-btn"
+                          className="file-link-btn mt-2"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <ExternalLink size={14} />
@@ -431,124 +521,247 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                 })}
               </div>
 
-              {/* Plotting Dosen Pembimbing */}
+              {/* Plotting Dua Dosen Pembimbing (Spesifikasi v2.0) */}
               <div className="review-action-section">
                 <h4 className="section-subtitle">
                   <User size={16} />
-                  <span>Plotting Dosen Pembimbing</span>
+                  <span>Plotting Dua Dosen Pembimbing (Pembimbing 1 & Pembimbing 2)</span>
                 </h4>
-                <p className="text-xs text-muted mb-2">
-                  Pilih Dosen Pembimbing yang memiliki keahlian sesuai dengan judul yang dipilih. Perhatikan kuota bimbingan masing-masing dosen.
+                <p className="text-xs text-muted mb-3">
+                  Tentukan 2 Dosen Pembimbing yang memiliki bidang keahlian relevan untuk mendampingi mahasiswa.
                 </p>
 
-                <div className="form-group">
-                  <label>Pilih Dosen Pembimbing *</label>
-                  <select
-                    value={selectedAdvisorId}
-                    onChange={(e) => setSelectedAdvisorId(e.target.value)}
-                    className="select-advisor"
-                  >
-                    <option value="">-- Pilih Dosen Pembimbing --</option>
-                    {lecturers
-                      .filter((l) => l.is_active)
-                      .map((lec) => {
-                        const remaining = (lec.quota || 10) - (lec.current_students || 0);
-                        const isFull = remaining <= 0;
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Pembimbing 1 */}
+                  <div className="form-group">
+                    <label className="text-xs font-bold text-slate-700 uppercase">
+                      Dosen Pembimbing 1 (Utama) *
+                    </label>
+                    <select
+                      value={selectedAdvisor1Id}
+                      onChange={(e) => setSelectedAdvisor1Id(e.target.value)}
+                      className="select-advisor"
+                    >
+                      <option value="">-- Pilih Pembimbing 1 --</option>
+                      {lecturers.map((lec) => {
+                        const remaining = Math.max(0, (lec.quota || 10) - (lec.current_students || 0));
                         return (
-                          <option key={lec.$id} value={lec.$id} disabled={isFull}>
-                            {lec.name} [{lec.department_id}] - Keahlian: {lec.expertise || 'Umum'} (Sisa Kuota: {remaining} mhs){isFull ? ' - [KUOTA PENUH]' : ''}
+                          <option key={lec.$id} value={lec.$id}>
+                            {lec.name} (Sisa Kuota: {remaining}) - {lec.expertise}
                           </option>
                         );
                       })}
-                  </select>
+                    </select>
+                  </div>
+
+                  {/* Pembimbing 2 */}
+                  <div className="form-group">
+                    <label className="text-xs font-bold text-slate-700 uppercase">
+                      Dosen Pembimbing 2 (Pendamping)
+                    </label>
+                    <select
+                      value={selectedAdvisor2Id}
+                      onChange={(e) => setSelectedAdvisor2Id(e.target.value)}
+                      className="select-advisor"
+                    >
+                      <option value="">-- Pilih Pembimbing 2 (Opsional) --</option>
+                      {lecturers
+                        .filter((l) => l.$id !== selectedAdvisor1Id)
+                        .map((lec) => {
+                          const remaining = Math.max(0, (lec.quota || 10) - (lec.current_students || 0));
+                          return (
+                            <option key={lec.$id} value={lec.$id}>
+                              {lec.name} (Sisa Kuota: {remaining}) - {lec.expertise}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="form-group">
-                  <label>Catatan Reviewer / Alasan Pemilihan Judul & Dosen</label>
+                  <label className="text-xs font-bold text-slate-700 uppercase">
+                    Catatan Verifikasi & Rekomendasi
+                  </label>
                   <textarea
-                    rows={3}
-                    disabled={selectedSub.status !== 'pending_lecturer'}
-                    placeholder="Contoh: Judul 2 dipilih karena urgensi dan ketersediaan data yang valid. Calon pembimbing Dr. Ahmad sangat kompeten di bidang Machine Learning."
+                    rows={2}
+                    placeholder="Tuliskan catatan kelayakan judul dan arahan awal untuk mahasiswa..."
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
+                    className="form-control"
                   />
                 </div>
-
-                {selectedSub.status !== 'pending_lecturer' && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
-                    <Info size={18} color="#0A4C8F" />
-                    <div className="text-xs text-blue-900">
-                      <strong>Tahap Penilaian Selesai:</strong> Pengajuan ini telah diproses oleh Reviewer dengan status{' '}
-                      <span className="font-semibold text-primary">{selectedSub.status}</span>. Tindakan pengubahan dinonaktifkan.
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
-            <div className="modal-footer justify-between">
-              {selectedSub.status === 'pending_lecturer' ? (
-                <>
-                  <div className="footer-left-buttons">
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={handleRequestRevision}
-                      className="btn btn-warning"
-                    >
-                      <RotateCcw size={16} />
-                      <span>Minta Revisi</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={handleReject}
-                      className="btn btn-danger-outline"
-                    >
-                      Tolak Pengajuan
-                    </button>
-                  </div>
+            <div className="modal-footer">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openDecisionModal('revision')}
+                  disabled={actionLoading}
+                  className="btn-outline-warning flex items-center gap-1.5"
+                >
+                  <RotateCcw size={14} />
+                  <span>Minta Revisi (3 Judul)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openDecisionModal('rejected')}
+                  disabled={actionLoading}
+                  className="btn-outline-danger flex items-center gap-1.5"
+                >
+                  <X size={14} />
+                  <span>Tolak Pengajuan</span>
+                </button>
+              </div>
 
-                  <div className="footer-right-buttons">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSub(null)}
-                      className="btn btn-secondary"
-                    >
-                      Tutup
-                    </button>
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={handleSubmitForwardToKaprodi}
-                      className="btn btn-primary"
-                    >
-                      <Send size={16} />
-                      <span>{actionLoading ? 'Menyimpan...' : 'Teruskan ke Kaprodi'}</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedSub(null)}
-                    className="btn btn-primary"
-                  >
-                    Tutup Lembar Penilaian
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSub(null)}
+                  className="btn-secondary"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitForwardToKaprodi}
+                  disabled={actionLoading || !selectedOptionId || !selectedAdvisor1Id}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Send size={15} />
+                  <span>{actionLoading ? 'Memproses...' : 'Setujui & Teruskan ke Kaprodi'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Formal Dossier Modal */}
-      <SubmissionDetailModal
-        submission={activeDossierSub}
-        onClose={() => setActiveDossierSub(null)}
-      />
+      {/* MODAL PENOLAKAN / REVISI TERSTRUKTUR 3 JUDUL (Spesifikasi v2.0 Section 3.B) */}
+      {rejectModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3 className="modal-title flex items-center gap-2">
+                <AlertTriangle
+                  size={18}
+                  className={rejectModal.type === 'revision' ? 'text-amber-600' : 'text-red-600'}
+                />
+                <span>
+                  {rejectModal.type === 'revision'
+                    ? 'Catatan Revisi Terstruktur (3 Opsi Judul)'
+                    : 'Catatan Penolakan Terstruktur (3 Opsi Judul)'}
+                </span>
+              </h3>
+              <button onClick={() => setRejectModal(null)} className="btn-close">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmDecision}>
+              <div className="modal-body space-y-4">
+                <div
+                  className={`p-3 rounded-lg text-xs leading-relaxed ${
+                    rejectModal.type === 'revision'
+                      ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                      : 'bg-red-50 text-red-900 border border-red-200'
+                  }`}
+                >
+                  {rejectModal.type === 'revision'
+                    ? 'Ketiga opsi judul akan ditandai perlu perbaikan. Masukkan catatan evaluasi untuk setiap judul agar mahasiswa dapat melakukan revisi secara transparan.'
+                    : 'Pengajuan akan ditolak dan ketiga opsi judul akan ditandai ditolak. Mahasiswa tetap dapat membuat pengajuan baru pasca penolakan.'}
+                </div>
+
+                {/* Catatan Judul 1 */}
+                <div className="form-group">
+                  <label className="text-xs font-bold text-slate-700">
+                    Catatan untuk Judul #1: &ldquo;{selectedSub?.options?.[0]?.title || 'Opsi 1'}&rdquo; *
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Contoh: Perlu revisi pada rumusan masalah dan batasan variabel..."
+                    value={rejectModal.noteOpt1}
+                    onChange={(e) => setRejectModal({ ...rejectModal, noteOpt1: e.target.value })}
+                    className="form-control text-xs"
+                  />
+                </div>
+
+                {/* Catatan Judul 2 */}
+                <div className="form-group">
+                  <label className="text-xs font-bold text-slate-700">
+                    Catatan untuk Judul #2: &ldquo;{selectedSub?.options?.[1]?.title || 'Opsi 2'}&rdquo; *
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Contoh: Topik sudah pernah diteliti pada tahun 2024, silakan ganti studi kasus..."
+                    value={rejectModal.noteOpt2}
+                    onChange={(e) => setRejectModal({ ...rejectModal, noteOpt2: e.target.value })}
+                    className="form-control text-xs"
+                  />
+                </div>
+
+                {/* Catatan Judul 3 */}
+                <div className="form-group">
+                  <label className="text-xs font-bold text-slate-700">
+                    Catatan untuk Judul #3: &ldquo;{selectedSub?.options?.[2]?.title || 'Opsi 3'}&rdquo; *
+                  </label>
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Contoh: Metodologi kurang relevan dengan bidang keahlian prodi..."
+                    value={rejectModal.noteOpt3}
+                    onChange={(e) => setRejectModal({ ...rejectModal, noteOpt3: e.target.value })}
+                    className="form-control text-xs"
+                  />
+                </div>
+
+                {/* Catatan Tambahan */}
+                <div className="form-group">
+                  <label className="text-xs font-bold text-slate-700">Catatan Tambahan (Opsional)</label>
+                  <input
+                    type="text"
+                    placeholder="Instruksi umum untuk mahasiswa..."
+                    value={rejectModal.generalNotes}
+                    onChange={(e) => setRejectModal({ ...rejectModal, generalNotes: e.target.value })}
+                    className="form-control text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button type="button" onClick={() => setRejectModal(null)} className="btn-secondary">
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className={`btn-sm px-5 py-2 font-bold ${
+                    rejectModal.type === 'revision' ? 'btn-warning' : 'btn-danger'
+                  }`}
+                >
+                  {actionLoading
+                    ? 'Menyimpan...'
+                    : rejectModal.type === 'revision'
+                    ? 'Kirimkan Catatan Revisi'
+                    : 'Konfirmasi Penolakan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Berkas Lengkap Dossier */}
+      {activeDossierSub && (
+        <SubmissionDetailModal
+          submission={activeDossierSub}
+          onClose={() => setActiveDossierSub(null)}
+        />
+      )}
     </div>
   );
 };

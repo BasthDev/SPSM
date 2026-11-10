@@ -13,10 +13,9 @@ import {
   Award,
   ExternalLink,
   CheckCircle2,
-  Clock,
-  Printer,
   ShieldCheck,
-  FileCheck,
+  TableProperties,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface Props {
@@ -26,10 +25,6 @@ interface Props {
 
 export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) => {
   if (!submission) return null;
-
-  const selectedOption =
-    submission.options?.find((o) => o.is_selected_by_lecturer) ||
-    submission.options?.[0];
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return '-';
@@ -45,10 +40,6 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
     } catch {
       return isoString;
     }
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   return (
@@ -143,13 +134,26 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
               </div>
               <div>
                 <span className="profile-info-label">Dosen Pembimbing Ditetapkan:</span>
-                <span className="profile-info-value text-primary font-semibold">
-                  {submission.advisor?.name ? (
-                    `${submission.advisor.name} (NIP: ${submission.advisor.nip})`
+                <div className="profile-info-value text-primary font-semibold">
+                  {submission.advisor ? (
+                    <div>
+                      <div>1. {submission.advisor.name} (NIP: {submission.advisor.nip})</div>
+                      {submission.advisor2 && (
+                        <div className="mt-0.5 text-slate-700">
+                          2. {submission.advisor2.name} (NIP: {submission.advisor2.nip})
+                        </div>
+                      )}
+                    </div>
+                  ) : submission.preferredAdvisor1 || submission.preferredAdvisor2 ? (
+                    <div className="text-blue-700">
+                      <span className="italic text-slate-400 font-normal">Usulan Mahasiswa:</span>{' '}
+                      1. {submission.preferredAdvisor1?.name || '-'}
+                      {submission.preferredAdvisor2 && `, 2. ${submission.preferredAdvisor2.name}`}
+                    </div>
                   ) : (
                     <span className="text-slate-400 font-normal italic">Belum ditetapkan</span>
                   )}
-                </span>
+                </div>
               </div>
             </div>
           </div>
@@ -209,6 +213,34 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
                         <p>{opt.background}</p>
                       </div>
 
+                      {/* Tabel Relevansi Penelitian (Spesifikasi v2.0) */}
+                      {(opt.relevance_variable || opt.relevance_methodology || opt.relevance_note) && (
+                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 mt-2 text-xs">
+                          <span className="dossier-label flex items-center gap-1.5 font-bold text-primary mb-1.5">
+                            <TableProperties size={13} />
+                            <span>Tabel Relevansi Penelitian:</span>
+                          </span>
+                          {opt.relevance_variable && (
+                            <div className="mb-1">
+                              <span className="font-semibold text-slate-600">Variabel / Fokus:</span>{' '}
+                              <span className="text-slate-800">{opt.relevance_variable}</span>
+                            </div>
+                          )}
+                          {opt.relevance_methodology && (
+                            <div className="mb-1">
+                              <span className="font-semibold text-slate-600">Metodologi Jurnal:</span>{' '}
+                              <span className="text-slate-800">{opt.relevance_methodology}</span>
+                            </div>
+                          )}
+                          {opt.relevance_note && (
+                            <div>
+                              <span className="font-semibold text-slate-600">Kesesuaian Topik:</span>{' '}
+                              <span className="text-slate-800">{opt.relevance_note}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {(opt.journal_title || opt.journal_author) && (
                         <div className="dossier-journal-ref">
                           <span className="dossier-label">Jurnal Acuan Utama:</span>
@@ -216,6 +248,17 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
                             {opt.journal_title || '-'}
                             {opt.journal_author ? ` — oleh ${opt.journal_author}` : ''}
                           </p>
+                        </div>
+                      )}
+
+                      {/* Catatan Evaluasi Khusus Judul Ini */}
+                      {opt.revision_note && (
+                        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 mt-2 text-xs text-amber-900">
+                          <span className="font-bold flex items-center gap-1 text-amber-800 mb-0.5">
+                            <AlertTriangle size={13} />
+                            <span>Catatan Evaluasi Khusus Judul Ini:</span>
+                          </span>
+                          <p>{opt.revision_note}</p>
                         </div>
                       )}
                     </div>
@@ -227,31 +270,63 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
             </div>
           </div>
 
-          {/* Dosen Pembimbing & Quota Status */}
+          {/* Dosen Pembimbing & Quota Status (Pembimbing 1 & Pembimbing 2) */}
           {submission.advisor && (
             <div className="formal-section-card advisor-focus-card">
               <div className="formal-section-title">
                 <Award size={16} color="#0A4C8F" />
-                <span>Informasi Dosen Pembimbing Terpilih</span>
+                <span>Informasi Dosen Pembimbing Ditetapkan</span>
               </div>
-              <div className="advisor-detail-box">
-                <div className="advisor-detail-header">
-                  <div>
-                    <h3 className="font-bold text-slate-800 text-base">{submission.advisor.name}</h3>
-                    <div className="text-xs text-muted font-mono mt-0.5">
-                      NIP: {submission.advisor.nip} • Departemen: {submission.advisor.department_id}
+              <div className="space-y-3">
+                {/* Pembimbing 1 */}
+                <div className="advisor-detail-box">
+                  <div className="advisor-detail-header">
+                    <div>
+                      <div className="text-xs font-bold text-primary uppercase tracking-wide">
+                        Pembimbing 1 (Utama)
+                      </div>
+                      <h3 className="font-bold text-slate-800 text-base">{submission.advisor.name}</h3>
+                      <div className="text-xs text-muted font-mono mt-0.5">
+                        NIP: {submission.advisor.nip} • Departemen: {submission.advisor.department_id}
+                      </div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        Keahlian: <span className="font-medium">{submission.advisor.expertise || 'Komputer & Sistem'}</span>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-600 mt-1">
-                      Keahlian: <span className="font-medium">{submission.advisor.expertise || 'Komputer & Sistem'}</span>
+                    <div className="advisor-quota-pill">
+                      <span className="text-xs text-muted font-semibold">Beban Bimbingan:</span>
+                      <span className="font-bold text-slate-800 text-sm">
+                        {submission.advisor.current_students || 0} / {submission.advisor.quota} Mahasiswa
+                      </span>
                     </div>
-                  </div>
-                  <div className="advisor-quota-pill">
-                    <span className="text-xs text-muted font-semibold">Beban Bimbingan:</span>
-                    <span className="font-bold text-slate-800 text-sm">
-                      {submission.advisor.current_students || 0} / {submission.advisor.quota} Mahasiswa
-                    </span>
                   </div>
                 </div>
+
+                {/* Pembimbing 2 jika ada */}
+                {submission.advisor2 && (
+                  <div className="advisor-detail-box">
+                    <div className="advisor-detail-header">
+                      <div>
+                        <div className="text-xs font-bold text-teal-700 uppercase tracking-wide">
+                          Pembimbing 2 (Pendamping)
+                        </div>
+                        <h3 className="font-bold text-slate-800 text-base">{submission.advisor2.name}</h3>
+                        <div className="text-xs text-muted font-mono mt-0.5">
+                          NIP: {submission.advisor2.nip} • Departemen: {submission.advisor2.department_id}
+                        </div>
+                        <div className="text-xs text-slate-600 mt-1">
+                          Keahlian: <span className="font-medium">{submission.advisor2.expertise || 'Komputer & Sistem'}</span>
+                        </div>
+                      </div>
+                      <div className="advisor-quota-pill">
+                        <span className="text-xs text-muted font-semibold">Beban Bimbingan:</span>
+                        <span className="font-bold text-slate-800 text-sm">
+                          {submission.advisor2.current_students || 0} / {submission.advisor2.quota} Mahasiswa
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -269,50 +344,21 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
                 </div>
                 {submission.logs?.find((l) => l.action === 'DISAHKAN_KAPRODI')?.notes && (
                   <div className="cert-notes">
-                    Catatan Kaprodi: "{submission.logs?.find((l) => l.action === 'DISAHKAN_KAPRODI')?.notes}"
+                    &ldquo;{submission.logs.find((l) => l.action === 'DISAHKAN_KAPRODI')?.notes}&rdquo;
                   </div>
                 )}
+                <div className="cert-officer">
+                  Disahkan secara digital melalui SPSM Cloud
+                </div>
               </div>
             </div>
           )}
-
-          {/* Audit Trail / Riwayat Keputusan */}
-          <div className="formal-section-card">
-            <div className="formal-section-title">
-              <Clock size={16} color="#0A4C8F" />
-              <span>Riwayat Keputusan & Log Akademik</span>
-            </div>
-
-            <div className="timeline-trail">
-              {submission.logs && submission.logs.length > 0 ? (
-                submission.logs.map((log) => (
-                  <div key={log.$id} className="timeline-node">
-                    <div className="timeline-marker" />
-                    <div className="timeline-content">
-                      <div className="timeline-meta">
-                        <span className="timeline-actor">{log.actor_id}</span>
-                        <span className="timeline-action-badge">{log.action}</span>
-                        <span className="timeline-date">{formatDate(log.created_at)}</span>
-                      </div>
-                      {log.notes && <p className="timeline-note-text">"{log.notes}"</p>}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-slate-400 italic text-sm">Belum ada riwayat tercatat.</div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Modal Footer */}
-        <div className="modal-footer flex items-center justify-between">
-          <button onClick={handlePrint} className="btn btn-secondary flex items-center gap-2">
-            <Printer size={15} />
-            <span>Cetak Berkas Dossier</span>
-          </button>
-          <button onClick={onClose} className="btn btn-primary">
-            Selesai / Tutup
+        <div className="modal-footer">
+          <button type="button" onClick={onClose} className="btn-secondary">
+            Tutup
           </button>
         </div>
       </div>

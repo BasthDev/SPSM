@@ -59,6 +59,12 @@ export interface SubmissionOption {
   journal_author: string;
   journal_file_id?: string;
   is_selected_by_lecturer: boolean;
+  // Relevance Table parsed fields
+  relevance_variable?: string;
+  relevance_methodology?: string;
+  relevance_note?: string;
+  // Title-specific revision/rejection notes from Reviewer
+  revision_note?: string;
 }
 
 export interface ThesisSubmission {
@@ -71,9 +77,19 @@ export interface ThesisSubmission {
   $updatedAt?: string;
   // Hydrated fields
   student?: UserProfile;
-  advisor?: Lecturer;
+  advisor?: Lecturer; // Pembimbing 1 (Utama)
+  advisor2?: Lecturer; // Pembimbing 2 (Pendamping)
+  preferredAdvisor1?: Lecturer; // Pilihan awal mahasiswa #1
+  preferredAdvisor2?: Lecturer; // Pilihan awal mahasiswa #2
   options?: SubmissionOption[];
   logs?: ApprovalLog[];
+}
+
+export interface SystemSettings {
+  is_active: boolean;
+  start_date: string;
+  end_date: string;
+  academic_year: string;
 }
 
 export interface ApprovalLog {

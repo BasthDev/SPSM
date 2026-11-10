@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { lecturerService } from '../services/lecturerService';
 import { masterDataService } from '../services/masterDataService';
-import type { Lecturer, Department, BatchYear } from '../types';
+import { settingsService } from '../services/settingsService';
+import { submissionService } from '../services/submissionService';
+import type { Lecturer, Department, BatchYear, SystemSettings } from '../types';
 import {
   Users,
   Building2,
@@ -22,7 +24,16 @@ import {
 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'lecturers' | 'departments' | 'batch_years'>('lecturers');
+  const [activeTab, setActiveTab] = useState<'lecturers' | 'departments' | 'batch_years' | 'settings'>('lecturers');
+
+  const [settings, setSettings] = useState<SystemSettings>({
+    is_active: true,
+    start_date: '',
+    end_date: '',
+    academic_year: '2025/2026 Ganjil',
+  });
+  const [totalVerifiedSubmissions, setTotalVerifiedSubmissions] = useState<number>(0);
+  const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
 
   // Data states
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
@@ -459,6 +470,15 @@ export const AdminView: React.FC = () => {
 
       {/* Management-Grade Metric Bar */}
       <div className="stat-metric-bar">
+        <div className="metric-card">
+          <div className="metric-icon-circle" style={{ backgroundColor: '#ECFDF5', color: '#059669' }}>
+            <Award size={20} />
+          </div>
+          <div>
+            <div className="metric-val">{totalVerifiedSubmissions}</div>
+            <div className="metric-label">Pengajuan Terverifikasi</div>
+          </div>
+        </div>
         <div className="metric-card">
           <div className="metric-icon-circle" style={{ backgroundColor: '#EFF6FF', color: '#0A4C8F' }}>
             <Users size={20} />

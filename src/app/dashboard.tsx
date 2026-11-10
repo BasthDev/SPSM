@@ -11,6 +11,7 @@ import { FALLBACK_DEPARTMENTS } from '@/models/types';
 import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
 import { academicService } from '@/services/academicService';
+import { settingsService, type SystemSettings } from '@/services/settingsService';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -43,6 +44,7 @@ export default function DashboardScreen() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+  const [settings, setSettings] = useState<SystemSettings | null>(null);
 
   // Function to load all dashboard data freshly from Appwrite
   const loadDashboardData = useCallback(async (isInitial = false) => {
@@ -57,12 +59,14 @@ export default function DashboardScreen() {
 
       setUser(profile);
 
-      // Fetch submissions and master departments simultaneously
-      const [subs, depts] = await Promise.all([
+      // Fetch submissions, master departments, and system settings simultaneously
+      const [subs, depts, sysSettings] = await Promise.all([
         submissionService.getStudentSubmissionsWithDetails(acct.$id),
         academicService.getDepartments(),
+        settingsService.getSettings(),
       ]);
       setSubmissions(subs);
+      setSettings(sysSettings);
       if (depts && depts.length > 0) {
         setDepartments(depts);
       }
@@ -134,7 +138,13 @@ export default function DashboardScreen() {
 
   // Guard: Hide submission button if there is an active / non-rejected submission
   const activeSubmission = submissions.find((s) => s.status !== 'rejected' && s.status !== 'revision');
-  const canSubmitNew = !activeSubmission;
+  
+  // Exemption check: student whose previous submission is revision or rejected can ALWAYS submit
+  const latestSub = submissions[0];
+  const hasExemption = latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected');
+  const periodStatus = settings ? settingsService.isPeriodOpen(settings) : { isOpen: true };
+  const canSubmitNew = !activeSubmission && (periodStatus.isOpen || hasExemption);
+  const showClosedBanner = !activeSubmission && !periodStatus.isOpen && !hasExemption;
 
   return (
     <View style={styles.flex}>
@@ -160,6 +170,33 @@ export default function DashboardScreen() {
           />
         }
       >
+        {/* Closed Period Banner (if submission period closed and no exemption) */}
+        {showClosedBanner && (
+          <Card
+            variant="elevated"
+            borderRadius={20}
+            padding={16}
+            style={styles.closedPeriodCard}
+          >
+            <View style={styles.closedPeriodRow}>
+              <View style={styles.closedPeriodIconCircle}>
+                <Clock size={24} color="#D97706" strokeWidth={2.2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.closedPeriodTitle}>Masa Pengajuan Ditutup</Text>
+                <Text style={styles.closedPeriodDesc}>
+                  {periodStatus.reason || 'Masa pengajuan judul skripsi belum dibuka atau telah berakhir.'}
+                </Text>
+                {settings?.academic_year && (
+                  <Text style={styles.closedPeriodYear}>
+                    Tahun Akademik: {settings.academic_year}
+                  </Text>
+                )}
+              </View>
+            </View>
+          </Card>
+        )}
+
         {/* 1. HERO ACTION: Conditional Button OR Detailed Live Status Banner */}
         {canSubmitNew ? (
           <Card
@@ -184,7 +221,7 @@ export default function DashboardScreen() {
               </View>
             </View>
           </Card>
-        ) : (
+        ) : activeSubmission ? (
           /* Live Status Card for Active Submission */
           <Card
             variant="elevated"
@@ -295,7 +332,7 @@ export default function DashboardScreen() {
               <ChevronRight size={16} color={Colors.primary} strokeWidth={2.4} />
             </View>
           </Card>
-        )}
+        ) : null}
 
         {/* 2. SECTION HEADER */}
         <View style={styles.sectionHeaderRow}>
@@ -581,6 +618,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     color: Colors.primary,
+  },
+
+  // Closed Period Banner
+  closedPeriodCard: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  closedPeriodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  closedPeriodIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closedPeriodTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  closedPeriodDesc: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  closedPeriodYear: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#78350F',
+    marginTop: 4,
   },
 
   // Submissions list card

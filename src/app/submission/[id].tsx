@@ -19,7 +19,7 @@ import {
   ExternalLink,
   GraduationCap,
   MessageSquare,
-  ShieldCheck,
+  TableProperties,
   XCircle,
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -122,53 +122,54 @@ export default function SubmissionDetailScreen() {
     }
   };
 
+  const statusLabel =
+    submission.status === 'approved'
+      ? 'Disahkan Kaprodi'
+      : submission.status === 'waiting_kaprodi'
+        ? 'Menunggu Kaprodi'
+        : submission.status === 'revision'
+          ? 'Perlu Revisi'
+          : submission.status === 'rejected'
+            ? 'Ditolak'
+            : 'Tahap Penilaian Reviewer';
+
   return (
     <View style={styles.flex}>
       <AppHeader title="Detail Pengajuan Skripsi" showBack backHref="/dashboard" />
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
-        {/* DOSSIER HEADER CARD (FORMAT RESMI BERKAS PENGAJUAN) */}
-        <View style={styles.dossierDocBanner}>
-          <View style={styles.dossierDocHeaderRow}>
-            <View style={styles.dossierDocIconWrap}>
-              <GraduationCap size={22} color="#FFFFFF" strokeWidth={2.4} />
+        {/* HEADER CARD — Ringkasan Pengajuan */}
+        <Section style={styles.headerCard}>
+          <View style={styles.headerTopRow}>
+            <View style={styles.headerIconBox}>
+              <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
             </View>
-            <View style={styles.dossierDocTitles}>
-              <Text style={styles.dossierDocType}>BERKAS PENGAJUAN SKRIPSI RESMI</Text>
-              <Text style={styles.dossierDocNum}>
-                NO. DOKUMEN: SPSM-{submission.$id.toUpperCase()}
+            <View style={styles.headerTexts}>
+              <Text style={styles.headerTitle}>Pengajuan Skripsi</Text>
+              <Text style={styles.headerId}>
+                SPSM-{submission.$id.slice(-8).toUpperCase()}
               </Text>
             </View>
+            <StatusBadge status={submission.status} />
           </View>
 
-          <View style={styles.dossierMetaGrid}>
-            <View style={styles.dossierMetaCol}>
-              <Text style={styles.dossierMetaLabel}>Tanggal Pengajuan</Text>
-              <Text style={styles.dossierMetaVal}>{formattedSubmittedDate}</Text>
+          <View style={styles.headerDivider} />
+
+          <View style={styles.headerMetaRow}>
+            <View style={styles.headerMetaItem}>
+              <Text style={styles.headerMetaLabel}>Tanggal Pengajuan</Text>
+              <Text style={styles.headerMetaValue}>{formattedSubmittedDate}</Text>
             </View>
-            <View style={styles.dossierMetaCol}>
-              <Text style={styles.dossierMetaLabel}>Status Dokumen</Text>
-              <Text style={styles.dossierMetaValHighlight}>
-                {submission.status === 'approved'
-                  ? 'Disahkan Kaprodi'
-                  : submission.status === 'waiting_kaprodi'
-                  ? 'Menunggu Kaprodi'
-                  : submission.status === 'revision'
-                  ? 'Perlu Revisi'
-                  : submission.status === 'rejected'
-                  ? 'Ditolak'
-                  : 'Tahap Penilaian Reviewer'}
-              </Text>
+            <View style={styles.headerMetaItem}>
+              <Text style={styles.headerMetaLabel}>Status</Text>
+              <Text style={styles.headerMetaValueHL}>{statusLabel}</Text>
             </View>
           </View>
-        </View>
+        </Section>
 
         {/* 1. STATUS PROGRESS TRACKER */}
         <Section style={styles.trackerCard}>
-          <View style={styles.statusBadgeRow}>
-            <Text style={styles.sectionHeading}>Alur Proses Pengajuan</Text>
-            <StatusBadge status={submission.status} />
-          </View>
+          <Text style={styles.sectionHeading}>Alur Proses Pengajuan</Text>
 
           {/* Vertical Stepper Progress Timeline */}
           <View style={styles.verticalStepper}>
@@ -289,10 +290,10 @@ export default function SubmissionDetailScreen() {
               </View>
               <View style={styles.vStepRight}>
                 <View style={styles.vStepHeader}>
-                  <Text style={styles.vStepTitle}>3. Pengesahan SK Kaprodi</Text>
+                  <Text style={styles.vStepTitle}>3. Pengesahan Kaprodi</Text>
                   {submission.status === 'approved' && (
                     <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
-                      <Text style={styles.vBadgeTextSuccess}>Resmi Disahkan</Text>
+                      <Text style={styles.vBadgeTextSuccess}>Disahkan</Text>
                     </View>
                   )}
                   {submission.status === 'waiting_kaprodi' && (
@@ -313,11 +314,11 @@ export default function SubmissionDetailScreen() {
                 </View>
                 <Text style={styles.vStepDesc}>
                   {submission.status === 'approved' &&
-                    `SK Pengesahan Judul resmi diterbitkan dan ditandatangani oleh ${submission.kaprodiName || 'Ketua Program Studi'}.`}
+                    `Pengesahan judul resmi oleh ${submission.kaprodiName || 'Ketua Program Studi'}.`}
                   {submission.status === 'waiting_kaprodi' &&
-                    'Menunggu validasi akhir dan penerbitan Surat Keputusan oleh Kaprodi.'}
+                    'Menunggu validasi akhir dan pengesahan oleh Kaprodi.'}
                   {currentStage === 1 &&
-                    'Pengesahan SK akan diproses setelah lolos verifikasi Dosen Penilai.'}
+                    'Pengesahan akan diproses setelah lolos verifikasi Dosen Penilai.'}
                   {(submission.status === 'revision' || submission.status === 'rejected') &&
                     'Tahap pengesahan ditiadakan karena pengajuan tidak berlanjut.'}
                 </Text>
@@ -328,7 +329,7 @@ export default function SubmissionDetailScreen() {
             </View>
           </View>
 
-          {/* Status Explanation Banner */}
+          {/* Status Explanation */}
           <View style={styles.statusDescriptionBox}>
             <Text style={styles.statusDescriptionText}>
               {submission.status === 'pending_lecturer' &&
@@ -345,124 +346,83 @@ export default function SubmissionDetailScreen() {
           </View>
         </Section>
 
-        {/* 2. LEMBAR PENGESAHAN RESMI AKADEMIK (SERTIFIKAT SK RESMI KAPRODI) */}
+        {/* 2. PENGESAHAN KAPRODI — Simple Approval Card (only when approved) */}
         {submission.status === 'approved' && (
-          <View style={styles.certFrameOuter}>
-            <View style={styles.certFrameInner}>
-              {/* Kop Surat Dokumen Resmi */}
-              <View style={styles.certKopHeader}>
-                <View style={styles.certEmblemBox}>
-                  <GraduationCap size={24} color="#0A4C8F" strokeWidth={2.2} />
-                </View>
-                <Text style={styles.certKopInstansi}>
-                  KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET, DAN TEKNOLOGI
-                </Text>
-                <Text style={styles.certKopUniv}>
-                  SISTEM INFORMASI TUGAS AKHIR & SKRIPSI MAHASISWA
-                </Text>
-                <Text style={styles.certKopProdi}>
-                  PROGRAM SARJANA STRATA SATU (S-1)
-                </Text>
-
-                {/* Garis Ganda Kop Surat Resmi Standar Indonesia */}
-                <View style={styles.certKopDoubleLine}>
-                  <View style={styles.certKopLineThick} />
-                  <View style={styles.certKopLineThin} />
-                </View>
+          <Section style={styles.approvalCard}>
+            <View style={styles.approvalHeaderRow}>
+              <View style={styles.approvalIconBox}>
+                <CheckCircle2 size={20} color="#059669" strokeWidth={2.4} />
               </View>
-
-              {/* Judul Surat Keputusan */}
-              <View style={styles.certTitleBlock}>
-                <Text style={styles.certDocType}>SURAT KEPUTUSAN PENGESAHAN</Text>
-                <Text style={styles.certDocSubject}>PENETAPAN JUDUL SKRIPSI & DOSEN PEMBIMBING</Text>
-                <Text style={styles.certDocNumber}>
-                  Nomor: SK-SPSM/{new Date(submission.submitted_at).getFullYear()}/{submission.$id.slice(-6).toUpperCase()}
-                </Text>
-              </View>
-
-              {/* Kalimat Pengantar / Konsiderans Formal */}
-              <Text style={styles.certPreamble}>
-                Berdasarkan hasil verifikasi dan rapat penelaahan usulan tugas akhir, Ketua Program Studi dengan ini menerangkan dan mengesahkan usulan penelitian skripsi serta penetapan Dosen Pembimbing untuk:
-              </Text>
-
-              {/* Rincian Berkas Biodata & Usulan Terpilih */}
-              <View style={styles.certDataGrid}>
-                {selectedOption ? (
-                  <View style={styles.certDataRow}>
-                    <Text style={styles.certDataLabel}>Judul Skripsi Disahkan:</Text>
-                    <Text style={styles.certDataValueTitle}>
-                      &ldquo;{selectedOption.title}&rdquo;
-                    </Text>
-                  </View>
-                ) : null}
-
-                {submission.advisor ? (
-                  <View style={styles.certDataRow}>
-                    <Text style={styles.certDataLabel}>Dosen Pembimbing Utama:</Text>
-                    <Text style={styles.certDataValueBold}>
-                      {submission.advisor.name}
-                    </Text>
-                    <Text style={styles.certDataSubtext}>
-                      NIP/NIDN: {submission.advisor.nip} · Keahlian: {submission.advisor.expertise || 'Umum'}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <View style={styles.certDataRow}>
-                  <Text style={styles.certDataLabel}>Tanggal Resmi Pengesahan:</Text>
-                  <Text style={styles.certDataValue}>
-                    {formattedApprovalDate || formattedSubmittedDate}
-                  </Text>
-                </View>
-
-                {submission.kaprodiNotes ? (
-                  <View style={styles.certDataRow}>
-                    <Text style={styles.certDataLabel}>Ketentuan / Catatan Kaprodi:</Text>
-                    <Text style={styles.certDataNotes}>
-                      {submission.kaprodiNotes}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {/* Bagian Tanda Tangan & Cap Stempel Digital Resmi */}
-              <View style={styles.certSignSection}>
-                <View style={styles.certSignRightCol}>
-                  <Text style={styles.certSignDate}>
-                    Ditetapkan pada: {formattedApprovalDate || formattedSubmittedDate}
-                  </Text>
-                  <Text style={styles.certSignRole}>Ketua Program Studi,</Text>
-
-                  {/* Stempel & Verifikasi Digital Elektronik */}
-                  <View style={styles.certDigitalSealContainer}>
-                    <View style={styles.certStampCircle}>
-                      <ShieldCheck size={20} color="#059669" strokeWidth={2.4} />
-                      <Text style={styles.certStampText}>DISAHKAN DIGITAL</Text>
-                      <Text style={styles.certStampSub}>SPSM VALIDATED</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.certSignName}>
-                    {submission.kaprodiName || 'Ketua Program Studi'}
-                  </Text>
-                  <Text style={styles.certSignNip}>
-                    Pejabat Berwenang Pengesah SK
-                  </Text>
-                </View>
-              </View>
-
-              {/* Watermark / Footer Pengaman */}
-              <View style={styles.certSecurityFooter}>
-                <ShieldCheck size={13} color="#059669" strokeWidth={2.2} />
-                <Text style={styles.certSecurityText}>
-                  Dokumen ini telah disahkan secara elektronik melalui SPSM Cloud dan memiliki kekuatan hukum akademik resmi.
+              <View style={styles.approvalHeaderTexts}>
+                <Text style={styles.approvalTitle}>Pengajuan Disahkan</Text>
+                <Text style={styles.approvalSubtitle}>
+                  Judul skripsi dan Dosen Pembimbing telah resmi ditetapkan
                 </Text>
               </View>
             </View>
-          </View>
+
+            <View style={styles.approvalDivider} />
+
+            {/* Approved Details */}
+            <View style={styles.approvalDetails}>
+              {selectedOption ? (
+                <View style={styles.approvalDetailRow}>
+                  <Text style={styles.approvalDetailLabel}>Judul Disahkan</Text>
+                  <Text style={styles.approvalDetailValueBold}>
+                    &ldquo;{selectedOption.title}&rdquo;
+                  </Text>
+                </View>
+              ) : null}
+
+              {submission.advisor ? (
+                <View style={styles.approvalDetailRow}>
+                  <Text style={styles.approvalDetailLabel}>Dosen Pembimbing 1 (Utama)</Text>
+                  <Text style={styles.approvalDetailValueBold}>
+                    {submission.advisor.name}
+                  </Text>
+                  <Text style={styles.approvalDetailSub}>
+                    NIP: {submission.advisor.nip} · {submission.advisor.expertise || 'Umum'}
+                  </Text>
+                </View>
+              ) : null}
+
+              {submission.advisor2 ? (
+                <View style={styles.approvalDetailRow}>
+                  <Text style={styles.approvalDetailLabel}>Dosen Pembimbing 2 (Pendamping)</Text>
+                  <Text style={styles.approvalDetailValueBold}>
+                    {submission.advisor2.name}
+                  </Text>
+                  <Text style={styles.approvalDetailSub}>
+                    NIP: {submission.advisor2.nip} · {submission.advisor2.expertise || 'Umum'}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.approvalDetailRow}>
+                <Text style={styles.approvalDetailLabel}>Tanggal Pengesahan</Text>
+                <Text style={styles.approvalDetailValue}>
+                  {formattedApprovalDate || formattedSubmittedDate}
+                </Text>
+              </View>
+
+              <View style={styles.approvalDetailRow}>
+                <Text style={styles.approvalDetailLabel}>Disahkan oleh</Text>
+                <Text style={styles.approvalDetailValue}>
+                  {submission.kaprodiName || 'Ketua Program Studi'}
+                </Text>
+              </View>
+
+              {submission.kaprodiNotes ? (
+                <View style={[styles.approvalDetailRow, styles.approvalLastRow]}>
+                  <Text style={styles.approvalDetailLabel}>Catatan</Text>
+                  <Text style={styles.approvalDetailNotes}>{submission.kaprodiNotes}</Text>
+                </View>
+              ) : null}
+            </View>
+          </Section>
         )}
 
-        {/* 3. DETAIL DOSEN PEMBIMBING (Disembunyikan jika status Ditolak atau Perlu Revisi) */}
+        {/* 3. DETAIL DOSEN PEMBIMBING (hidden if revision/rejected) */}
         {submission.status !== 'revision' && submission.status !== 'rejected' && (
           submission.advisor ? (
             <Section style={styles.advisorSection}>
@@ -474,56 +434,85 @@ export default function SubmissionDetailScreen() {
                   <Text style={styles.sectionHeading}>Dosen Pembimbing Skripsi</Text>
                   <Text style={styles.sectionSubheading}>
                     {submission.status === 'approved'
-                      ? 'Resmi ditetapkan sebagai Pembimbing Utama'
-                      : 'Diusulkan oleh Reviewer (Menunggu Pengesahan)'}
+                      ? 'Resmi ditetapkan oleh Kaprodi'
+                      : 'Ditetapkan oleh Reviewer (Menunggu Pengesahan Final)'}
                   </Text>
                 </View>
               </View>
 
+              {/* Dosen Pembimbing 1 (Utama) */}
               <View style={styles.advisorCard}>
                 <View style={styles.advisorTopRow}>
                   <Avatar
                     name={submission.advisor.name}
-                    size={58}
+                    size={54}
                     backgroundColor={Colors.primary}
                   />
                   <View style={styles.advisorMainInfo}>
+                    <View style={styles.advisorRolePill}>
+                      <Text style={styles.advisorRolePillText}>Pembimbing 1 (Utama)</Text>
+                    </View>
                     <Text style={styles.advisorName}>{submission.advisor.name}</Text>
                     <Text style={styles.advisorNip}>NIP / NIDN: {submission.advisor.nip}</Text>
-                    <View style={styles.advisorProdiPill}>
-                      <Text style={styles.advisorProdiText}>
-                        Prodi: {submission.advisor.department_id}
-                      </Text>
-                    </View>
                   </View>
                 </View>
 
                 <View style={styles.advisorDivider} />
 
-                {/* Vertical Stack: Bidang & Keahlian, Email, Kuota Bimbingan */}
                 <View style={styles.advisorMetaCol}>
                   <View style={styles.advisorFieldBlock}>
-                    <Text style={styles.advisorFieldLabel}>Bidang Keahlian & Minat Riset:</Text>
+                    <Text style={styles.advisorFieldLabel}>Bidang Keahlian:</Text>
                     <Text style={styles.advisorFieldValue}>
                       {submission.advisor.expertise || 'Umum'}
                     </Text>
                   </View>
-
                   <View style={styles.advisorFieldBlock}>
-                    <Text style={styles.advisorFieldLabel}>Alamat Email Institusi:</Text>
+                    <Text style={styles.advisorFieldLabel}>Email Institusi:</Text>
                     <Text style={styles.advisorFieldValueMono}>
                       {submission.advisor.email}
                     </Text>
                   </View>
-
-                  <View style={styles.advisorFieldBlock}>
-                    <Text style={styles.advisorFieldLabel}>Status Kuota Bimbingan:</Text>
-                    <Text style={styles.advisorQuotaValue}>
-                      {submission.advisor.current_students || 0} / {submission.advisor.quota} Mahasiswa Terisi
-                    </Text>
-                  </View>
                 </View>
               </View>
+
+              {/* Dosen Pembimbing 2 (Pendamping) jika ada */}
+              {submission.advisor2 && (
+                <View style={[styles.advisorCard, { marginTop: 12 }]}>
+                  <View style={styles.advisorTopRow}>
+                    <Avatar
+                      name={submission.advisor2.name}
+                      size={54}
+                      backgroundColor="#0D9488"
+                    />
+                    <View style={styles.advisorMainInfo}>
+                      <View style={[styles.advisorRolePill, { backgroundColor: '#CCFBF1' }]}>
+                        <Text style={[styles.advisorRolePillText, { color: '#0F766E' }]}>
+                          Pembimbing 2 (Pendamping)
+                        </Text>
+                      </View>
+                      <Text style={styles.advisorName}>{submission.advisor2.name}</Text>
+                      <Text style={styles.advisorNip}>NIP / NIDN: {submission.advisor2.nip}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.advisorDivider} />
+
+                  <View style={styles.advisorMetaCol}>
+                    <View style={styles.advisorFieldBlock}>
+                      <Text style={styles.advisorFieldLabel}>Bidang Keahlian:</Text>
+                      <Text style={styles.advisorFieldValue}>
+                        {submission.advisor2.expertise || 'Umum'}
+                      </Text>
+                    </View>
+                    <View style={styles.advisorFieldBlock}>
+                      <Text style={styles.advisorFieldLabel}>Email Institusi:</Text>
+                      <Text style={styles.advisorFieldValueMono}>
+                        {submission.advisor2.email}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
             </Section>
           ) : (
             <Section style={styles.advisorPendingSection}>
@@ -534,6 +523,21 @@ export default function SubmissionDetailScreen() {
                   <Text style={styles.advisorPendingSubtitle}>
                     Tim Dosen Penilai sedang meninjau bidang keahlian yang paling relevan dengan opsi judul Anda.
                   </Text>
+                  {(submission.preferredAdvisor1 || submission.preferredAdvisor2) && (
+                    <View style={styles.preferredAdvisorsBox}>
+                      <Text style={styles.preferredAdvisorsTitle}>Pilihan Dosen Anda:</Text>
+                      {submission.preferredAdvisor1 && (
+                        <Text style={styles.preferredAdvisorItem}>
+                          • Prioritas 1: {submission.preferredAdvisor1.name}
+                        </Text>
+                      )}
+                      {submission.preferredAdvisor2 && (
+                        <Text style={styles.preferredAdvisorItem}>
+                          • Prioritas 2: {submission.preferredAdvisor2.name}
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             </Section>
@@ -639,6 +643,45 @@ export default function SubmissionDetailScreen() {
                       </View>
                     ) : null}
 
+                    {/* Tabel Relevansi Penelitian (Spesifikasi v2.0) */}
+                    {(opt.relevance_variable || opt.relevance_methodology || opt.relevance_note) && (
+                      <View style={styles.relevanceCard}>
+                        <View style={styles.relevanceHeader}>
+                          <TableProperties size={13} color={Colors.primary} strokeWidth={2.2} />
+                          <Text style={styles.relevanceHeaderTitle}>Tabel Relevansi Penelitian</Text>
+                        </View>
+                        {opt.relevance_variable ? (
+                          <View style={styles.relevanceRow}>
+                            <Text style={styles.relevanceRowLabel}>Variabel / Fokus:</Text>
+                            <Text style={styles.relevanceRowValue}>{opt.relevance_variable}</Text>
+                          </View>
+                        ) : null}
+                        {opt.relevance_methodology ? (
+                          <View style={styles.relevanceRow}>
+                            <Text style={styles.relevanceRowLabel}>Metodologi Jurnal:</Text>
+                            <Text style={styles.relevanceRowValue}>{opt.relevance_methodology}</Text>
+                          </View>
+                        ) : null}
+                        {opt.relevance_note ? (
+                          <View style={styles.relevanceRow}>
+                            <Text style={styles.relevanceRowLabel}>Kesesuaian Topik:</Text>
+                            <Text style={styles.relevanceRowValue}>{opt.relevance_note}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    )}
+
+                    {/* Catatan Khusus Reviewer untuk Judul Ini */}
+                    {opt.revision_note && (
+                      <View style={styles.optionRevisionNoteBox}>
+                        <AlertTriangle size={14} color="#D97706" strokeWidth={2.2} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.optionRevisionNoteTitle}>Catatan Penilaian:</Text>
+                          <Text style={styles.optionRevisionNoteText}>{opt.revision_note}</Text>
+                        </View>
+                      </View>
+                    )}
+
                     {/* Line Separator between options */}
                     {!isLast && <View style={styles.optionDividerLine} />}
                   </View>
@@ -648,7 +691,7 @@ export default function SubmissionDetailScreen() {
           </Section>
         ) : null}
 
-        {/* 7. RIWAYAT LOG CATATAN & EVALUASI */}
+        {/* 5. RIWAYAT LOG CATATAN & EVALUASI */}
         {submission.logs && submission.logs.length > 0 ? (
           <Section style={styles.logsSection}>
             <View style={styles.sectionHeaderRow}>
@@ -726,23 +769,85 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
+  // Header Card
+  headerCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTexts: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  headerId: {
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: Colors.textTertiary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  headerMetaItem: {
+    flex: 1,
+  },
+  headerMetaLabel: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  headerMetaValue: {
+    fontSize: 13,
+    color: Colors.text,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  headerMetaValueHL: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
   // 1. Tracker Card
   trackerCard: {
     padding: 18,
-    borderRadius: 22,
+    borderRadius: 16,
     marginBottom: 16,
-  },
-  statusBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
   },
   sectionHeading: {
     fontSize: 16,
     fontWeight: '800',
     color: Colors.text,
     letterSpacing: -0.3,
+    marginBottom: 16,
   },
   sectionSubheading: {
     fontSize: 12,
@@ -889,237 +994,93 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // 2. Lembar Pengesahan Resmi Akademik (Sertifikat SK Formal)
-  certFrameOuter: {
-    padding: 3,
+  // 2. Approval Card (simple card replacing the formal certificate)
+  approvalCard: {
+    padding: 16,
     borderRadius: 16,
-    backgroundColor: '#1E3A5F',
-    borderWidth: 1.5,
-    borderColor: '#0A4C8F',
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  certFrameInner: {
-    backgroundColor: '#FAFAF9',
-    borderRadius: 13,
-    padding: 18,
+    marginBottom: 16,
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#DCFCE7',
   },
-  certKopHeader: {
+  approvalHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    gap: 12,
   },
-  certEmblemBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1.5,
-    borderColor: '#0A4C8F',
+  approvalIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  certKopInstansi: {
-    fontSize: 9.5,
+  approvalHeaderTexts: {
+    flex: 1,
+  },
+  approvalTitle: {
+    fontSize: 15,
     fontWeight: '800',
-    color: '#334155',
-    textAlign: 'center',
-    letterSpacing: 0.8,
+    color: '#166534',
   },
-  certKopUniv: {
-    fontSize: 11.5,
-    fontWeight: '900',
-    color: '#0A4C8F',
-    textAlign: 'center',
-    letterSpacing: 0.3,
+  approvalSubtitle: {
+    fontSize: 12,
+    color: '#15803D',
     marginTop: 2,
   },
-  certKopProdi: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#475569',
-    textAlign: 'center',
-    marginTop: 1,
-  },
-  certKopDoubleLine: {
-    width: '100%',
-    marginTop: 10,
-  },
-  certKopLineThick: {
-    height: 2.5,
-    backgroundColor: '#0F172A',
-  },
-  certKopLineThin: {
+  approvalDivider: {
     height: 1,
-    backgroundColor: '#0F172A',
-    marginTop: 2,
+    backgroundColor: '#BBF7D0',
+    marginVertical: 14,
   },
-  certTitleBlock: {
-    alignItems: 'center',
-    marginVertical: 12,
+  approvalDetails: {
+    gap: 12,
   },
-  certDocType: {
-    fontSize: 13.5,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 0.8,
-    textAlign: 'center',
-  },
-  certDocSubject: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#1E3A5F',
-    textAlign: 'center',
-    marginTop: 2,
-    letterSpacing: 0.4,
-  },
-  certDocNumber: {
-    fontSize: 10.5,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    fontWeight: '700',
-    color: '#475569',
-    marginTop: 4,
-  },
-  certPreamble: {
-    fontSize: 11.5,
-    color: '#334155',
-    lineHeight: 17,
-    textAlign: 'justify',
-    marginBottom: 12,
-  },
-  certDataGrid: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    padding: 12,
-    gap: 10,
-    marginBottom: 14,
-  },
-  certDataRow: {
+  approvalDetailRow: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 6,
+    borderBottomColor: '#DCFCE7',
+    paddingBottom: 10,
   },
-  certDataLabel: {
-    fontSize: 10,
+  approvalLastRow: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
+  },
+  approvalDetailLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#4ADE80',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
-    marginBottom: 2,
+    marginBottom: 3,
   },
-  certDataValueTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 18,
-  },
-  certDataValueBold: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0A4C8F',
-  },
-  certDataSubtext: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  certDataValue: {
-    fontSize: 12.5,
+  approvalDetailValueBold: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#14532D',
+    lineHeight: 20,
   },
-  certDataNotes: {
-    fontSize: 11.5,
-    color: '#334155',
-    fontStyle: 'italic',
-    lineHeight: 16,
+  approvalDetailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
   },
-  certSignSection: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginVertical: 10,
-  },
-  certSignRightCol: {
-    alignItems: 'center',
-    minWidth: 200,
-  },
-  certSignDate: {
-    fontSize: 10.5,
-    color: '#475569',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  certSignRole: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  certDigitalSealContainer: {
-    marginVertical: 6,
-  },
-  certStampCircle: {
-    borderWidth: 2,
-    borderColor: '#059669',
-    borderStyle: 'dashed',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-  },
-  certStampText: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    color: '#047857',
-    letterSpacing: 0.5,
+  approvalDetailSub: {
+    fontSize: 12,
+    color: '#15803D',
     marginTop: 2,
   },
-  certStampSub: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  certSignName: {
+  approvalDetailNotes: {
     fontSize: 12.5,
-    fontWeight: '800',
-    color: '#0F172A',
-    textDecorationLine: 'underline',
-    marginTop: 8,
-  },
-  certSignNip: {
-    fontSize: 10,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  certSecurityFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingTop: 10,
-    marginTop: 6,
-  },
-  certSecurityText: {
-    fontSize: 9.5,
-    color: '#64748B',
-    flex: 1,
-    lineHeight: 13,
+    color: '#166534',
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 
   // 3. Dosen Pembimbing
   advisorSection: {
     padding: 18,
-    borderRadius: 20,
+    borderRadius: 16,
     marginBottom: 16,
   },
   sectionHeaderRow: {
@@ -1147,6 +1108,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+  },
+  advisorRolePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  advisorRolePillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+  },
+  preferredAdvisorsBox: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+  },
+  preferredAdvisorsTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  preferredAdvisorItem: {
+    fontSize: 11.5,
+    color: '#78350F',
+    lineHeight: 16,
   },
   advisorMainInfo: {
     flex: 1,
@@ -1213,7 +1205,7 @@ const styles = StyleSheet.create({
   },
   advisorPendingSection: {
     padding: 16,
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
     borderWidth: 1,
@@ -1239,318 +1231,10 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 
-  // 4. Judul Terpilih
-  selectedTitleSection: {
-    padding: 18,
-    borderRadius: 22,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    backgroundColor: '#FFFFFF',
-  },
-  selectedTitleHeader: {
-    marginBottom: 10,
-  },
-  selectedTitleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    alignSelf: 'flex-start',
-  },
-  selectedTitleBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  selectedTitleText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Colors.text,
-    lineHeight: 22,
-    marginBottom: 12,
-  },
-  selectedBgBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  boxLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  boxText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 19,
-  },
-  journalBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  journalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  journalHeaderTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  journalTitleText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  journalAuthorText: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  btnPdf: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: Colors.primary,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  btnPdfText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  // 5. Options List
-  listSectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.text,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  optionCard: {
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 12,
-  },
-  optionNumberBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#E2E8F0',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  optionNumberText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  optionTitleText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.text,
-    lineHeight: 20,
-    marginBottom: 6,
-  },
-  optionBgText: {
-    fontSize: 12.5,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  journalSubBox: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  journalSubText: {
-    fontSize: 11.5,
-    color: Colors.textTertiary,
-  },
-
-  // 6. Other Options
-  otherOptionsSection: {
-    marginTop: 6,
-    marginBottom: 12,
-  },
-  otherOptionsHeading: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    marginBottom: 8,
-  },
-  otherOptionCard: {
-    padding: 12,
-    borderRadius: 14,
-    marginBottom: 8,
-    backgroundColor: '#F8FAFC',
-  },
-  otherOptionHeader: {
-    marginBottom: 4,
-  },
-  otherOptionNumber: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-  },
-  otherOptionTitle: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#334155',
-  },
-
-  // 7. Logs
-  logsSection: {
-    padding: 18,
-    borderRadius: 22,
-    marginTop: 6,
-  },
-  logsList: {
-    gap: 12,
-  },
-  logItem: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  logTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  logActorBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  logActorName: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  logDate: {
-    fontSize: 10.5,
-    color: Colors.textTertiary,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  logAction: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.text,
-    marginTop: 4,
-  },
-  logNotesBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  logNotesText: {
-    fontSize: 12,
-    color: '#334155',
-    fontStyle: 'italic',
-    lineHeight: 16,
-  },
-
-  // Dossier Header Banner (matching Web dossier header)
-  dossierDocBanner: {
-    backgroundColor: '#0A2540',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    borderLeftWidth: 5,
-    borderLeftColor: '#D97706',
-  },
-  dossierDocHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 14,
-  },
-  dossierDocIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dossierDocTitles: {
-    flex: 1,
-  },
-  dossierDocType: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#BAE6FD',
-    letterSpacing: 0.8,
-  },
-  dossierDocNum: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    marginTop: 2,
-  },
-  dossierMetaGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  dossierMetaCol: {
-    flex: 1,
-  },
-  dossierMetaLabel: {
-    fontSize: 10.5,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  dossierMetaVal: {
-    fontSize: 12.5,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  dossierMetaValHighlight: {
-    fontSize: 12.5,
-    color: '#38BDF8',
-    fontWeight: '700',
-    marginTop: 2,
-  },
-
   // 4. All Options Unified Card (1 Card with 3 Options separated by dividers)
   allOptionsUnifiedCard: {
     padding: 18,
-    borderRadius: 22,
+    borderRadius: 16,
     marginBottom: 16,
     backgroundColor: '#FFFFFF',
   },
@@ -1674,9 +1358,128 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  // Tabel Relevansi Card
+  relevanceCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  relevanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  relevanceHeaderTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  relevanceRow: {
+    marginTop: 4,
+  },
+  relevanceRowLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+  },
+  relevanceRowValue: {
+    fontSize: 12,
+    color: Colors.text,
+    lineHeight: 16,
+    marginTop: 1,
+  },
+  // Option Revision Note Box
+  optionRevisionNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  optionRevisionNoteTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#92400E',
+    textTransform: 'uppercase',
+  },
+  optionRevisionNoteText: {
+    fontSize: 12,
+    color: '#78350F',
+    marginTop: 2,
+    lineHeight: 16,
+  },
   optionDividerLine: {
     height: 1.5,
     backgroundColor: '#E2E8F0',
     marginVertical: 16,
+  },
+
+  // 5. Logs
+  logsSection: {
+    padding: 18,
+    borderRadius: 16,
+    marginTop: 6,
+  },
+  logsList: {
+    gap: 12,
+  },
+  logItem: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  logTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  logActorBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  logActorName: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  logDate: {
+    fontSize: 10.5,
+    color: Colors.textTertiary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  logAction: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: 4,
+  },
+  logNotesBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  logNotesText: {
+    fontSize: 12,
+    color: '#334155',
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
 });

@@ -105,6 +105,7 @@ export const lecturerService = {
   /**
    * Recalculates and synchronizes the active quota (current_students)
    * for a lecturer based on actually approved thesis submissions.
+   * Matches both Pembimbing 1 and Pembimbing 2.
    */
   async syncStudentCount(advisorId: string): Promise<number> {
     if (!advisorId) return 0;
@@ -113,12 +114,17 @@ export const lecturerService = {
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.thesisSubmissions,
         [
-          Query.equal('advisor_id', advisorId),
           Query.equal('status', 'approved'),
           Query.limit(200),
         ]
       );
-      const count = res.total ?? res.documents.length;
+      // Count submissions where advisorId is in advisor_id (comma-separated or single)
+      const count = res.documents.filter((doc: any) => {
+        if (!doc.advisor_id) return false;
+        const parts = String(doc.advisor_id).split(',').map((s: string) => s.trim());
+        return parts.includes(advisorId);
+      }).length;
+
       await databases.updateDocument(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.lecturers,
