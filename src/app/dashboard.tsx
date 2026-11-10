@@ -1,6 +1,7 @@
 import {
   Button,
   EmptyState,
+  GridNav,
   HomeHeader,
   LoadingScreen,
   Section,
@@ -198,6 +199,9 @@ export default function DashboardScreen() {
             </View>
           </Section>
         )}
+
+        {/* Grid Navigation */}
+        <GridNav />
 
         {/* 1. HERO ACTION: Conditional Button OR Detailed Live Status Banner */}
         {canSubmitNew ? (

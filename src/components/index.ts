@@ -16,3 +16,4 @@ export type { BadgeStatus } from './StatusBadge';
 export { LoadingScreen } from './LoadingScreen';
 export { Avatar } from './Avatar';
 export { EmptyState } from './EmptyState';
+export { GridNav } from './GridNav';
