@@ -1,5 +1,5 @@
 import { databases } from './appwrite';
-import { Query } from 'appwrite';
+import { Query } from 'react-native-appwrite';
 import { DATABASE_ID, COLLECTION_DEPARTMENTS } from '@/models/types';
 
 export interface SystemSettings {
@@ -26,11 +26,11 @@ export const settingsService = {
   async getSettings(): Promise<SystemSettings> {
     // 1. Try dedicated system_settings collection if exists
     try {
-      const res = await databases.listDocuments(
-        DATABASE_ID,
-        'system_settings',
-        [Query.limit(1)]
-      );
+      const res = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: 'system_settings',
+        queries: [Query.limit(1)],
+      });
       if (res.documents.length > 0) {
         const doc = res.documents[0] as any;
         return {
@@ -46,11 +46,11 @@ export const settingsService = {
 
     // 2. Fallback to departments collection document
     try {
-      const res = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_DEPARTMENTS,
-        [Query.equal('code', SETTINGS_DOC_CODE), Query.limit(1)]
-      );
+      const res = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_DEPARTMENTS,
+        queries: [Query.equal('code', SETTINGS_DOC_CODE), Query.limit(1)],
+      });
 
       if (res.documents.length > 0) {
         const rawJson = res.documents[0].name;

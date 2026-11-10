@@ -8,9 +8,11 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "id.my.basthdev.spsm",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "id.my.basthdev.spsm",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

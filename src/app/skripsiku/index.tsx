@@ -9,8 +9,11 @@ import {
   Trash2,
   Upload
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ID, Query } from 'react-native-appwrite';
+import { account, storage } from '@/services/appwrite';
+import { BUCKET_JOURNALS } from '@/models/types';
 
 type UploadedFile = {
   id: string;
@@ -19,36 +22,137 @@ type UploadedFile = {
   size: number;
   type: string;
   uploadedAt: string;
+  appwriteId?: string;
+  viewUrl?: string;
 };
+
+const ownerPrefix = (userId: string) => `owner_${userId}__`;
+const stripOwnerPrefix = (name: string) => name.replace(/^owner_[A-Za-z0-9]+__/, '');
 
 export default function SkripsiKuScreen() {
   const router = useRouter();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Load current user, then load only their files from Appwrite storage
+  useEffect(() => {
+    (async () => {
+      try {
+        const current = await account.get();
+        setUserId(current.$id);
+        await loadFiles(current.$id);
+      } catch (error) {
+        console.error('Failed to get current user:', error);
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadFiles = async (uid: string) => {
+    try {
+      setLoading(true);
+      const prefix = ownerPrefix(uid);
+
+      // Storage has no fulltext index on name, so paginate and filter client-side
+      const allFiles: any[] = [];
+      let cursor: string | undefined;
+      while (true) {
+        const queries = [
+          Query.orderDesc('$createdAt'),
+          Query.limit(100),
+        ];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const response = await storage.listFiles({
+          bucketId: BUCKET_JOURNALS,
+          queries,
+        });
+        allFiles.push(...response.files);
+        if (response.files.length < 100) break;
+        cursor = response.files[response.files.length - 1].$id;
+      }
+
+      const uploadedFiles: UploadedFile[] = allFiles
+        .filter((file) => file.name.startsWith(prefix))
+        .map((file) => ({
+          id: file.$id,
+          name: stripOwnerPrefix(file.name) || file.name,
+          uri: storage.getFileDownloadURL(BUCKET_JOURNALS, file.$id).toString(),
+          size: file.sizeOriginal || 0,
+          type: file.mimeType || 'application/octet-stream',
+          uploadedAt: file.$createdAt,
+          appwriteId: file.$id,
+          viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, file.$id).toString(),
+        }));
+
+      setFiles(uploadedFiles);
+    } catch (error) {
+      console.error('Failed to load files:', error);
+      setFiles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ],
         copyToCacheDirectory: true,
       });
 
       if (result.canceled) return;
 
       const asset = result.assets[0];
+      if (!userId) {
+        Alert.alert('Error', 'Sesi tidak ditemukan. Silakan login ulang.');
+        return;
+      }
+      setUploading(true);
+
+      const storedName = `${ownerPrefix(userId)}${asset.name}`;
+
+      // Upload file to Appwrite with correct format for react-native-appwrite
+      const uploadedFile = await storage.createFile({
+        bucketId: BUCKET_JOURNALS,
+        fileId: ID.unique(),
+        file: {
+          uri: asset.uri,
+          name: storedName,
+          type: asset.mimeType || 'application/octet-stream',
+          size: asset.size || 0,
+        },
+        permissions: [
+          'read("any")',
+          `update("user:${userId}")`,
+          `delete("user:${userId}")`,
+        ],
+      });
+
       const newFile: UploadedFile = {
-        id: Date.now().toString(),
+        id: uploadedFile.$id,
         name: asset.name,
-        uri: asset.uri,
+        uri: storage.getFileDownloadURL(BUCKET_JOURNALS, uploadedFile.$id).toString(),
         size: asset.size || 0,
-        type: asset.mimeType || 'application/msword',
+        type: asset.mimeType || 'application/octet-stream',
         uploadedAt: new Date().toISOString(),
+        appwriteId: uploadedFile.$id,
+        viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, uploadedFile.$id).toString(),
       };
 
       setFiles((prev) => [newFile, ...prev]);
       Alert.alert('Berhasil', 'File skripsi berhasil diupload');
-    } catch (error) {
-      Alert.alert('Error', 'Gagal memilih file');
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', `Gagal upload file: ${error.message || 'Unknown error'}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -61,8 +165,19 @@ export default function SkripsiKuScreen() {
         {
           text: 'Hapus',
           style: 'destructive',
-          onPress: () => {
-            setFiles((prev) => prev.filter((f) => f.id !== fileId));
+          onPress: async () => {
+            try {
+              // Delete from Appwrite storage
+              await storage.deleteFile({
+                bucketId: BUCKET_JOURNALS,
+                fileId: fileId,
+              });
+              setFiles((prev) => prev.filter((f) => f.id !== fileId));
+              Alert.alert('Berhasil', 'File berhasil dihapus');
+            } catch (error: any) {
+              console.error('Delete error:', error);
+              Alert.alert('Error', `Gagal menghapus file: ${error.message || 'Unknown error'}`);
+            }
           },
         },
       ]
@@ -70,13 +185,14 @@ export default function SkripsiKuScreen() {
   };
 
   const handleViewFile = (file: UploadedFile) => {
-    // Pass file data as params
+    // Use Appwrite view URL if available, otherwise use local URI
+    const fileUri = file.viewUrl || file.uri;
     router.push({
       pathname: '/skripsiku/read',
       params: {
         id: file.id,
         name: file.name,
-        uri: file.uri,
+        uri: fileUri,
         size: file.size.toString(),
         type: file.type,
       },
@@ -101,6 +217,17 @@ export default function SkripsiKuScreen() {
     });
   };
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <AppHeader title="Skripsi Ku" showBack />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Memuat file...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <AppHeader title="Skripsi Ku" showBack />
@@ -117,9 +244,11 @@ export default function SkripsiKuScreen() {
               <Upload size={32} color={Colors.primary} strokeWidth={2} />
             </View>
             <View style={styles.uploadTextContainer}>
-              <Text style={styles.uploadTitle}>Upload File Skripsi</Text>
+              <Text style={styles.uploadTitle}>
+                {uploading ? 'Mengupload...' : 'Upload File Skripsi'}
+              </Text>
               <Text style={styles.uploadSubtitle}>
-                Pilih file Word (.doc, .docx) untuk diupload
+                Pilih file PDF atau Word (.pdf, .doc, .docx)
               </Text>
             </View>
           </TouchableOpacity>
@@ -185,6 +314,15 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
   },
   uploadSection: {
     marginBottom: 24,

@@ -1,4 +1,4 @@
-import { ID, Query, OAuthProvider } from 'appwrite';
+import { ID, Query, OAuthProvider } from 'react-native-appwrite';
 import {
   account,
   databases,
@@ -52,11 +52,11 @@ export const authService = {
    */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_USERS,
-        [Query.equal('user_id', userId)]
-      );
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_USERS,
+        queries: [Query.equal('user_id', userId)],
+      });
       return response.documents.length > 0
         ? (response.documents[0] as unknown as UserProfile)
         : null;
@@ -73,11 +73,11 @@ export const authService = {
     data: OnboardingFormData
   ): Promise<UserProfile> {
     try {
-      const doc = await databases.createDocument(
-        DATABASE_ID,
-        COLLECTION_USERS,
-        ID.unique(),
-        {
+      const doc = await databases.createDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_USERS,
+        documentId: ID.unique(),
+        data: {
           user_id: userId,
           name: data.name,
           email: data.email,
@@ -87,8 +87,8 @@ export const authService = {
           batch_year: parseInt(data.batchYear, 10),
           avatar_url: data.avatarUrl || null,
           created_at: new Date().toISOString(),
-        }
-      );
+        },
+      });
       return doc as unknown as UserProfile;
     } catch (error: any) {
       throw new Error(`Gagal menyimpan data onboarding: ${error.message}`);
@@ -123,8 +123,13 @@ export const authService = {
    */
   async updateAvatarUrl(docId: string, avatarUrl: string): Promise<void> {
     try {
-      await databases.updateDocument(DATABASE_ID, COLLECTION_USERS, docId, {
-        avatar_url: avatarUrl,
+      await databases.updateDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_USERS,
+        documentId: docId,
+        data: {
+          avatar_url: avatarUrl,
+        },
       });
     } catch (e: any) {
       console.warn('Gagal memperbarui avatar:', e.message);

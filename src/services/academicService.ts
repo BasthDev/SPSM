@@ -1,5 +1,5 @@
 import { databases } from './appwrite';
-import { Query, ID } from 'appwrite';
+import { Query, ID } from 'react-native-appwrite';
 import {
   DATABASE_ID,
   COLLECTION_DEPARTMENTS,
@@ -16,11 +16,11 @@ export const academicService = {
    */
   async getDepartments(): Promise<DepartmentItem[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_DEPARTMENTS,
-        [Query.equal('is_active', true), Query.limit(50)]
-      );
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_DEPARTMENTS,
+        queries: [Query.equal('is_active', true), Query.limit(50)],
+      });
       return (response.documents as unknown as DepartmentItem[]).filter(
         (d) => d.code !== 'SETTINGS_SYS'
       );
@@ -35,11 +35,11 @@ export const academicService = {
    */
   async getBatchYears(): Promise<BatchYearItem[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_BATCH_YEARS,
-        [Query.equal('is_active', true), Query.orderDesc('year'), Query.limit(50)]
-      );
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_BATCH_YEARS,
+        queries: [Query.equal('is_active', true), Query.orderDesc('year'), Query.limit(50)],
+      });
       return response.documents as unknown as BatchYearItem[];
     } catch (e: any) {
       console.warn('Failed to fetch batch years from db, using fallback:', e.message);
@@ -56,11 +56,11 @@ export const academicService = {
       if (departmentId) {
         queries.push(Query.equal('department_id', departmentId));
       }
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_LECTURERS,
-        queries
-      );
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_LECTURERS,
+        queries,
+      });
       return response.documents as unknown as LecturerItem[];
     } catch (e: any) {
       console.error('Failed to fetch lecturers:', e.message);
@@ -72,35 +72,35 @@ export const academicService = {
    * Create or update department (Admin)
    */
   async createDepartment(data: { name: string; code: string; faculty?: string }) {
-    return await databases.createDocument(
-      DATABASE_ID,
-      COLLECTION_DEPARTMENTS,
-      ID.unique(),
-      { ...data, is_active: true }
-    );
+    return await databases.createDocument({
+      databaseId: DATABASE_ID,
+      collectionId: COLLECTION_DEPARTMENTS,
+      documentId: ID.unique(),
+      data: { ...data, is_active: true },
+    });
   },
 
   /**
    * Create or update batch year / letting (Admin)
    */
   async createBatchYear(data: { year: number; label: string }) {
-    return await databases.createDocument(
-      DATABASE_ID,
-      COLLECTION_BATCH_YEARS,
-      ID.unique(),
-      { ...data, is_active: true }
-    );
+    return await databases.createDocument({
+      databaseId: DATABASE_ID,
+      collectionId: COLLECTION_BATCH_YEARS,
+      documentId: ID.unique(),
+      data: { ...data, is_active: true },
+    });
   },
 
   /**
    * Create lecturer (Admin)
    */
   async createLecturer(data: Omit<LecturerItem, '$id'>) {
-    return await databases.createDocument(
-      DATABASE_ID,
-      COLLECTION_LECTURERS,
-      ID.unique(),
-      data
-    );
+    return await databases.createDocument({
+      databaseId: DATABASE_ID,
+      collectionId: COLLECTION_LECTURERS,
+      documentId: ID.unique(),
+      data,
+    });
   },
 };

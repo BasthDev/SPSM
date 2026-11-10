@@ -1,5 +1,5 @@
 import { databases, storage } from './appwrite';
-import { ID, Query } from 'appwrite';
+import { ID, Query } from 'react-native-appwrite';
 import {
   DATABASE_ID,
   COLLECTION_SUBMISSIONS,
@@ -90,16 +90,16 @@ export const submissionService = {
   ): Promise<ThesisSubmission> {
     try {
       // 1. Create the main submission header
-      const submission = await databases.createDocument(
-        DATABASE_ID,
-        COLLECTION_SUBMISSIONS,
-        ID.unique(),
-        {
+      const submission = await databases.createDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_SUBMISSIONS,
+        documentId: ID.unique(),
+        data: {
           student_id: studentId,
           status: 'pending_lecturer',
           submitted_at: new Date().toISOString(),
-        }
-      );
+        },
+      });
 
       // 2. Create each title option (encoding relevance table if present)
       for (const option of optionsData) {
@@ -107,11 +107,11 @@ export const submissionService = {
 
         // Upload PDF journal if provided
         if (option.pdfFile) {
-          const uploadedFile = await storage.createFile(
-            BUCKET_JOURNALS,
-            ID.unique(),
-            option.pdfFile
-          );
+          const uploadedFile = await storage.createFile({
+            bucketId: BUCKET_JOURNALS,
+            fileId: ID.unique(),
+            file: option.pdfFile,
+          });
           fileId = uploadedFile.$id;
         }
 
@@ -125,11 +125,11 @@ export const submissionService = {
           finalBackground = `${option.background.trim()}${relTag}`;
         }
 
-        await databases.createDocument(
-          DATABASE_ID,
-          COLLECTION_OPTIONS,
-          ID.unique(),
-          {
+        await databases.createDocument({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_OPTIONS,
+          documentId: ID.unique(),
+          data: {
             submission_id: submission.$id,
             option_number: option.number,
             title: option.title,
@@ -138,8 +138,8 @@ export const submissionService = {
             journal_author: option.journalAuthor ?? '',
             journal_file_id: fileId,
             is_selected_by_lecturer: false,
-          }
-        );
+          },
+        });
       }
 
       // 3. Record student's 2 preferred advisors in an initial log
@@ -155,11 +155,11 @@ export const submissionService = {
           if (l2?.name) name2 = l2.name;
         }
 
-        await databases.createDocument(
-          DATABASE_ID,
-          COLLECTION_APPROVAL_LOGS,
-          ID.unique(),
-          {
+        await databases.createDocument({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_APPROVAL_LOGS,
+          documentId: ID.unique(),
+          data: {
             submission_id: submission.$id,
             actor_id: 'Mahasiswa (Pemohon)',
             action: 'PENGAJUAN_MAHASISWA',
@@ -170,8 +170,8 @@ export const submissionService = {
               pref2_name: name2 || null,
             }),
             created_at: new Date().toISOString(),
-          }
-        );
+          },
+        });
       }
 
       return submission as unknown as ThesisSubmission;
@@ -185,14 +185,14 @@ export const submissionService = {
    */
   async getStudentSubmissions(studentId: string): Promise<ThesisSubmission[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_SUBMISSIONS,
-        [
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_SUBMISSIONS,
+        queries: [
           Query.equal('student_id', studentId),
           Query.orderDesc('submitted_at'),
-        ]
-      );
+        ],
+      });
       return response.documents as unknown as ThesisSubmission[];
     } catch (error: any) {
       throw new Error(`Gagal mengambil daftar pengajuan: ${error.message}`);
@@ -204,11 +204,11 @@ export const submissionService = {
    */
   async getSubmission(submissionId: string): Promise<ThesisSubmission> {
     try {
-      const doc = await databases.getDocument(
-        DATABASE_ID,
-        COLLECTION_SUBMISSIONS,
-        submissionId
-      );
+      const doc = await databases.getDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_SUBMISSIONS,
+        documentId: submissionId,
+      });
       return doc as unknown as ThesisSubmission;
     } catch (error: any) {
       throw new Error(`Gagal mengambil detail pengajuan: ${error.message}`);
@@ -220,14 +220,14 @@ export const submissionService = {
    */
   async getSubmissionOptions(submissionId: string): Promise<SubmissionOption[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_OPTIONS,
-        [
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_OPTIONS,
+        queries: [
           Query.equal('submission_id', submissionId),
           Query.orderAsc('option_number'),
-        ]
-      );
+        ],
+      });
       const docs = response.documents as unknown as SubmissionOption[];
       return docs.map(parseOptionRelevance);
     } catch (error: any) {
@@ -241,19 +241,19 @@ export const submissionService = {
   async getLecturer(advisorId: string): Promise<LecturerItem | null> {
     if (!advisorId) return null;
     try {
-      const doc = await databases.getDocument(
-        DATABASE_ID,
-        COLLECTION_LECTURERS,
-        advisorId
-      );
+      const doc = await databases.getDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_LECTURERS,
+        documentId: advisorId,
+      });
       return doc as unknown as LecturerItem;
     } catch {
       try {
-        const res = await databases.listDocuments(
-          DATABASE_ID,
-          COLLECTION_LECTURERS,
-          [Query.equal('user_id', advisorId), Query.limit(1)]
-        );
+        const res = await databases.listDocuments({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_LECTURERS,
+          queries: [Query.equal('user_id', advisorId), Query.limit(1)],
+        });
         if (res.documents.length > 0) return res.documents[0] as unknown as LecturerItem;
       } catch {
         // ignore
@@ -267,14 +267,14 @@ export const submissionService = {
    */
   async getApprovalLogs(submissionId: string): Promise<ApprovalLog[]> {
     try {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        COLLECTION_APPROVAL_LOGS,
-        [
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_APPROVAL_LOGS,
+        queries: [
           Query.equal('submission_id', submissionId),
           Query.orderDesc('created_at'),
-        ]
-      );
+        ],
+      });
       return response.documents as unknown as ApprovalLog[];
     } catch {
       return [];
@@ -493,7 +493,10 @@ export const submissionService = {
   getFileViewUrl(fileId: string): string {
     if (!fileId) return '';
     try {
-      return storage.getFileView(BUCKET_JOURNALS, fileId).toString();
+      return storage.getFileView({
+        bucketId: BUCKET_JOURNALS,
+        fileId: fileId,
+      }).toString();
     } catch {
       return '';
     }
