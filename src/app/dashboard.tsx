@@ -1,31 +1,28 @@
 import {
   Button,
-  Card,
   EmptyState,
   HomeHeader,
   LoadingScreen,
-  StatusBadge,
+  Section,
+  StatusBadge
 } from '@/components';
-import type { ThesisSubmission, UserProfile, DepartmentItem } from '@/models/types';
+import type { DepartmentItem, ThesisSubmission, UserProfile } from '@/models/types';
 import { FALLBACK_DEPARTMENTS } from '@/models/types';
-import { authService } from '@/services/authService';
-import { submissionService } from '@/services/submissionService';
 import { academicService } from '@/services/academicService';
+import { authService } from '@/services/authService';
 import { settingsService, type SystemSettings } from '@/services/settingsService';
+import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AlertTriangle,
-  Award,
-  Calendar,
-  CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   FileText,
   GraduationCap,
-  PlusCircle,
-  ShieldCheck,
-  UserCheck,
+  PlusCircle
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
@@ -35,6 +32,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -46,6 +44,7 @@ export default function DashboardScreen() {
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   // Function to load all dashboard data freshly from Appwrite
   const loadDashboardData = useCallback(async (isInitial = false) => {
@@ -115,6 +114,13 @@ export default function DashboardScreen() {
     ]);
   };
 
+  const toggleCardExpansion = (cardId: string) => {
+    setExpandedCards((prev) => ({
+      ...prev,
+      [cardId]: !prev[cardId],
+    }));
+  };
+
   if (loading) return <LoadingScreen message="Memuat dashboard..." />;
 
   // Resolve full department name (not code)
@@ -173,12 +179,7 @@ export default function DashboardScreen() {
       >
         {/* Closed Period Banner (if submission period closed and no exemption) */}
         {showClosedBanner && (
-          <Card
-            variant="elevated"
-            borderRadius={20}
-            padding={16}
-            style={styles.closedPeriodCard}
-          >
+          <Section style={styles.closedPeriodCard}>
             <View style={styles.closedPeriodRow}>
               <View style={styles.closedPeriodIconCircle}>
                 <Clock size={24} color="#D97706" strokeWidth={2.2} />
@@ -195,18 +196,17 @@ export default function DashboardScreen() {
                 )}
               </View>
             </View>
-          </Card>
+          </Section>
         )}
 
         {/* 1. HERO ACTION: Conditional Button OR Detailed Live Status Banner */}
         {canSubmitNew ? (
-          <Card
-            variant="elevated"
-            borderRadius={24}
-            padding={20}
-            style={styles.heroCard}
+          <TouchableOpacity
             onPress={() => router.push('/submission/create' as any)}
+            activeOpacity={0.7}
           >
+            <Section style={styles.heroCard}>
+              <View style={styles.heroCardContent}>
             <View style={styles.heroRow}>
               <View style={styles.heroIconCircle}>
                 <PlusCircle size={26} color={Colors.primary} strokeWidth={2.2} />
@@ -221,142 +221,85 @@ export default function DashboardScreen() {
                 <ChevronRight size={20} color={Colors.primary} strokeWidth={2.4} />
               </View>
             </View>
-          </Card>
+            </View>
+          </Section>
+          </TouchableOpacity>
         ) : activeSubmission ? (
           /* Live Status Card for Active Submission */
-          <Card
-            variant="elevated"
-            borderRadius={24}
-            padding={20}
-            style={[
-              styles.activeSubmissionCard,
-              activeSubmission.status === 'approved' && styles.cardApproved,
-              activeSubmission.status === 'waiting_kaprodi' && styles.cardWaitingKaprodi,
-              activeSubmission.status === 'revision' && styles.cardRevision,
-            ]}
+          <TouchableOpacity
             onPress={() => router.push(`/submission/${activeSubmission.$id}` as any)}
+            activeOpacity={0.7}
           >
-            {/* Top Bar: Category Pill & Status Badge */}
-            <View style={styles.activeTopMetaRow}>
-              <View style={styles.activeCategoryPill}>
-                {activeSubmission.status === 'approved' ? (
-                  <Award size={15} color="#059669" strokeWidth={2.4} />
-                ) : activeSubmission.status === 'waiting_kaprodi' ? (
-                  <ShieldCheck size={15} color="#0A4C8F" strokeWidth={2.4} />
-                ) : activeSubmission.status === 'revision' ? (
-                  <AlertTriangle size={15} color="#D97706" strokeWidth={2.4} />
-                ) : (
-                  <Clock size={15} color={Colors.primary} strokeWidth={2.4} />
-                )}
-                <Text
-                  style={[
-                    styles.activeCategoryLabel,
-                    activeSubmission.status === 'approved' && { color: '#059669' },
-                    activeSubmission.status === 'waiting_kaprodi' && { color: '#0A4C8F' },
-                    activeSubmission.status === 'revision' && { color: '#D97706' },
-                  ]}
-                >
-                  {activeSubmission.status === 'approved'
-                    ? 'SK PENGESAHAN RESMI'
-                    : activeSubmission.status === 'waiting_kaprodi'
-                    ? 'PROSES PENGESAHAN KAPRODI'
-                    : activeSubmission.status === 'revision'
-                    ? 'PERLU PERBAIKAN / REVISI'
-                    : 'SEDANG DIPERIKSA REVIEWER'}
-                </Text>
-              </View>
-
-              <StatusBadge status={activeSubmission.status} size="sm" />
-            </View>
-
-            {/* Main Heading: Full width! */}
-            <Text style={styles.activeMainHeading}>
-              {activeSubmission.status === 'approved'
-                ? 'Judul & Dosen Pembimbing Resmi Disahkan'
-                : activeSubmission.status === 'waiting_kaprodi'
-                ? 'Menunggu Pengesahan Kaprodi'
-                : activeSubmission.status === 'revision'
-                ? 'Revisi Usulan Judul Skripsi'
-                : 'Dalam Antrean Review Dosen Penilai'}
-            </Text>
-
-            {/* Middle Section: Display 3 Proposed Titles if pending review, OR 1 Selected Title if reviewed */}
-            {activeSubmission.status === 'pending_lecturer' && activeSubmission.options && activeSubmission.options.length > 0 ? (
-              <View style={styles.dashboardThreeTitlesBox}>
-                <Text style={styles.dashboardThreeTitlesLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
-                {activeSubmission.options.map((opt) => (
-                  <View key={opt.$id} style={styles.dashboardOptionRow}>
-                    <View style={styles.dashboardOptionBadge}>
-                      <Text style={styles.dashboardOptionBadgeText}>#{opt.option_number}</Text>
-                    </View>
-                    <Text style={styles.dashboardOptionText} numberOfLines={2}>
-                      {opt.title}
+            <Section style={styles.headerCard}>
+              <View style={styles.headerTopRow}>
+                <View style={styles.headerLeftCol}>
+                  <View style={styles.headerIconBox}>
+                    <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.headerTexts}>
+                    <Text style={styles.headerTitle} numberOfLines={1}>Pengajuan Skripsi</Text>
+                    <Text style={styles.headerId} numberOfLines={1} ellipsizeMode="middle">
+                      NO. DOKUMEN: SPSM_{activeSubmission.$id.toUpperCase().slice(0, 12)}
                     </Text>
                   </View>
-                ))}
+                </View>
               </View>
-            ) : activeSubmission.selectedOption ? (
-              <View style={styles.highlightChosenBox}>
-                <Text style={styles.highlightBoxLabel}>Judul Skripsi Terpilih:</Text>
-                <Text style={styles.highlightChosenTitle}>
-                  {activeSubmission.selectedOption.title}
-                </Text>
-              </View>
-            ) : null}
 
-            {/* Nomor SK jika sudah disahkan */}
-            {activeSubmission.status === 'approved' && activeSubmission.nomor_surat ? (
-              <View style={styles.activeSkNumberRow}>
-                <Award size={14} color="#059669" strokeWidth={2.4} />
-                <Text style={styles.activeSkNumberText}>
-                  Nomor SK: {activeSubmission.nomor_surat}
-                </Text>
+              {/* Status Badge - Absolute Position */}
+              <View style={styles.headerBadgeAbsolute}>
+                <StatusBadge status={activeSubmission.status} size="sm" />
               </View>
-            ) : null}
 
-            {/* Advisor & Date Information */}
-            {activeSubmission.status !== 'revision' && activeSubmission.status !== 'rejected' && (<View style={styles.activeMetaGrid}>
-              {activeSubmission.advisor ? (
-                <View style={styles.activeMetaItem}>
-                  <GraduationCap size={15} color={Colors.primary} strokeWidth={2.2} />
-                  <Text style={styles.activeMetaText} numberOfLines={1}>
-                    Pembimbing: <Text style={styles.boldText}>{activeSubmission.advisor.name}</Text>
+              <View style={styles.headerDivider} />
+
+              <View style={styles.headerMetaRow}>
+                <View style={styles.headerMetaItem}>
+                  <View style={styles.dateContainer}>
+                    <View style={styles.dateItem}>
+                      <Text style={styles.headerMetaLabel}>Tanggal Pengajuan</Text>
+                      <Text style={styles.headerMetaValue}>
+                        {new Date(activeSubmission.submitted_at).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </View>
+                    {activeSubmission.kaprodiApprovalDate && (
+                      <View style={styles.dateItem}>
+                        <Text style={styles.headerMetaLabel}>Tanggal Disahkan</Text>
+                        <Text style={styles.headerMetaValue}>
+                          {new Date(activeSubmission.kaprodiApprovalDate).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.headerMetaItem}>
+                  <Text style={styles.headerMetaLabel}>Status</Text>
+                  <Text style={styles.headerMetaValueHL}>
+                    {activeSubmission.status === 'approved'
+                      ? 'Disahkan Kaprodi'
+                      : activeSubmission.status === 'waiting_kaprodi'
+                      ? 'Menunggu Kaprodi'
+                      : activeSubmission.status === 'revision'
+                      ? 'Perlu Revisi'
+                      : activeSubmission.status === 'rejected'
+                      ? 'Ditolak'
+                      : 'Tahap Penilaian Reviewer'}
                   </Text>
                 </View>
-              ) : (
-                <View style={styles.activeMetaItem}>
-                  <Clock size={15} color={Colors.textTertiary} strokeWidth={2} />
-                  <Text style={styles.activeMetaText}>Pembimbing: Sedang diplot reviewer</Text>
-                </View>
-              )}
-
-              {activeSubmission.kaprodiApprovalDate ? (
-                <View style={styles.activeMetaItem}>
-                  <CheckCircle2 size={15} color="#059669" strokeWidth={2.2} />
-                  <Text style={styles.activeMetaText}>
-                    Disahkan:{' '}
-                    <Text style={[styles.boldText, { color: '#059669' }]}>
-                      {new Date(activeSubmission.kaprodiApprovalDate).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </Text>
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            )}
-            {/* Bottom action prompt */}
-            <View style={styles.activeCardFooter}>
-              <Text style={styles.activeFooterActionText}>
-                {activeSubmission.status === 'approved'
-                  ? 'Buka Lembar Pengesahan & Detail Bimbingan'
-                  : 'Lihat Detail Status & Catatan Penilai'}
-              </Text>
-              <ChevronRight size={16} color={Colors.primary} strokeWidth={2.4} />
-            </View>
-          </Card>
+              </View>
+            </Section>
+          </TouchableOpacity>
         ) : null}
 
         {/* 2. SECTION HEADER */}
@@ -392,90 +335,196 @@ export default function DashboardScreen() {
               day: 'numeric',
               month: 'short',
               year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             });
 
             return (
-              <Card
+              <TouchableOpacity
                 key={sub.$id}
                 onPress={() => router.push(`/submission/${sub.$id}` as any)}
-                borderRadius={20}
-                padding={16}
-                style={styles.submissionCard}
+                activeOpacity={0.7}
               >
-                <View style={styles.cardTopRow}>
-                  <View style={styles.submissionIndexBadge}>
-                    <Text style={styles.submissionIndexText}>
-                      Pengajuan #{submissions.length - index}
-                    </Text>
+                <Section style={styles.submissionCard}>
+                  {/* Status Badge - Absolute Position */}
+                  <View style={styles.cardBadgeAbsolute}>
+                    <StatusBadge status={sub.status} size="sm" />
                   </View>
-                  <StatusBadge status={sub.status} size="sm" />
-                </View>
 
-                {/* Title Highlight: Show 3 options if in progress (pending_lecturer), or 1 chosen title if reviewed/approved */}
-                {sub.status === 'pending_lecturer' && sub.options && sub.options.length > 1 ? (
-                  <View style={styles.listCardMultiBox}>
-                    <Text style={styles.listCardMultiLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
-                    {sub.options.map((opt) => (
-                      <View key={opt.$id} style={styles.listCardOptRow}>
-                        <View style={styles.listCardOptBadge}>
-                          <Text style={styles.listCardOptBadgeText}>#{opt.option_number}</Text>
-                        </View>
-                        <Text style={styles.listCardOptText} numberOfLines={2}>
-                          {opt.title}
+                  {/* Top Row: Title and Status */}
+                  <View style={styles.cardTopRow}>
+                    <Text style={styles.cardTitle}>
+                      Pengajuan Skripsi #{submissions.length - index}
+                    </Text>
+                    <View style={styles.cardHeaderRight}>
+                      <TouchableOpacity
+                        onPress={() => toggleCardExpansion(sub.$id)}
+                        activeOpacity={0.7}
+                        style={styles.expandButton}
+                      >
+                        {/* <Text style={styles.expandLabel}>Lihat</Text> */}
+                        {expandedCards[sub.$id] ? (
+                          <ChevronUp
+                            size={18}
+                            color={Colors.primary}
+                            strokeWidth={2.5}
+                          />
+                        ) : (
+                          <ChevronDown
+                            size={18}
+                            color={Colors.textTertiary}
+                            strokeWidth={2.5}
+                          />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Document Info Section (always visible) */}
+                  <View style={styles.infoSection}>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>No. Dokumen:</Text>
+                      <Text style={[styles.infoValue, styles.infoValueMono]}>
+                        SPSM_{sub.$id.toUpperCase().slice(0, 12)}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Text style={styles.infoLabel}>Tanggal Diajukan:</Text>
+                      <Text style={styles.infoValue}>{dateStr}</Text>
+                    </View>
+                    {sub.kaprodiApprovalDate && (
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Tanggal Disahkan:</Text>
+                        <Text style={styles.infoValue}>
+                          {new Date(sub.kaprodiApprovalDate).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </Text>
                       </View>
-                    ))}
-                  </View>
-                ) : (
-                  <View>
-                    <Text style={styles.cardThesisTitle}>
-                      {sub.selectedOption?.title || sub.options?.[0]?.title || 'Usulan 3 Opsi Judul Skripsi'}
-                    </Text>
+                    )}
                     {sub.status === 'approved' && sub.nomor_surat && (
-                      <View style={styles.listCardSkRow}>
-                        <Award size={12} color="#059669" strokeWidth={2.4} />
-                        <Text style={styles.listCardSkText}>
-                          No. SK: {sub.nomor_surat}
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>No. SK:</Text>
+                        <Text style={[styles.infoValue, styles.infoValueSuccess, styles.infoValueMono]}>
+                          {sub.nomor_surat}
                         </Text>
                       </View>
                     )}
                   </View>
-                )}
 
-                <View style={styles.cardDivider} />
+                  {/* Collapsible Section: Title & Advisor */}
+                  {expandedCards[sub.$id] && (
+                    <>
+                      <View style={styles.cardDivider} />
 
-                {/* Meta details */}
-                <View style={styles.cardInfoRow}>
-                  <View style={styles.infoItem}>
-                    <Calendar size={13} color={Colors.textTertiary} strokeWidth={2} />
-                    <Text style={styles.infoText}>{dateStr}</Text>
-                  </View>
+                      {/* Title Display Section */}
+                      <View style={styles.titleSection}>
+                        {sub.status === 'pending_lecturer' && sub.options && sub.options.length > 0 ? (
+                          /* Case 1: Show all 3 titles when pending review */
+                          <View>
+                            <Text style={styles.sectionLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
+                            {sub.options.map((opt) => (
+                              <View key={opt.$id} style={styles.listCardOptRow}>
+                                <View style={styles.listCardOptBadge}>
+                                  <Text style={styles.listCardOptBadgeText}>#{opt.option_number}</Text>
+                                </View>
+                                <Text style={styles.listCardOptText} numberOfLines={2}>
+                                  {opt.title}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : sub.status === 'revision' || sub.status === 'rejected' ? (
+                          /* Case 3: Show which title has revision/rejection notes */
+                          <View>
+                            <Text style={styles.sectionLabel}>Usulan Judul & Catatan Evaluasi:</Text>
+                            {sub.options && sub.options.length > 0 ? (
+                              sub.options.map((opt) => (
+                                <View key={opt.$id} style={styles.revisionOptionRow}>
+                                  <View style={styles.revisionBadge}>
+                                    <Text style={styles.revisionBadgeText}>#{opt.option_number}</Text>
+                                  </View>
+                                  <View style={styles.revisionContent}>
+                                    <Text style={styles.revisionTitle} numberOfLines={2}>
+                                      {opt.title}
+                                    </Text>
+                                    {opt.revision_note && (
+                                      <View style={styles.revisionNoteBox}>
+                                        <AlertTriangle size={11} color="#D97706" strokeWidth={2} />
+                                        <Text style={styles.revisionNoteText} numberOfLines={2}>
+                                          {opt.revision_note}
+                                        </Text>
+                                      </View>
+                                    )}
+                                  </View>
+                                </View>
+                              ))
+                            ) : (
+                              <Text style={styles.infoValue}>Judul tidak tersedia</Text>
+                            )}
+                          </View>
+                        ) : (
+                          /* Case 2: Show 1 selected title if approved or waiting kaprodi */
+                          <View>
+                            <Text style={styles.sectionLabel}>Judul Yang Disetujui:</Text>
+                            <Text style={styles.titleValue}>
+                              {sub.selectedOption?.title || sub.options?.[0]?.title || 'Judul Skripsi'}
+                            </Text>
+                          </View>
+                        )}
 
-                  {sub.status !== 'revision' && sub.status !== 'rejected' && (
-                    sub.advisor ? (
-                      <View style={styles.infoItem}>
-                        <UserCheck size={13} color={Colors.success} strokeWidth={2} />
-                        <Text style={[styles.infoText, { color: Colors.success, fontWeight: '700' }]} numberOfLines={1}>
-                          {sub.advisor.name}
-                        </Text>
+                        {/* Dosen Pembimbing Section */}
+                        {sub.status !== 'revision' && sub.status !== 'rejected' && (
+                          <View style={styles.advisorSection}>
+                            <Text style={styles.sectionLabel}>Dosen Pembimbing:</Text>
+                            {sub.advisor ? (
+                              <View style={styles.advisorInfoRow}>
+                                <View style={styles.advisorBadge}>
+                                  <Text style={styles.advisorBadgeText}>P1</Text>
+                                </View>
+                                <View style={styles.advisorDetails}>
+                                  <Text style={styles.advisorName}>{sub.advisor.name}</Text>
+                                  <Text style={styles.advisorNip}>NIP: {sub.advisor.nip}</Text>
+                                </View>
+                              </View>
+                            ) : (
+                              <Text style={[styles.infoValue, { color: Colors.warning }]}>
+                                Sedang Menunggu Plotting
+                              </Text>
+                            )}
+                            {sub.advisor2 && (
+                              <View style={[styles.advisorInfoRow, { marginTop: 8 }]}>
+                                <View style={styles.advisorBadge}>
+                                  <Text style={styles.advisorBadgeText}>P2</Text>
+                                </View>
+                                <View style={styles.advisorDetails}>
+                                  <Text style={styles.advisorName}>{sub.advisor2.name}</Text>
+                                  <Text style={styles.advisorNip}>NIP: {sub.advisor2.nip}</Text>
+                                </View>
+                              </View>
+                            )}
+                          </View>
+                        )}
                       </View>
-                    ) : (
-                      <View style={styles.infoItem}>
-                        <Clock size={13} color={Colors.warning} strokeWidth={2} />
-                        <Text style={[styles.infoText, { color: Colors.warning, fontWeight: '600' }]}>
-                          Menunggu Plotting
-                        </Text>
-                      </View>
-                    )
+                    </>
                   )}
-                </View>
 
-                {/* Card Action Link */}
-                <View style={styles.cardFooter}>
-                  <Text style={styles.detailLinkText}>Buka Detail Pengajuan & SK</Text>
-                  <ChevronRight size={15} color={Colors.primary} strokeWidth={2.4} />
-                </View>
-              </Card>
+                  {/* Card Action Link */}
+                  <TouchableOpacity
+                    onPress={() => router.push(`/submission/${sub.$id}` as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.cardFooter}>
+                      <Text style={styles.detailLinkText}>Buka Detail Pengajuan & SK</Text>
+                      <ChevronRight size={15} color={Colors.primary} strokeWidth={2.4} />
+                    </View>
+                  </TouchableOpacity>
+                </Section>
+              </TouchableOpacity>
             );
           })
         )}
@@ -498,6 +547,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E0F2FE',
     marginBottom: 24,
+    padding: 0,
+  },
+  heroCardContent: {
+    padding: 20,
   },
   heroRow: {
     flexDirection: 'row',
@@ -537,6 +590,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#BFDBFE',
     marginBottom: 24,
+    padding: 0,
+  },
+  activeCardContent: {
+    padding: 20,
   },
   cardApproved: {
     borderColor: '#A7F3D0',
@@ -550,6 +607,200 @@ const styles = StyleSheet.create({
     borderColor: '#FED7AA',
     backgroundColor: '#FFF7ED',
   },
+
+  // Header Card (from detail page)
+  headerCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    position: 'relative',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  headerLeftCol: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
+  },
+  headerIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  headerTexts: {
+    flex: 1,
+    minWidth: 0,
+  },
+  headerTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  headerId: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: Colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  headerBadgeWrap: {
+    flexShrink: 0,
+    alignItems: 'flex-end',
+  },
+  headerBadgeAbsolute: {
+    position: 'absolute',
+    top: -10,
+    right: 10,
+    zIndex: 10,
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 12,
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  headerMetaItem: {
+    flex: 1,
+  },
+  dateContainer: {
+    gap: 8,
+  },
+  dateItem: {
+    gap: 2,
+  },
+  headerMetaLabel: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  headerMetaValue: {
+    fontSize: 13,
+    color: Colors.text,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  headerMetaValueSub: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  headerMetaValueHL: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  // Info Section Styles (label-value format)
+  infoSection: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textTertiary,
+    minWidth: 80,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  infoValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+    flex: 1,
+    textAlign: 'right',
+  },
+  infoValueMono: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  infoValueSuccess: {
+    color: '#059669',
+  },
+
+  // Title Section Styles
+  titleSection: {
+    marginBottom: 12,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  titleValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text,
+    lineHeight: 20,
+  },
+
+  // Advisor Section Styles
+  advisorSection: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  advisorInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  advisorBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  advisorBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  advisorDetails: {
+    flex: 1,
+  },
+  advisorName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  advisorNip: {
+    fontSize: 10,
+    color: Colors.textTertiary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    marginTop: 1,
+  },
+
   activeTopMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -671,6 +922,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
     borderWidth: 1,
+    borderRadius: 20,
     marginBottom: 16,
   },
   closedPeriodRow: {
@@ -710,6 +962,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: Colors.border,
+    position: 'relative',
+  },
+  cardBadgeAbsolute: {
+    position: 'absolute',
+    top: -10,
+    right: 10,
+    zIndex: 10,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -717,16 +976,33 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  submissionIndexBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+  cardHeaderTouchable: {
+    marginBottom: 8,
   },
-  submissionIndexText: {
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+  },
+  expandLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+    flex: 1,
   },
   cardThesisTitle: {
     fontSize: 14,
@@ -769,6 +1045,136 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
   },
+
+  // Revision/Rejection Option Styles
+  revisionOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  revisionBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 1,
+  },
+  revisionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  revisionContent: {
+    flex: 1,
+  },
+  revisionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
+    lineHeight: 18,
+    marginBottom: 4,
+  },
+  revisionNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FFFBEB',
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  revisionNoteText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#92400E',
+    lineHeight: 15,
+  },
+
+  // List Card Multi Box Styles
+  listCardMultiBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  listCardMultiLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  listCardOptRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 6,
+  },
+  listCardOptBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 1,
+  },
+  listCardOptBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  listCardOptText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.text,
+    lineHeight: 16,
+  },
+  listCardSkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  listCardSkText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  // cardThesisTitle: {
+  //   fontSize: 14,
+  //   fontWeight: '700',
+  //   color: Colors.text,
+  //   lineHeight: 19,
+  //   marginBottom: 10,
+  // },
+  // cardDivider: {
+  //   height: 1,
+  //   backgroundColor: '#F1F5F9',
+  //   marginBottom: 10,
+  // },
+  // cardInfoRow: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'space-between',
+  //   marginBottom: 10,
+  // },
+  // infoItem: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   gap: 6,
+  //   maxWidth: '55%',
+  // },
+  // infoText: {
+  //   fontSize: 11.5,
+  //   color: Colors.textTertiary,
+  // },
 
   // 3 Titles in Active Dashboard Card
   dashboardThreeTitlesBox: {
@@ -832,58 +1238,58 @@ const styles = StyleSheet.create({
   },
 
   // 3 Titles in Riwayat List Card
-  listCardMultiBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 6,
-  },
-  listCardMultiLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  listCardOptRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-  },
-  listCardOptBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginTop: 1,
-  },
-  listCardOptBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  listCardOptText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.text,
-    lineHeight: 16,
-  },
-  listCardSkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: -4,
-    marginBottom: 8,
-  },
-  listCardSkText: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#059669',
-  },
+  // listCardMultiBox: {
+  //   backgroundColor: '#F8FAFC',
+  //   borderRadius: 10,
+  //   padding: 10,
+  //   marginBottom: 10,
+  //   borderWidth: 1,
+  //   borderColor: '#E2E8F0',
+  //   gap: 6,
+  // },
+  // listCardMultiLabel: {
+  //   fontSize: 10,
+  //   fontWeight: '700',
+  //   color: Colors.textTertiary,
+  //   textTransform: 'uppercase',
+  //   letterSpacing: 0.5,
+  //   marginBottom: 2,
+  // },
+  // listCardOptRow: {
+  //   flexDirection: 'row',
+  //   alignItems: 'flex-start',
+  //   gap: 6,
+  // },
+  // listCardOptBadge: {
+  //   backgroundColor: '#EFF6FF',
+  //   paddingHorizontal: 5,
+  //   paddingVertical: 2,
+  //   borderRadius: 4,
+  //   marginTop: 1,
+  // },
+  // listCardOptBadgeText: {
+  //   fontSize: 9.5,
+  //   fontWeight: '800',
+  //   color: Colors.primary,
+  // },
+  // listCardOptText: {
+  //   flex: 1,
+  //   fontSize: 12,
+  //   fontWeight: '600',
+  //   color: Colors.text,
+  //   lineHeight: 16,
+  // },
+  // listCardSkRow: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   gap: 4,
+  //   marginTop: -4,
+  //   marginBottom: 8,
+  // },
+  // listCardSkText: {
+  //   fontSize: 11,
+  //   fontWeight: '700',
+  //   fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  //   color: '#059669',
+  // },
 });

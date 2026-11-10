@@ -1,11 +1,4 @@
-import {
-  AppHeader,
-  Avatar,
-  Button,
-  LoadingScreen,
-  Section,
-  StatusBadge,
-} from '@/components';
+import { AppHeader, Avatar, Button, LoadingScreen, Section, StatusBadge } from '@/components';
 import type { ThesisSubmission } from '@/models/types';
 import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
@@ -13,8 +6,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   AlertTriangle,
   Award,
-  BookOpen,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   ExternalLink,
   FileCheck,
@@ -23,7 +17,7 @@ import {
   Share2,
   TableProperties,
   X,
-  XCircle,
+  XCircle
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -44,6 +38,7 @@ export default function SubmissionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState<ThesisSubmission | null>(null);
   const [showSkModal, setShowSkModal] = useState(false);
+  const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let active = true;
@@ -107,10 +102,19 @@ export default function SubmissionDetailScreen() {
       })
     : null;
 
-  // Progress Stage Calculation
-  // 1: Pengajuan Masuk (pending_lecturer)
-  // 2: Verifikasi Reviewer (waiting_kaprodi)
-  // 3: Disahkan Kaprodi (approved)
+  const verificationLog = submission.logs?.find(
+    (log) => log.action === 'VERIFIKASI_DOSEN_PENILAI'
+  );
+  const formattedVerificationDate = verificationLog
+    ? new Date(verificationLog.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
   let currentStage = 1;
   if (submission.status === 'waiting_kaprodi') currentStage = 2;
   if (submission.status === 'approved') currentStage = 3;
@@ -119,6 +123,13 @@ export default function SubmissionDetailScreen() {
     submission.selectedOption ||
     submission.options?.find((o) => o.is_selected_by_lecturer) ||
     null;
+
+  const toggleOptionExpansion = (optionId: string) => {
+    setExpandedOptions((prev) => ({
+      ...prev,
+      [optionId]: !prev[optionId],
+    }));
+  };
 
   const handleOpenPdf = (fileId?: string | null) => {
     if (!fileId) return;
@@ -148,7 +159,7 @@ Tanggal Pengesahan: ${formattedApprovalDate || '-'}
 Disahkan oleh Kaprodi: ${submission.kaprodiName || 'Ketua Program Studi'}
 Catatan Pengesahan: ${submission.kaprodiNotes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.'}
 
-Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
+Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`;
 
     try {
       await Share.share({
@@ -218,21 +229,32 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
               <View style={styles.headerTexts}>
                 <Text style={styles.headerTitle} numberOfLines={1}>Pengajuan Skripsi</Text>
                 <Text style={styles.headerId} numberOfLines={1} ellipsizeMode="middle">
-                  NO. DOKUMEN: SPSM-{submission.$id.toUpperCase()}
+                  NO. DOKUMEN: SPSM_{submission.$id.toUpperCase().slice(0, 12)}
                 </Text>
               </View>
             </View>
-            <View style={styles.headerBadgeWrap}>
-              <StatusBadge status={submission.status} size="sm" />
-            </View>
+          </View>
+
+          <View style={styles.headerBadgeAbsolute}>
+            <StatusBadge status={submission.status} size="sm" />
           </View>
 
           <View style={styles.headerDivider} />
 
           <View style={styles.headerMetaRow}>
             <View style={styles.headerMetaItem}>
-              <Text style={styles.headerMetaLabel}>Tanggal Pengajuan</Text>
-              <Text style={styles.headerMetaValue}>{formattedSubmittedDate}</Text>
+              <View style={styles.dateContainer}>
+                <View style={styles.dateItem}>
+                  <Text style={styles.headerMetaLabel}>Tanggal Pengajuan</Text>
+                  <Text style={styles.headerMetaValue}>{formattedSubmittedDate}</Text>
+                </View>
+                {formattedApprovalDate && (
+                  <View style={styles.dateItem}>
+                    <Text style={styles.headerMetaLabel}>Tanggal Disahkan</Text>
+                    <Text style={styles.headerMetaValue}>{formattedApprovalDate}</Text>
+                  </View>
+                )}
+              </View>
             </View>
             <View style={styles.headerMetaItem}>
               <Text style={styles.headerMetaLabel}>Status</Text>
@@ -241,12 +263,12 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
           </View>
         </Section>
 
-        {/* SK PENGESAHAN RESMI CARD (Spesifikasi v2.0) */}
+        {/* SK PENGESAHAN RESMI CARD */}
         {submission.status === 'approved' && (
           <Section style={styles.skOfficialCard}>
             <View style={styles.skOfficialTop}>
               <View style={styles.skOfficialBadge}>
-                <Award size={15} color="#059669" strokeWidth={2.4} />
+                <Award size={15} color={Colors.primary} strokeWidth={2.4} />
                 <Text style={styles.skOfficialBadgeText}>SK RESMI DISAHKAN</Text>
               </View>
               {submission.urutan_surat && (
@@ -285,9 +307,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
         <Section style={styles.trackerCard}>
           <Text style={styles.sectionHeading}>Alur Proses Pengajuan</Text>
 
-          {/* Vertical Stepper Progress Timeline */}
           <View style={styles.verticalStepper}>
-            {/* Step 1: Diajukan */}
             <View style={styles.vStepItem}>
               <View style={styles.vStepLeft}>
                 <View style={[styles.vStepCircle, styles.vStepCircleCompleted]}>
@@ -315,7 +335,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
               </View>
             </View>
 
-            {/* Step 2: Review Dosen Penilai */}
             <View style={styles.vStepItem}>
               <View style={styles.vStepLeft}>
                 <View
@@ -378,10 +397,12 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                   {submission.status === 'rejected' &&
                     'Usulan judul ditolak. Anda dapat membuat pengajuan baru di halaman Dashboard.'}
                 </Text>
+                {formattedVerificationDate && (
+                  <Text style={styles.vStepDate}>Terverifikasi: {formattedVerificationDate}</Text>
+                )}
               </View>
             </View>
 
-            {/* Step 3: Pengesahan Kaprodi */}
             <View style={[styles.vStepItem, styles.vStepItemLast]}>
               <View style={styles.vStepLeft}>
                 <View
@@ -443,7 +464,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
             </View>
           </View>
 
-          {/* Status Explanation */}
           <View style={styles.statusDescriptionBox}>
             <Text style={styles.statusDescriptionText}>
               {submission.status === 'pending_lecturer' &&
@@ -460,83 +480,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
           </View>
         </Section>
 
-        {/* 2. PENGESAHAN KAPRODI — Simple Approval Card (only when approved) */}
-        {submission.status === 'approved' && (
-          <Section style={styles.approvalCard}>
-            <View style={styles.approvalHeaderRow}>
-              <View style={styles.approvalIconBox}>
-                <CheckCircle2 size={20} color="#059669" strokeWidth={2.4} />
-              </View>
-              <View style={styles.approvalHeaderTexts}>
-                <Text style={styles.approvalTitle}>Pengajuan Disahkan</Text>
-                <Text style={styles.approvalSubtitle}>
-                  Judul skripsi dan Dosen Pembimbing telah resmi ditetapkan
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.approvalDivider} />
-
-            {/* Approved Details */}
-            <View style={styles.approvalDetails}>
-              {selectedOption ? (
-                <View style={styles.approvalDetailRow}>
-                  <Text style={styles.approvalDetailLabel}>Judul Disahkan</Text>
-                  <Text style={styles.approvalDetailValueBold}>
-                    &ldquo;{selectedOption.title}&rdquo;
-                  </Text>
-                </View>
-              ) : null}
-
-              {submission.advisor ? (
-                <View style={styles.approvalDetailRow}>
-                  <Text style={styles.approvalDetailLabel}>Dosen Pembimbing 1 (Utama)</Text>
-                  <Text style={styles.approvalDetailValueBold}>
-                    {submission.advisor.name}
-                  </Text>
-                  <Text style={styles.approvalDetailSub}>
-                    NIP: {submission.advisor.nip} · {submission.advisor.expertise || 'Umum'}
-                  </Text>
-                </View>
-              ) : null}
-
-              {submission.advisor2 ? (
-                <View style={styles.approvalDetailRow}>
-                  <Text style={styles.approvalDetailLabel}>Dosen Pembimbing 2 (Pendamping)</Text>
-                  <Text style={styles.approvalDetailValueBold}>
-                    {submission.advisor2.name}
-                  </Text>
-                  <Text style={styles.approvalDetailSub}>
-                    NIP: {submission.advisor2.nip} · {submission.advisor2.expertise || 'Umum'}
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={styles.approvalDetailRow}>
-                <Text style={styles.approvalDetailLabel}>Tanggal Pengesahan</Text>
-                <Text style={styles.approvalDetailValue}>
-                  {formattedApprovalDate || formattedSubmittedDate}
-                </Text>
-              </View>
-
-              <View style={styles.approvalDetailRow}>
-                <Text style={styles.approvalDetailLabel}>Disahkan oleh</Text>
-                <Text style={styles.approvalDetailValue}>
-                  {submission.kaprodiName || 'Ketua Program Studi'}
-                </Text>
-              </View>
-
-              {submission.kaprodiNotes ? (
-                <View style={[styles.approvalDetailRow, styles.approvalLastRow]}>
-                  <Text style={styles.approvalDetailLabel}>Catatan</Text>
-                  <Text style={styles.approvalDetailNotes}>{submission.kaprodiNotes}</Text>
-                </View>
-              ) : null}
-            </View>
-          </Section>
-        )}
-
-        {/* 3. DETAIL DOSEN PEMBIMBING (hidden if revision/rejected) */}
+        {/* 3. DETAIL DOSEN PEMBIMBING */}
         {submission.status !== 'revision' && submission.status !== 'rejected' && (
           submission.advisor ? (
             <Section style={styles.advisorSection}>
@@ -554,7 +498,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 </View>
               </View>
 
-              {/* Dosen Pembimbing 1 (Utama) */}
               <View style={styles.advisorCard}>
                 <View style={styles.advisorTopRow}>
                   <Avatar
@@ -589,18 +532,17 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 </View>
               </View>
 
-              {/* Dosen Pembimbing 2 (Pendamping) jika ada */}
               {submission.advisor2 && (
                 <View style={[styles.advisorCard, { marginTop: 12 }]}>
                   <View style={styles.advisorTopRow}>
                     <Avatar
                       name={submission.advisor2.name}
                       size={54}
-                      backgroundColor="#0D9488"
+                      backgroundColor="#0284C7"
                     />
                     <View style={styles.advisorMainInfo}>
-                      <View style={[styles.advisorRolePill, { backgroundColor: '#CCFBF1' }]}>
-                        <Text style={[styles.advisorRolePillText, { color: '#0F766E' }]}>
+                      <View style={[styles.advisorRolePill, { backgroundColor: '#E0F2FE' }]}>
+                        <Text style={[styles.advisorRolePillText, { color: '#0369A1' }]}>
                           Pembimbing 2 (Pendamping)
                         </Text>
                       </View>
@@ -658,151 +600,144 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
           )
         )}
 
-        {/* 4. DAFTAR USULAN OPSI JUDUL SKRIPSI (1 KARTU TERSUSUN 3 JUDUL DENGAN PEMISAH LINE) */}
+        {/* 4. DAFTAR USULAN OPSI (PER CARD STACK - INDEPENDENT CARDS) */}
         {submission.options && submission.options.length > 0 ? (
-          <Section style={styles.allOptionsUnifiedCard}>
+          <View style={styles.independentStackContainer}>
             <View style={styles.sectionHeaderRow}>
-              <View style={[styles.headerIconCircle, { backgroundColor: '#EFF6FF' }]}>
+              {/* <View style={[styles.headerIconCircle, { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' }]}>
                 <BookOpen size={18} color={Colors.primary} strokeWidth={2.2} />
-              </View>
+              </View> */}
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionHeading}>Daftar Usulan Opsi Judul Skripsi</Text>
-                <Text style={styles.sectionSubheading}>
-                  Rincian 3 usulan judul beserta latar belakang dan rumusan masalah
-                </Text>
+                {/* <Text style={styles.sectionSubheading}>
+                  Ketuk kartu opsi untuk melihat rincian rumusan masalah dan jurnal
+                </Text> */}
               </View>
             </View>
 
-            <View style={styles.unifiedOptionsContainer}>
-              {submission.options.map((opt, index) => {
+            <View style={styles.stackCardsList}>
+              {submission.options.map((opt) => {
                 const isSelected = opt.is_selected_by_lecturer;
-                const isLast = index === submission.options!.length - 1;
+                const isExpanded = expandedOptions[opt.$id] || false;
 
                 return (
-                  <View key={opt.$id} style={styles.optionBlock}>
-                    {/* Header Row: Opsi Badge + Judul Terpilih Badge */}
-                    <View style={styles.optionHeaderRow}>
-                      <View
-                        style={[
-                          styles.unifiedOptionBadge,
-                          isSelected && styles.unifiedOptionBadgeSelected,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.unifiedOptionBadgeText,
-                            isSelected && styles.unifiedOptionBadgeTextSelected,
-                          ]}
-                        >
-                          Opsi #{opt.option_number}
-                        </Text>
+                  <View
+                    key={opt.$id}
+                    style={[
+                      styles.indCard,
+                      isSelected && styles.indCardSelected,
+                    ]}
+                  >
+                    <TouchableOpacity
+                      onPress={() => toggleOptionExpansion(opt.$id)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.indCardHeader}>
+                        <View style={styles.indCardHeaderLeft}>
+                          <View style={[styles.indBadge, isSelected && styles.indBadgeSelected]}>
+                            <Text style={[styles.indBadgeText, isSelected && styles.indBadgeTextSelected]}>
+                              {opt.option_number}
+                            </Text>
+                          </View>
+                          <Text style={styles.indCardSubLabel}>OPSI JUDUL {opt.option_number}</Text>
+                          {isSelected && (
+                            <View style={styles.indSelectedTag}>
+                              <Text style={styles.indSelectedTagText}>JUDUL TERPILIH</Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.indChevronWrap}>
+                          {isExpanded ? (
+                            <ChevronUp size={18} color={Colors.primary} strokeWidth={2.2} />
+                          ) : (
+                            <ChevronDown size={18} color={Colors.textSecondary} strokeWidth={2.2} />
+                          )}
+                        </View>
                       </View>
 
-                      {isSelected && (
-                        <View style={styles.selectedPillBadge}>
-                          <CheckCircle2 size={13} color="#FFFFFF" strokeWidth={2.5} />
-                          <Text style={styles.selectedPillText}>Judul Terpilih / Disahkan</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Judul Skripsi */}
-                    <Text
-                      style={[
-                        styles.unifiedOptionTitle,
-                        isSelected && styles.unifiedOptionTitleSelected,
-                      ]}
-                    >
-                      {opt.title}
-                    </Text>
-
-                    {/* Latar Belakang & Rumusan Masalah */}
-                    <View
-                      style={[
-                        styles.unifiedBgBox,
-                        isSelected && styles.unifiedBgBoxSelected,
-                      ]}
-                    >
-                      <Text style={styles.unifiedBgLabel}>
-                        Latar Belakang & Rumusan Masalah:
+                      <Text style={[styles.indCardTitle, isSelected && styles.indCardTitleSelected]}>
+                        {opt.title}
                       </Text>
-                      <Text style={styles.unifiedBgText}>{opt.background}</Text>
-                    </View>
+                    </TouchableOpacity>
 
-                    {/* Jurnal Acuan Pendukung (jika ada) */}
-                    {opt.journal_title ? (
-                      <View style={styles.unifiedJournalBox}>
-                        <View style={styles.unifiedJournalHeader}>
-                          <BookOpen size={13} color={Colors.primary} strokeWidth={2} />
-                          <Text style={styles.unifiedJournalTitle}>
-                            Jurnal Acuan: {opt.journal_title}
-                          </Text>
+                    {/* Expanded Detail Blocks */}
+                    {isExpanded && (
+                      <View style={styles.indExpandedContent}>
+                        <View style={styles.indDivider} />
+
+                        {/* Latar Belakang Masalah */}
+                        <View style={styles.indSubCardBlock}>
+                          <Text style={styles.indSubBlockTitle}>Latar Belakang Masalah:</Text>
+                          <Text style={styles.indSubBlockText}>{opt.background}</Text>
                         </View>
-                        {opt.journal_author ? (
-                          <Text style={styles.unifiedJournalAuthor}>
-                            Penulis / Sumber: {opt.journal_author}
-                          </Text>
+
+                        {/* Jurnal Referensi */}
+                        {opt.journal_title ? (
+                          <View style={[styles.indSubCardBlock, { marginTop: 10 }]}>
+                            <Text style={styles.indSubBlockTitle}>JURNAL REFERENSI</Text>
+                            <Text style={styles.indJournalTitle}>{opt.journal_title}</Text>
+                            {opt.journal_author ? (
+                              <Text style={styles.indJournalAuthor}>
+                                {opt.journal_author} {opt.journal_year ? `(${opt.journal_year})` : ''}
+                              </Text>
+                            ) : null}
+                            {opt.journal_file_id ? (
+                              <TouchableOpacity
+                                style={styles.btnPdfSmall}
+                                onPress={() => handleOpenPdf(opt.journal_file_id)}
+                                activeOpacity={0.8}
+                              >
+                                <ExternalLink size={12} color="#FFFFFF" strokeWidth={2.2} />
+                                <Text style={styles.btnPdfSmallText}>Lihat Berkas PDF Jurnal</Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </View>
                         ) : null}
 
-                        {opt.journal_file_id ? (
-                          <TouchableOpacity
-                            style={styles.btnPdfSmall}
-                            onPress={() => handleOpenPdf(opt.journal_file_id)}
-                            activeOpacity={0.8}
-                          >
-                            <ExternalLink size={12} color="#FFFFFF" strokeWidth={2.2} />
-                            <Text style={styles.btnPdfSmallText}>Lihat Berkas PDF Jurnal</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    ) : null}
+                        {/* Tabel Relevansi Penelitian */}
+                        {(opt.relevance_variable || opt.relevance_methodology || opt.relevance_note) && (
+                          <View style={styles.indRelevanceSection}>
+                            <View style={styles.indRelevanceHeader}>
+                              <TableProperties size={14} color={Colors.primary} strokeWidth={2.2} />
+                              <Text style={styles.indRelevanceHeaderText}>Tabel Relevansi Penelitian</Text>
+                            </View>
 
-                    {/* Tabel Relevansi Penelitian (Spesifikasi v2.0) */}
-                    {(opt.relevance_variable || opt.relevance_methodology || opt.relevance_note) && (
-                      <View style={styles.relevanceCard}>
-                        <View style={styles.relevanceHeader}>
-                          <TableProperties size={13} color={Colors.primary} strokeWidth={2.2} />
-                          <Text style={styles.relevanceHeaderTitle}>Tabel Relevansi Penelitian</Text>
-                        </View>
-                        {opt.relevance_variable ? (
-                          <View style={styles.relevanceRow}>
-                            <Text style={styles.relevanceRowLabel}>Variabel / Fokus:</Text>
-                            <Text style={styles.relevanceRowValue}>{opt.relevance_variable}</Text>
+                            {opt.relevance_variable ? (
+                              <View style={styles.indRelSubCard}>
+                                <Text style={styles.indRelRowTitle}>Variabel Penelitian</Text>
+                                <Text style={styles.indRelRowVal}>{opt.relevance_variable}</Text>
+                              </View>
+                            ) : null}
+
+                            {opt.relevance_methodology ? (
+                              <View style={[styles.indRelSubCard, { marginTop: 8 }]}>
+                                <Text style={styles.indRelRowTitle}>Metodologi Jurnal</Text>
+                                <Text style={styles.indRelRowVal}>{opt.relevance_methodology}</Text>
+                              </View>
+                            ) : null}
+
+                            {opt.relevance_note ? (
+                              <View style={[styles.indRelSubCard, { marginTop: 8 }]}>
+                                <Text style={styles.indRelRowTitle}>Kesesuaian Topik</Text>
+                                <Text style={styles.indRelRowVal}>{opt.relevance_note}</Text>
+                              </View>
+                            ) : null}
                           </View>
-                        ) : null}
-                        {opt.relevance_methodology ? (
-                          <View style={styles.relevanceRow}>
-                            <Text style={styles.relevanceRowLabel}>Metodologi Jurnal:</Text>
-                            <Text style={styles.relevanceRowValue}>{opt.relevance_methodology}</Text>
+                        )}
+
+                        {opt.revision_note && (
+                          <View style={styles.flatNoteGroup}>
+                            <Text style={styles.flatNoteLabel}>Catatan Penilai / Reviewer:</Text>
+                            <Text style={styles.flatNoteText}>{opt.revision_note}</Text>
                           </View>
-                        ) : null}
-                        {opt.relevance_note ? (
-                          <View style={styles.relevanceRow}>
-                            <Text style={styles.relevanceRowLabel}>Kesesuaian Topik:</Text>
-                            <Text style={styles.relevanceRowValue}>{opt.relevance_note}</Text>
-                          </View>
-                        ) : null}
+                        )}
                       </View>
                     )}
-
-                    {/* Catatan Khusus Reviewer untuk Judul Ini */}
-                    {opt.revision_note && (
-                      <View style={styles.optionRevisionNoteBox}>
-                        <AlertTriangle size={14} color="#D97706" strokeWidth={2.2} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.optionRevisionNoteTitle}>Catatan Penilaian:</Text>
-                          <Text style={styles.optionRevisionNoteText}>{opt.revision_note}</Text>
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Line Separator between options */}
-                    {!isLast && <View style={styles.optionDividerLine} />}
                   </View>
                 );
               })}
             </View>
-          </Section>
+          </View>
         ) : null}
 
         {/* 5. RIWAYAT LOG CATATAN & EVALUASI */}
@@ -869,7 +804,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalHeaderTitle}>Lembar Keputusan Pengesahan</Text>
@@ -883,14 +817,12 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
               </TouchableOpacity>
             </View>
 
-            {/* Modal Body / Official SK Sheet */}
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {/* Kop Dokumen */}
               <View style={styles.skDocHeader}>
                 <View style={styles.skDocLogo}>
                   <GraduationCap size={28} color={Colors.primary} strokeWidth={2.4} />
                 </View>
-                <Text style={styles.skDocInstitution}>SISTEM PENGAJUAN SKRIPSI MAHASISWA (SPSM)</Text>
+                <Text style={styles.skDocInstitution}>UNIVERSITAS MUHAMMADIYAH ACEH</Text>
                 <Text style={styles.skDocTitle}>SURAT KEPUTUSAN PENGESAHAN</Text>
                 <Text style={styles.skDocSubtitle}>
                   PENETAPAN JUDUL SKRIPSI DAN PENGANGKATAN DOSEN PEMBIMBING
@@ -898,7 +830,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 <View style={styles.skDocDoubleLine} />
               </View>
 
-              {/* Nomor Surat & Tanggal */}
               <View style={styles.skDocMetaRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.skDocMetaLabel}>NOMOR SURAT KEPUTUSAN</Text>
@@ -910,7 +841,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 </View>
               </View>
 
-              {/* Data Pengajuan */}
               <View style={styles.skDocSection}>
                 <Text style={styles.skDocSectionTitle}>I. IDENTITAS PENGAJUAN</Text>
                 <View style={styles.skDocRow}>
@@ -927,7 +857,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 </View>
               </View>
 
-              {/* Judul Skripsi Terpilih */}
               <View style={styles.skDocSection}>
                 <Text style={styles.skDocSectionTitle}>II. JUDUL SKRIPSI YANG DISAHKAN</Text>
                 <View style={styles.skDocTitleBox}>
@@ -937,7 +866,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 </View>
               </View>
 
-              {/* Tim Dosen Pembimbing */}
               <View style={styles.skDocSection}>
                 <Text style={styles.skDocSectionTitle}>III. SUSUNAN DOSEN PEMBIMBING</Text>
                 <View style={styles.skDocAdvisorBox}>
@@ -955,12 +883,11 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
                 )}
               </View>
 
-              {/* Pengesahan Digital Kaprodi */}
               <View style={styles.skDocSignSection}>
                 <Text style={styles.skDocSignCity}>Disahkan secara digital oleh:</Text>
                 <Text style={styles.skDocSignRole}>Ketua Program Studi</Text>
                 <View style={styles.skDocStampBox}>
-                  <CheckCircle2 size={16} color="#059669" strokeWidth={2.4} />
+                  <CheckCircle2 size={16} color={Colors.primary} strokeWidth={2.4} />
                   <Text style={styles.skDocStampText}>DIGITALLY VERIFIED & APPROVED</Text>
                 </View>
                 <Text style={styles.skDocSignName}>{submission.kaprodiName || 'Ketua Program Studi'}</Text>
@@ -970,7 +897,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM)`;
               </View>
             </ScrollView>
 
-            {/* Modal Footer */}
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalShareBtn}
@@ -1016,8 +942,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-
-  // Header Card
   headerCard: {
     padding: 16,
     borderRadius: 16,
@@ -1025,6 +949,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    position: 'relative',
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -1064,9 +989,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
-  headerBadgeWrap: {
-    flexShrink: 0,
-    alignItems: 'flex-end',
+  headerBadgeAbsolute: {
+    position: 'absolute',
+    top: -10,
+    right: 10,
+    zIndex: 10,
   },
   headerDivider: {
     height: 1,
@@ -1079,6 +1006,12 @@ const styles = StyleSheet.create({
   },
   headerMetaItem: {
     flex: 1,
+  },
+  dateContainer: {
+    gap: 8,
+  },
+  dateItem: {
+    gap: 2,
   },
   headerMetaLabel: {
     fontSize: 11,
@@ -1099,8 +1032,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
-
-  // 1. Tracker Card
   trackerCard: {
     padding: 18,
     borderRadius: 16,
@@ -1205,12 +1136,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   vBadgeSuccess: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#EFF6FF',
   },
   vBadgeTextSuccess: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#059669',
+    color: Colors.primary,
   },
   vBadgeActive: {
     backgroundColor: '#EFF6FF',
@@ -1257,91 +1188,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
   },
-
-  // 2. Approval Card (simple card replacing the formal certificate)
-  approvalCard: {
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-  },
-  approvalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  approvalIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#DCFCE7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  approvalHeaderTexts: {
-    flex: 1,
-  },
-  approvalTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#166534',
-  },
-  approvalSubtitle: {
-    fontSize: 12,
-    color: '#15803D',
-    marginTop: 2,
-  },
-  approvalDivider: {
-    height: 1,
-    backgroundColor: '#BBF7D0',
-    marginVertical: 14,
-  },
-  approvalDetails: {
-    gap: 12,
-  },
-  approvalDetailRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#DCFCE7',
-    paddingBottom: 10,
-  },
-  approvalLastRow: {
-    borderBottomWidth: 0,
-    paddingBottom: 0,
-  },
-  approvalDetailLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4ADE80',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 3,
-  },
-  approvalDetailValueBold: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#14532D',
-    lineHeight: 20,
-  },
-  approvalDetailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#166534',
-  },
-  approvalDetailSub: {
-    fontSize: 12,
-    color: '#15803D',
-    marginTop: 2,
-  },
-  approvalDetailNotes: {
-    fontSize: 12.5,
-    color: '#166534',
-    fontStyle: 'italic',
-    lineHeight: 18,
-  },
-
-  // 3. Dosen Pembimbing
   advisorSection: {
     padding: 18,
     borderRadius: 16,
@@ -1418,19 +1264,6 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     marginTop: 2,
   },
-  advisorProdiPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  advisorProdiText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
   advisorDivider: {
     height: 1,
     backgroundColor: '#E2E8F0',
@@ -1462,11 +1295,6 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: '700',
   },
-  advisorQuotaValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#059669',
-  },
   advisorPendingSection: {
     padding: 16,
     borderRadius: 16,
@@ -1494,201 +1322,206 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 16,
   },
-
-  // 4. All Options Unified Card (1 Card with 3 Options separated by dividers)
-  allOptionsUnifiedCard: {
-    padding: 18,
-    borderRadius: 16,
+  // Independent Stack Cards Styles matching reference images exactly
+  independentStackContainer: {
     marginBottom: 16,
+  },
+  stackCardsList: {
+    marginTop: -12,
+    gap: 14,
+  },
+  indCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  unifiedOptionsContainer: {
-    marginTop: 14,
+  indCardSelected: {
+    borderColor: Colors.primary,
+    borderWidth: 1.5,
   },
-  optionBlock: {
-    paddingVertical: 4,
-  },
-  optionHeaderRow: {
+  indCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  unifiedOptionBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
+  indCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  indBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  indBadgeSelected: {
+    backgroundColor: Colors.primary,
+  },
+  indBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  indBadgeTextSelected: {
+    color: '#FFFFFF',
+  },
+  indCardSubLabel: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.3,
+  },
+  indSelectedTag: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 9999,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
-  unifiedOptionBadgeSelected: {
-    backgroundColor: '#059669',
+  indSelectedTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primary,
+    letterSpacing: 0.5,
   },
-  unifiedOptionBadgeText: {
+  indChevronWrap: {
+    padding: 2,
+  },
+  indCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+    lineHeight: 22,
+  },
+  indCardTitleSelected: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
+  indExpandedContent: {
+    marginTop: 14,
+  },
+  indDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  indSubCardBlock: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  indSubBlockTitle: {
     fontSize: 11,
     fontWeight: '800',
     color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
   },
-  unifiedOptionBadgeTextSelected: {
-    color: '#FFFFFF',
+  indSubBlockText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 20,
   },
-  selectedPillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#059669',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 9999,
-  },
-  selectedPillText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  unifiedOptionTitle: {
-    fontSize: 14.5,
+  indJournalTitle: {
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#0F172A',
-    lineHeight: 21,
-    marginBottom: 8,
+    lineHeight: 20,
   },
-  unifiedOptionTitleSelected: {
-    color: '#0A4C8F',
-    fontWeight: '800',
-  },
-  unifiedBgBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  unifiedBgBoxSelected: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#DCFCE7',
-  },
-  unifiedBgLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-    marginBottom: 4,
-  },
-  unifiedBgText: {
-    fontSize: 12.5,
-    color: '#334155',
-    lineHeight: 18,
-  },
-  unifiedJournalBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  unifiedJournalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  unifiedJournalTitle: {
+  indJournalAuthor: {
     fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primary,
-    flex: 1,
-  },
-  unifiedJournalAuthor: {
-    fontSize: 11,
     color: '#64748B',
-    marginTop: 2,
-    marginBottom: 6,
+    marginTop: 3,
+    marginBottom: 10,
   },
   btnPdfSmall: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 6,
     backgroundColor: Colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
     alignSelf: 'flex-start',
     marginTop: 4,
   },
   btnPdfSmallText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  // Tabel Relevansi Card
-  relevanceCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+  indRelevanceSection: {
+    marginTop: 12,
   },
-  relevanceHeader: {
+  indRelevanceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 8,
+    paddingHorizontal: 2,
   },
-  relevanceHeaderTitle: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: Colors.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  relevanceRow: {
-    marginTop: 4,
-  },
-  relevanceRowLabel: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: Colors.textTertiary,
-  },
-  relevanceRowValue: {
+  indRelevanceHeaderText: {
     fontSize: 12,
-    color: Colors.text,
-    lineHeight: 16,
-    marginTop: 1,
+    fontWeight: '800',
+    color: '#0F172A',
   },
-  // Option Revision Note Box
-  optionRevisionNoteBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#FFFBEB',
+  indRelSubCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  indRelRowTitle: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  indRelRowVal: {
+    fontSize: 12.5,
+    color: '#1E293B',
+    lineHeight: 18,
+  },
+  flatNoteGroup: {
+    backgroundColor: '#FEF3C7',
     borderRadius: 10,
-    padding: 10,
-    marginTop: 8,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
+    marginTop: 12,
   },
-  optionRevisionNoteTitle: {
+  flatNoteLabel: {
     fontSize: 11,
     fontWeight: '800',
     color: '#92400E',
     textTransform: 'uppercase',
   },
-  optionRevisionNoteText: {
-    fontSize: 12,
+  flatNoteText: {
+    fontSize: 12.5,
     color: '#78350F',
-    marginTop: 2,
-    lineHeight: 16,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  optionDividerLine: {
-    height: 1.5,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 16,
-  },
-
-  // 5. Logs
   logsSection: {
     padding: 18,
     borderRadius: 16,
@@ -1746,15 +1579,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: 16,
   },
-
-  // SK Official Card
   skOfficialCard: {
     padding: 16,
     borderRadius: 16,
     marginBottom: 16,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1.5,
-    borderColor: '#A7F3D0',
+    borderColor: '#BFDBFE',
   },
   skOfficialTop: {
     flexDirection: 'row',
@@ -1769,12 +1600,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#DBEAFE',
   },
   skOfficialBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#065F46',
+    color: Colors.primary,
     letterSpacing: 0.5,
   },
   skUrutanBadge: {
@@ -1783,12 +1614,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#BFDBFE',
   },
   skUrutanBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#047857',
+    color: Colors.primary,
   },
   skNumberBox: {
     backgroundColor: '#FFFFFF',
@@ -1809,7 +1640,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#065F46',
+    color: Colors.primary,
   },
   skButtonRow: {
     flexDirection: 'row',
@@ -1821,7 +1652,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#059669',
+    backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: 12,
   },
@@ -1840,8 +1671,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
-
-  // Modal SK Pengesahan
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
@@ -1945,7 +1774,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#065F46',
+    color: Colors.primary,
     marginTop: 2,
   },
   skDocMetaVal: {
@@ -2038,15 +1867,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: '#BFDBFE',
     marginVertical: 10,
   },
   skDocStampText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#065F46',
+    color: Colors.primary,
     letterSpacing: 0.5,
   },
   skDocSignName: {

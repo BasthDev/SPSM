@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Colors } from '@/theme/theme';
 
 export type BadgeStatus =
   | 'pending_lecturer'
@@ -17,33 +18,33 @@ type StatusBadgeProps = {
 const STATUS_CONFIG: Record<BadgeStatus, { label: string; bg: string; text: string; dot: string }> = {
   pending_lecturer: {
     label: 'Menunggu Review',
-    bg: '#FEF3C7',
-    text: '#B45309',
-    dot: '#F59E0B',
+    bg: Colors.warning,
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
   },
   waiting_kaprodi: {
     label: 'Menunggu Kaprodi',
-    bg: '#E0F2FE',
-    text: '#0369A1',
-    dot: '#0284C7',
+    bg: Colors.primary,
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
   },
   approved: {
     label: 'Disetujui',
-    bg: '#D1FAE5',
-    text: '#047857',
-    dot: '#10B981',
+    bg: Colors.primary,
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
   },
   revision: {
     label: 'Perlu Revisi',
-    bg: '#FEE2E2',
-    text: '#B91C1C',
-    dot: '#EF4444',
+    bg: Colors.warning,
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
   },
   rejected: {
     label: 'Ditolak',
-    bg: '#F3F4F6',
-    text: '#4B5563',
-    dot: '#6B7280',
+    bg: Colors.error,
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
   },
 };
 

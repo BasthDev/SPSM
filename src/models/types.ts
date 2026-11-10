@@ -101,6 +101,7 @@ export interface SubmissionOption {
   background: string;
   journal_title: string;
   journal_author: string;
+  journal_year?: string;
   journal_file_id: string | null;
   is_selected_by_lecturer: boolean;
   // Relevance Table parsed fields

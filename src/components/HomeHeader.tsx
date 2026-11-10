@@ -1,11 +1,11 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors } from '@/theme/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { LogOut, User, Bell } from 'lucide-react-native';
+import { Bell, GraduationCap, LogOut, User } from 'lucide-react-native';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from './Avatar';
-import { Colors } from '@/theme/theme';
 
 interface HomeHeaderProps {
   userName?: string;
@@ -40,10 +40,21 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
       end={{ x: 1, y: 1 }}
       style={[
         styles.gradientContainer,
-        { paddingTop: insets.top + 12 },
+        { paddingTop: insets.top + 10 },
       ]}
     >
       <StatusBar style="light" />
+
+      {/* Top Brand & Campus Bar (Clean layout with space-between) */}
+      <View style={styles.brandBar}>
+        <View style={styles.brandLeft}>
+          <GraduationCap size={18} color="#BAE6FD" strokeWidth={2.2} />
+          <Text style={styles.brandText}>SPSM Portal</Text>
+        </View>
+        <Text style={styles.campusText} numberOfLines={1}>
+          {/* Universitas Muhammadiyah Aceh */}
+        </Text>
+      </View>
 
       {/* Content Row */}
       <View style={styles.contentRow}>
@@ -124,11 +135,37 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
 const styles = StyleSheet.create({
   gradientContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 22,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  brandBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  brandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  brandText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#E0F2FE',
+    letterSpacing: 0.2,
+  },
+  campusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#BAE6FD',
+    letterSpacing: 0.2,
   },
   contentRow: {
     flexDirection: 'row',
