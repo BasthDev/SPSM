@@ -1,13 +1,11 @@
 import { AppHeader } from '@/components';
 import { Colors } from '@/theme/theme';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Print from 'expo-print';
 import { useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
-import { Download, ExternalLink, FileText, Printer } from 'lucide-react-native';
-import mammoth from 'mammoth';
-import { Buffer } from 'buffer';
+import { Download, ExternalLink, FileText, Maximize2, Minimize2 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,11 +15,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 
-// Polyfill for mammoth.js in React Native
-if (typeof global.Buffer === 'undefined') {
-  global.Buffer = Buffer;
-}
+type FileInfo = {
+  name: string;
+  uri: string;
+  size: number;
+  type: string;
+};
 
 export default function SkripsiReadScreen() {
   const params = useLocalSearchParams<{
@@ -36,40 +37,39 @@ export default function SkripsiReadScreen() {
   const first = (v: unknown): string =>
     Array.isArray(v) ? String(v[0] ?? '') : String(v ?? '');
 
-  const stableParams = useMemo(() => ({
-    name: first(params.name),
-    uri: first(params.uri),
-    size: first(params.size),
-    type: first(params.type),
+  const stableParams = useMemo(
+    () => ({
+      name: first(params.name),
+      uri: first(params.uri),
+      size: first(params.size),
+      type: first(params.type),
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [params.name, params.uri, params.size, params.type]);
+    [params.name, params.uri, params.size, params.type]
+  );
 
   const [loading, setLoading] = useState(true);
-  const [converting, setConverting] = useState(false);
-  const [fileInfo, setFileInfo] = useState<{
-    name: string;
-    uri: string;
-    size: number;
-    type: string;
-  } | null>(null);
-  const [pdfUri, setPdfUri] = useState<string | null>(null);
+  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const insets = useSafeAreaInsets();
 
-  const isWordFile = (file: { name: string; type: string; uri: string }) => {
-    const name = file.name.toLowerCase();
-    const type = file.type.toLowerCase();
-    return (
-      name.endsWith('.doc') ||
-      name.endsWith('.docx') ||
-      type.includes('msword') ||
-      type.includes('wordprocessingml')
-    );
-  };
-
-  const isPdfFile = (file: { name: string; type: string; uri: string }) => {
+  const isPdfFile = (file: { name: string; type: string }) => {
     const name = file.name.toLowerCase();
     const type = file.type.toLowerCase();
     return name.endsWith('.pdf') || type === 'application/pdf';
+  };
+
+  // Online viewers that render the ORIGINAL file (no conversion)
+  const viewerUrlFor = (remoteUrl: string, file: { name: string; type: string }) => {
+    const encoded = encodeURIComponent(remoteUrl);
+    if (isPdfFile(file)) {
+      return `https://docs.google.com/viewer?url=${encoded}&embedded=true`;
+    }
+    // Word / Office docs -> Microsoft Office Online Viewer (faithful rendering)
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encoded}`;
   };
 
   useEffect(() => {
@@ -79,45 +79,30 @@ export default function SkripsiReadScreen() {
       try {
         if (stableParams.name && stableParams.uri) {
           const isRemoteUrl = stableParams.uri.startsWith('http');
-          let localUri = stableParams.uri;
-          let downloaded = false;
-
-          // If remote URL, download to local cache first
-          if (isRemoteUrl) {
-            try {
-              const safeName = stableParams.name.replace(/[^\w.\- ]/g, '_') || 'document';
-              const localPath = `${FileSystem.cacheDirectory}${safeName}`;
-              const downloadResult = await FileSystem.downloadAsync(
-                stableParams.uri,
-                localPath
-              );
-              if (downloadResult.status === 200) {
-                localUri = downloadResult.uri;
-                downloaded = true;
-              } else {
-                console.warn('Download returned status:', downloadResult.status);
-              }
-            } catch (downloadErr) {
-              console.error('Download failed:', downloadErr);
-            }
-          } else {
-            downloaded = true;
-          }
-
-          const info = {
+          const info: FileInfo = {
             name: stableParams.name,
-            uri: localUri,
+            uri: stableParams.uri,
             size: parseInt(stableParams.size || '0', 10),
             type: stableParams.type || 'application/octet-stream',
           };
           setFileInfo(info);
 
-          // Auto-convert Word to PDF (requires a local file)
-          if (isWordFile(info)) {
-            if (downloaded) {
-              await convertWordToPdf(info);
-            } else {
-              setError('File belum dapat diunduh untuk konversi. Coba buka di browser.');
+          // Remote files can be viewed directly via online viewer
+          if (isRemoteUrl) {
+            setViewerUrl(viewerUrlFor(stableParams.uri, info));
+          }
+
+          // Download to local cache in the background for share/unduh
+          if (isRemoteUrl) {
+            try {
+              const safeName = stableParams.name.replace(/[^\w.\- ]/g, '_') || 'document';
+              const localPath = `${FileSystem.cacheDirectory}${safeName}`;
+              const result = await FileSystem.downloadAsync(stableParams.uri, localPath);
+              if (result.status === 200) {
+                setFileInfo((prev) => (prev ? { ...prev, uri: result.uri } : prev));
+              }
+            } catch (downloadErr) {
+              console.warn('Background download failed:', downloadErr);
             }
           }
         }
@@ -133,117 +118,61 @@ export default function SkripsiReadScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stableParams, fileInfo]);
 
-  const convertWordToPdf = async (file: { name: string; uri: string; type: string }) => {
+  const handleOpenExternal = async () => {
+    if (!fileInfo) return;
     try {
-      setConverting(true);
-      setError(null);
+      // Prefer the original remote URL so the browser gets the real file
+      const remoteUri = stableParams.uri.startsWith('http')
+        ? stableParams.uri
+        : null;
+      const target = remoteUri || viewerUrl || fileInfo.uri;
 
-      const base64 = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const bytes = Uint8Array.from(Buffer.from(base64, 'base64'));
-
-      const result = await mammoth.convertToHtml({ arrayBuffer: bytes.buffer });
-      const html = result.value;
-
-      if (!html || html.trim() === '') {
-        throw new Error('Gagal mengkonversi dokumen');
-      }
-
-      const fullHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
-            h1, h2, h3, h4, h5, h6 { margin-top: 24px; margin-bottom: 12px; }
-            p { margin-bottom: 12px; }
-            table { border-collapse: collapse; width: 100%; margin: 16px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            img { max-width: 100%; height: auto; }
-          </style>
-        </head>
-        <body>
-          ${html}
-        </body>
-        </html>
-      `;
-
-      const { uri: pdfFileUri } = await Print.printToFileAsync({ html: fullHtml });
-      setPdfUri(pdfFileUri);
-      setConverting(false);
-    } catch (err) {
-      console.error('Conversion error:', err);
-      setError('Gagal mengkonversi file Word ke PDF');
-      setConverting(false);
-    }
-  };
-
-  const handleOpenFile = async () => {
-    const uri = pdfUri || fileInfo?.uri;
-    if (!uri) return;
-
-    try {
-      // If it's a remote URL, open directly in browser
-      if (uri.startsWith('http')) {
-        await WebBrowser.openBrowserAsync(uri);
+      if (target.startsWith('http')) {
+        await WebBrowser.openBrowserAsync(target);
       } else {
-        // If local file, try to open with system viewer
         const isAvailable = await Sharing.isAvailableAsync();
         if (isAvailable) {
-          await Sharing.shareAsync(uri);
+          await Sharing.shareAsync(target);
         } else {
           Alert.alert('Error', 'Tidak dapat membuka file');
         }
       }
-    } catch (err) {
-      // Fallback to sharing
-      try {
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(uri);
-        } else {
-          Alert.alert('Error', 'Gagal membuka file');
-        }
-      } catch (shareErr) {
-        Alert.alert('Error', 'Gagal membuka file');
-      }
+    } catch {
+      Alert.alert('Error', 'Gagal membuka file');
     }
   };
 
   const handleDownload = async () => {
-    if (!fileInfo) return;
+    if (!fileInfo || downloading) return;
+    setDownloading(true);
     try {
-      const fileName = fileInfo.name;
-      const fileUri = FileSystem.documentDirectory + fileName;
-      
-      // If file is already local, copy it
-      if (!fileInfo.uri.startsWith('http')) {
-        await FileSystem.copyAsync({
-          from: fileInfo.uri,
-          to: fileUri,
-        });
-      } else {
-        // If remote URL, download it
-        await FileSystem.downloadAsync(fileInfo.uri, fileUri);
-      }
-      
-      Alert.alert('Berhasil', `File disimpan`);
-    } catch (err) {
-      Alert.alert('Error', 'Gagal mengunduh file');
-    }
-  };
+      const safeName = fileInfo.name.replace(/[^\w.\- ]/g, '_') || 'document';
+      let targetUri = fileInfo.uri;
 
-  const handlePrint = async () => {
-    const uri = pdfUri || fileInfo?.uri;
-    if (!uri) return;
-    try {
-      await Print.printAsync({ uri });
+      // If still remote, download it
+      if (targetUri.startsWith('http')) {
+        const localPath = `${FileSystem.documentDirectory}${safeName}`;
+        const result = await FileSystem.downloadAsync(targetUri, localPath);
+        if (result.status !== 200) throw new Error('Download failed');
+        targetUri = result.uri;
+      } else if (!targetUri.startsWith(FileSystem.documentDirectory || 'file:///nonexistent')) {
+        // Copy cache file to documents so it persists
+        const localPath = `${FileSystem.documentDirectory}${safeName}`;
+        await FileSystem.copyAsync({ from: targetUri, to: localPath });
+        targetUri = localPath;
+      }
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(targetUri);
+      } else {
+        Alert.alert('Berhasil', 'File telah diunduh');
+      }
     } catch (err) {
-      Alert.alert('Error', 'Gagal mencetak file');
+      console.error('Download error:', err);
+      Alert.alert('Error', 'Gagal mengunduh file');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -259,25 +188,25 @@ export default function SkripsiReadScreen() {
   const getFileTypeLabel = () => {
     if (!fileInfo) return '';
     if (isPdfFile(fileInfo)) return 'PDF Document';
-    if (isWordFile(fileInfo)) return pdfUri ? 'PDF (Converted)' : 'Word Document';
+    const name = fileInfo.name.toLowerCase();
+    if (name.endsWith('.docx')) return 'Word Document (.docx)';
+    if (name.endsWith('.doc')) return 'Word Document (.doc)';
     return 'Document';
   };
 
-  if (loading || converting) {
+  if (loading) {
     return (
       <View style={styles.container}>
         <AppHeader title="Baca Skripsi" showBack />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>
-            {converting ? 'Mengkonversi ke PDF...' : 'Memuat dokumen...'}
-          </Text>
+          <Text style={styles.loadingText}>Memuat dokumen...</Text>
         </View>
       </View>
     );
   }
 
-  if (error && !pdfUri) {
+  if (error && !fileInfo) {
     return (
       <View style={styles.container}>
         <AppHeader title="Baca Skripsi" showBack />
@@ -285,31 +214,54 @@ export default function SkripsiReadScreen() {
           <FileText size={48} color={Colors.error} strokeWidth={1.5} />
           <Text style={styles.errorTitle}>Gagal Memuat File</Text>
           <Text style={styles.errorSubtitle}>{error}</Text>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleOpenFile}
-              activeOpacity={0.7}
-            >
-              <ExternalLink size={20} color="#FFFFFF" strokeWidth={2} />
-              <Text style={styles.actionButtonText}>Buka dengan Aplikasi Lain</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.secondaryButton]}
-              onPress={() => {
-                setError(null);
-                setPdfUri(null);
-                setLoading(true);
-                setFileInfo(null);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.actionButtonText, { color: Colors.primary }]}>
-                Coba Lagi
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => {
+              setError(null);
+              setLoading(true);
+              setFileInfo(null);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionButtonText}>Coba Lagi</Text>
+          </TouchableOpacity>
         </View>
+      </View>
+    );
+  }
+
+  const webViewer = viewerUrl ? (
+    <WebView
+      source={{ uri: viewerUrl }}
+      style={isFullscreen ? styles.webviewFullscreen : styles.webview}
+      startInLoadingState
+      renderLoading={() => (
+        <View style={styles.webviewLoading}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Memuat dokumen...</Text>
+        </View>
+      )}
+    />
+  ) : null;
+
+  // Fullscreen mode: only the viewer fills the screen
+  if (isFullscreen && webViewer) {
+    return (
+      <View
+        style={[
+          styles.fullscreenContainer,
+          { paddingTop: insets.top, paddingBottom: insets.bottom },
+        ]}
+      >
+        {webViewer}
+        <TouchableOpacity
+          style={[styles.exitFullscreenButton, { top: insets.top + 8 }]}
+          onPress={() => setIsFullscreen(false)}
+          activeOpacity={0.8}
+        >
+          <Minimize2 size={20} color="#FFFFFF" strokeWidth={2.2} />
+          <Text style={styles.exitFullscreenText}>Kecilkan</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -319,7 +271,7 @@ export default function SkripsiReadScreen() {
       <AppHeader title="Baca Skripsi" showBack />
       <View style={styles.content}>
         {fileInfo ? (
-          <>
+          <View style={styles.mainArea}>
             <View style={styles.fileCard}>
               <View style={styles.fileIconContainer}>
                 <FileText size={32} color={Colors.primary} strokeWidth={2} />
@@ -330,48 +282,52 @@ export default function SkripsiReadScreen() {
                   {formatFileSize(fileInfo.size)} • {getFileTypeLabel()}
                 </Text>
               </View>
+              {viewerUrl ? (
+                <TouchableOpacity
+                  style={styles.fullscreenButton}
+                  onPress={() => setIsFullscreen(true)}
+                  activeOpacity={0.7}
+                >
+                  <Maximize2 size={18} color={Colors.primary} strokeWidth={2} />
+                </TouchableOpacity>
+              ) : null}
             </View>
 
-            <View style={styles.infoBox}>
-              <Text style={styles.infoTitle}>Dokumen Siap</Text>
-              <Text style={styles.infoText}>
-                {pdfUri
-                  ? 'File Word telah dikonversi ke PDF. Klik tombol di bawah untuk membuka.'
-                  : 'Klik tombol di bawah untuk membuka file.'}
-              </Text>
-            </View>
-
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleOpenFile}
-                activeOpacity={0.7}
-              >
-                <ExternalLink size={20} color="#FFFFFF" strokeWidth={2} />
-                <Text style={styles.actionButtonText}>Buka File</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.secondaryButton]}
-                onPress={handlePrint}
-                activeOpacity={0.7}
-              >
-                <Printer size={20} color={Colors.primary} strokeWidth={2} />
-                <Text style={[styles.actionButtonText, { color: Colors.primary }]}>
-                  Cetak
+            {webViewer || (
+              <View style={styles.infoBox}>
+                <Text style={styles.infoTitle}>Dokumen</Text>
+                <Text style={styles.infoText}>
+                  File lokal tidak dapat ditampilkan langsung. Gunakan tombol di bawah untuk membukanya.
                 </Text>
-              </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.actionButtonsRow}>
               <TouchableOpacity
-                style={[styles.actionButton, styles.secondaryButton]}
-                onPress={handleDownload}
+                style={[styles.actionButtonSmall, styles.actionButtonPrimary]}
+                onPress={handleOpenExternal}
                 activeOpacity={0.7}
               >
-                <Download size={20} color={Colors.primary} strokeWidth={2} />
-                <Text style={[styles.actionButtonText, { color: Colors.primary }]}>
+                <ExternalLink size={16} color="#FFFFFF" strokeWidth={2} />
+                <Text style={styles.actionButtonSmallText}>Buka di Browser</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButtonSmall, styles.actionButtonSecondary]}
+                onPress={handleDownload}
+                disabled={downloading}
+                activeOpacity={0.7}
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Download size={16} color={Colors.primary} strokeWidth={2} />
+                )}
+                <Text style={[styles.actionButtonSmallText, { color: Colors.primary }]}>
                   Unduh
                 </Text>
               </TouchableOpacity>
             </View>
-          </>
+          </View>
         ) : (
           <View style={styles.placeholderContainer}>
             <FileText size={64} color={Colors.textTertiary} strokeWidth={1.5} />
@@ -423,13 +379,16 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 18,
   },
+  mainArea: {
+    flex: 1,
+  },
   fileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.card,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 20,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -455,13 +414,65 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
+  webview: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 12,
+  },
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  webviewFullscreen: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  exitFullscreenButton: {
+    position: 'absolute',
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  exitFullscreenText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  fullscreenButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webviewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
   infoBox: {
     backgroundColor: '#EFF6FF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#BFDBFE',
+    flex: 1,
+    justifyContent: 'center',
   },
   infoTitle: {
     fontSize: 14,
@@ -474,8 +485,32 @@ const styles = StyleSheet.create({
     color: '#1E3A8A',
     lineHeight: 18,
   },
-  actionButtons: {
-    gap: 12,
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButtonSmall: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  actionButtonPrimary: {
+    backgroundColor: Colors.primary,
+  },
+  actionButtonSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  actionButtonSmallText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   actionButton: {
     flexDirection: 'row',
@@ -486,11 +521,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: Colors.primary,
   },
   actionButtonText: {
     fontSize: 15,

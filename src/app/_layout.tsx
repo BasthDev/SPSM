@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { LogBox } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Ignore benign warning from having both the app scheme ('spsm') and Appwrite OAuth scheme ('appwrite-callback-...')
 LogBox.ignoreLogs([
@@ -11,7 +12,8 @@ LogBox.ignoreLogs([
  */
 export default function RootLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="onboarding" />
@@ -19,6 +21,7 @@ export default function RootLayout() {
       <Stack.Screen name="logout" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="profile" />
       <Stack.Screen name="submission" />
-    </Stack>
+      </Stack>
+    </SafeAreaProvider>
   );
 }

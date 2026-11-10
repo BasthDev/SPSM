@@ -99,17 +99,20 @@ export default function SkripsiKuScreen() {
   const handlePickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ],
+        type: 'application/pdf',
         copyToCacheDirectory: true,
       });
 
       if (result.canceled) return;
 
       const asset = result.assets[0];
+      const isPdf =
+        (asset.mimeType || '').toLowerCase() === 'application/pdf' ||
+        (asset.name || '').toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
+        Alert.alert('Format Tidak Didukung', 'Hanya file PDF yang dapat diupload.');
+        return;
+      }
       if (!userId) {
         Alert.alert('Error', 'Sesi tidak ditemukan. Silakan login ulang.');
         return;
@@ -248,7 +251,7 @@ export default function SkripsiKuScreen() {
                 {uploading ? 'Mengupload...' : 'Upload File Skripsi'}
               </Text>
               <Text style={styles.uploadSubtitle}>
-                Pilih file PDF atau Word (.pdf, .doc, .docx)
+                Pilih file PDF skripsi Anda
               </Text>
             </View>
           </TouchableOpacity>
