@@ -78,7 +78,8 @@ export default function SkripsiReadScreen() {
     };
 
     loadFile();
-  }, [stableParams, fileInfo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stableParams]);
 
   const handleOpenExternal = async () => {
     if (!fileInfo) return;
@@ -207,7 +208,6 @@ export default function SkripsiReadScreen() {
                   spacing={10}
                   minScale={0.5}
                   maxScale={3.0}
-                  activityIndicatorColor={Colors.primary}
                 />
               </View>
             ) : pdfError ? (
