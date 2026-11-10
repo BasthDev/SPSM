@@ -43,6 +43,7 @@ type TitleForm = {
   background: string;
   journalTitle: string;
   journalAuthor: string;
+  journalYear: string;
   // Tabel Relevansi
   relevanceVariable: string;
   relevanceMethodology: string;
@@ -54,6 +55,7 @@ const emptyTitle = (): TitleForm => ({
   background: '',
   journalTitle: '',
   journalAuthor: '',
+  journalYear: '',
   relevanceVariable: '',
   relevanceMethodology: '',
   relevanceNote: '',
@@ -215,6 +217,7 @@ export default function CreateSubmissionScreen() {
         background: t.background.trim(),
         journalTitle: t.journalTitle.trim() || undefined,
         journalAuthor: t.journalAuthor.trim() || undefined,
+        journalYear: t.journalYear.trim() || undefined,
         relevanceVariable: t.relevanceVariable.trim() || undefined,
         relevanceMethodology: t.relevanceMethodology.trim() || undefined,
         relevanceNote: t.relevanceNote.trim() || undefined,
@@ -346,10 +349,18 @@ export default function CreateSubmissionScreen() {
         />
 
         <Input
-          label="Penulis / Tahun Jurnal"
+          label="Penulis Jurnal"
           value={t.journalAuthor}
           onChangeText={(v) => updateTitle(index, 'journalAuthor', v)}
-          placeholder="Contoh: John Doe et al. (2024)"
+          placeholder="Contoh: John Doe et al."
+        />
+
+        <Input
+          label="Tahun Terbit Jurnal"
+          value={t.journalYear}
+          onChangeText={(v) => updateTitle(index, 'journalYear', v)}
+          placeholder="Contoh: 2024"
+          keyboardType="numeric"
         />
 
         {/* Tabel Relevansi Penelitian (Spesifikasi v2.0) */}

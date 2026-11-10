@@ -1,6 +1,7 @@
 import { AppHeader, Avatar, Button, LoadingScreen, Section, StatusBadge } from '@/components';
 import { BUCKET_JOURNALS, COLLECTION_APPROVAL_LOGS, DATABASE_ID, type ThesisSubmission } from '@/models/types';
 import { account, databases, storage } from '@/services/appwrite';
+import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
 import * as DocumentPicker from 'expo-document-picker';
@@ -270,6 +271,9 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
           created_at: new Date().toISOString(),
         },
       });
+
+      // Tandai mahasiswa sudah upload skripsi
+      await authService.markThesisUploaded(current.$id);
 
       await reloadSubmission();
       Alert.alert('Berhasil', 'File skripsi berhasil diupload.');

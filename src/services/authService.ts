@@ -137,6 +137,25 @@ export const authService = {
   },
 
   /**
+   * Tandai mahasiswa sudah upload file skripsi (untuk fitur selanjutnya).
+   */
+  async markThesisUploaded(userId: string): Promise<void> {
+    try {
+      const profile = await this.getUserProfile(userId);
+      if (profile?.$id) {
+        await databases.updateDocument({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_USERS,
+          documentId: profile.$id,
+          data: { has_uploaded_thesis: true },
+        });
+      }
+    } catch (e: any) {
+      console.warn('Gagal menandai upload skripsi:', e.message);
+    }
+  },
+
+  /**
    * Sign out the current session.
    */
   async logout() {

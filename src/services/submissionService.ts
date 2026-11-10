@@ -115,16 +115,6 @@ export const submissionService = {
           fileId = uploadedFile.$id;
         }
 
-        let finalBackground = option.background;
-        if (option.relevanceVariable || option.relevanceMethodology || option.relevanceNote) {
-          const relTag = `\n\n<!-- RELEVANCE_DATA: ${JSON.stringify({
-            v: option.relevanceVariable || '',
-            m: option.relevanceMethodology || '',
-            r: option.relevanceNote || '',
-          })} -->`;
-          finalBackground = `${option.background.trim()}${relTag}`;
-        }
-
         await databases.createDocument({
           databaseId: DATABASE_ID,
           collectionId: COLLECTION_OPTIONS,
@@ -133,11 +123,15 @@ export const submissionService = {
             submission_id: submission.$id,
             option_number: option.number,
             title: option.title,
-            background: finalBackground,
+            background: option.background,
             journal_title: option.journalTitle ?? '',
             journal_author: option.journalAuthor ?? '',
+            journal_year: option.journalYear ?? '',
             journal_file_id: fileId,
             is_selected_by_lecturer: false,
+            relevance_variable: option.relevanceVariable ?? '',
+            relevance_methodology: option.relevanceMethodology ?? '',
+            relevance_note: option.relevanceNote ?? '',
           },
         });
       }

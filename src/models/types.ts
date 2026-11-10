@@ -63,6 +63,7 @@ export interface UserProfile {
   department: string;
   batch_year: number;
   avatar_url?: string | null;
+  has_uploaded_thesis?: boolean; // true setelah mahasiswa upload file skripsi jadi
   created_at?: string;
 }
 
@@ -104,7 +105,7 @@ export interface SubmissionOption {
   journal_year?: string;
   journal_file_id: string | null;
   is_selected_by_lecturer: boolean;
-  // Relevance Table parsed fields
+  // Dedicated relevance columns (jurnal acuan vs penelitian mahasiswa)
   relevance_variable?: string; // Variabel / Fokus Penelitian
   relevance_methodology?: string; // Metodologi Jurnal
   relevance_note?: string; // Kesesuaian / Relevansi dengan Topik Mahasiswa
@@ -129,6 +130,7 @@ export interface OptionFormData {
   background: string;
   journalTitle?: string;
   journalAuthor?: string;
+  journalYear?: string;
   pdfFile?: any;
   // Relevance Table fields
   relevanceVariable?: string;

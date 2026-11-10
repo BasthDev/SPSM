@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ID, Query } from 'react-native-appwrite';
 import { account, storage } from '@/services/appwrite';
+import { authService } from '@/services/authService';
 import { BUCKET_JOURNALS } from '@/models/types';
 
 type UploadedFile = {
@@ -150,6 +151,7 @@ export default function SkripsiKuScreen() {
       };
 
       setFiles((prev) => [newFile, ...prev]);
+      await authService.markThesisUploaded(userId);
       Alert.alert('Berhasil', 'File skripsi berhasil diupload');
     } catch (error: any) {
       console.error('Upload error:', error);
