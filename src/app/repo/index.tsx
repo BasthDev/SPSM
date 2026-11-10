@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppHeader } from '@/components';
 import { Colors } from '@/theme/theme';
-import { Eye, FileText } from 'lucide-react-native';
+import { Eye, FileText, Search, X } from 'lucide-react-native';
 import { Query } from 'react-native-appwrite';
 import { storage } from '@/services/appwrite';
 import { BUCKET_JOURNALS } from '@/models/types';
@@ -23,6 +23,13 @@ export default function RepoScreen() {
   const router = useRouter();
   const [files, setFiles] = useState<RepoFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  const filteredFiles = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return files;
+    return files.filter((f) => f.name.toLowerCase().includes(q));
+  }, [files, search]);
 
   useEffect(() => {
     loadFiles();
@@ -100,14 +107,35 @@ export default function RepoScreen() {
           </Text>
         </View>
 
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <Search size={18} color={Colors.textTertiary} strokeWidth={2} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari nama file..."
+            placeholderTextColor={Colors.textTertiary}
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} activeOpacity={0.7}>
+              <X size={18} color={Colors.textTertiary} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
-        ) : files.length > 0 ? (
+        ) : filteredFiles.length > 0 ? (
           <View style={styles.filesSection}>
-            <Text style={styles.sectionTitle}>Semua File Skripsi</Text>
-            {files.map((file) => (
+            <Text style={styles.sectionTitle}>
+              {search.trim() ? `Hasil Pencarian (${filteredFiles.length})` : 'Semua File Skripsi'}
+            </Text>
+            {filteredFiles.map((file) => (
               <TouchableOpacity
                 key={file.id}
                 style={styles.fileCard}
@@ -132,6 +160,14 @@ export default function RepoScreen() {
                 </View>
               </TouchableOpacity>
             ))}
+          </View>
+        ) : search.trim() ? (
+          <View style={styles.emptyState}>
+            <Search size={48} color={Colors.textTertiary} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>File Tidak Ditemukan</Text>
+            <Text style={styles.emptySubtitle}>
+              Tidak ada file dengan nama "{search}"
+            </Text>
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -176,6 +212,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     lineHeight: 20,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.text,
+    paddingVertical: 10,
   },
   loadingContainer: {
     paddingVertical: 48,

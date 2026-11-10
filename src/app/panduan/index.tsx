@@ -140,6 +140,22 @@ export default function PanduanScreen() {
       question: 'Apakah ada batas waktu pengajuan?',
       answer: 'Ya, pengajuan hanya dapat dilakukan pada periode yang ditentukan oleh kampus. Periksa status periode di halaman Dashboard.',
     },
+    {
+      question: 'Format file apa yang bisa diupload di Skripsi Ku?',
+      answer: 'Hanya file PDF yang didukung. File Word (.doc/.docx) tidak dapat diupload — konversi ke PDF terlebih dahulu sebelum upload.',
+    },
+    {
+      question: 'Apakah mahasiswa lain bisa melihat file saya di Skripsi Ku?',
+      answer: 'Tidak. Halaman Skripsi Ku hanya menampilkan file yang Anda upload. File Anda dapat dilihat semua orang melalui halaman Repository.',
+    },
+    {
+      question: 'Bagaimana cara mencari file di Repository?',
+      answer: 'Buka halaman Repository dari menu dashboard, lalu ketik nama file pada kolom pencarian di bagian atas daftar file.',
+    },
+    {
+      question: 'Bagaimana cara membaca file skripsi di aplikasi?',
+      answer: 'Tap kartu file pada halaman Skripsi Ku atau Repository. Dokumen akan tampil di viewer — tekan ikon fullscreen untuk membaca dengan layar penuh.',
+    },
   ];
 
   return (
@@ -187,8 +203,78 @@ export default function PanduanScreen() {
                 dan menerima informasi pengesahan dari Dosen Penilai dan Kaprodi secara real-time.
               </Text>
               <Text style={styles.sectionContent}>
-                Fitur utama meliputi: pengajuan judul, tracking status, notifikasi, dan unduh dokumen SK.
+                Fitur utama meliputi: pengajuan judul, tracking status, notifikasi,
+                unduh dokumen SK, upload & baca file skripsi (Skripsi Ku), dan repository file.
               </Text>
+            </AccordionItem>
+
+            {/* Skripsi Ku & Repository */}
+            <AccordionItem
+              title="Skripsi Ku & Repository"
+              subtitle="Upload, baca, dan cari file skripsi"
+              icon={<FileText size={22} color={Colors.primary} strokeWidth={2} />}
+              iconBgColor="#EFF6FF"
+            >
+              <Text style={styles.stepTitle}>Skripsi Ku (File Saya)</Text>
+              <View style={styles.tipList}>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Upload file skripsi Anda — hanya format PDF yang didukung
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    File tersimpan aman di cloud dan hanya Anda yang bisa melihatnya di halaman ini
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Tap kartu file untuk membacanya langsung di aplikasi — dokumen tampil di viewer
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Tekan tombol fullscreen (ikon persegi) untuk membaca lebih nyaman, lalu tekan "Kecilkan" untuk kembali
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    File bisa diunduh atau dibuka di browser dengan tombol di bawah viewer
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Hapus file kapan saja dengan ikon trash pada kartu file
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.stepTitle, { marginTop: 16 }]}>Repository (Semua File)</Text>
+              <View style={styles.tipList}>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Menampilkan semua file skripsi yang diupload oleh seluruh mahasiswa
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Gunakan kolom pencarian untuk mencari file berdasarkan nama
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Tap file untuk membacanya — sama seperti di Skripsi Ku
+                  </Text>
+                </View>
+              </View>
             </AccordionItem>
 
             {/* Cara Pengajuan Pertama */}

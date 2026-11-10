@@ -230,10 +230,15 @@ export default function SkripsiReadScreen() {
     );
   }
 
+  // Keep a stable key + single tree position so toggling fullscreen
+  // never unmounts the WebView (prevents reload — viewer stays cached).
   const webViewer = viewerUrl ? (
     <WebView
+      key="doc-viewer"
       source={{ uri: viewerUrl }}
-      style={isFullscreen ? styles.webviewFullscreen : styles.webview}
+      style={isFullscreen && fileInfo ? styles.webviewFullscreen : styles.webview}
+      cacheEnabled
+      domStorageEnabled
       startInLoadingState
       renderLoading={() => (
         <View style={styles.webviewLoading}>
@@ -244,56 +249,49 @@ export default function SkripsiReadScreen() {
     />
   ) : null;
 
-  // Fullscreen mode: only the viewer fills the screen
-  if (isFullscreen && webViewer) {
-    return (
-      <View
-        style={[
-          styles.fullscreenContainer,
-          { paddingTop: insets.top, paddingBottom: insets.bottom },
-        ]}
-      >
-        {webViewer}
-        <TouchableOpacity
-          style={[styles.exitFullscreenButton, { top: insets.top + 8 }]}
-          onPress={() => setIsFullscreen(false)}
-          activeOpacity={0.8}
-        >
-          <Minimize2 size={20} color="#FFFFFF" strokeWidth={2.2} />
-          <Text style={styles.exitFullscreenText}>Kecilkan</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const fullscreenActive = isFullscreen && !!webViewer;
 
   return (
-    <View style={styles.container}>
-      <AppHeader title="Baca Skripsi" showBack />
-      <View style={styles.content}>
+    <View
+      style={
+        fullscreenActive
+          ? [
+              styles.fullscreenContainer,
+              { paddingTop: insets.top, paddingBottom: insets.bottom },
+            ]
+          : styles.container
+      }
+    >
+      {!fullscreenActive && <AppHeader title="Baca Skripsi" showBack />}
+      <View style={fullscreenActive ? styles.fullscreenContent : styles.content}>
         {fileInfo ? (
           <View style={styles.mainArea}>
-            <View style={styles.fileCard}>
-              <View style={styles.fileIconContainer}>
-                <FileText size={32} color={Colors.primary} strokeWidth={2} />
+            {!fullscreenActive && (
+              <View style={styles.fileCard}>
+                <View style={styles.fileIconContainer}>
+                  <FileText size={32} color={Colors.primary} strokeWidth={2} />
+                </View>
+                <View style={styles.fileInfo}>
+                  <Text style={styles.fileName}>{fileInfo.name}</Text>
+                  <Text style={styles.fileMeta}>
+                    {formatFileSize(fileInfo.size)} • {getFileTypeLabel()}
+                  </Text>
+                </View>
+                {viewerUrl ? (
+                  <TouchableOpacity
+                    style={styles.fullscreenButton}
+                    onPress={() => setIsFullscreen(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Maximize2 size={18} color={Colors.primary} strokeWidth={2} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileName}>{fileInfo.name}</Text>
-                <Text style={styles.fileMeta}>
-                  {formatFileSize(fileInfo.size)} • {getFileTypeLabel()}
-                </Text>
-              </View>
-              {viewerUrl ? (
-                <TouchableOpacity
-                  style={styles.fullscreenButton}
-                  onPress={() => setIsFullscreen(true)}
-                  activeOpacity={0.7}
-                >
-                  <Maximize2 size={18} color={Colors.primary} strokeWidth={2} />
-                </TouchableOpacity>
-              ) : null}
-            </View>
+            )}
 
-            {webViewer || (
+            {webViewer}
+
+            {!fullscreenActive && !webViewer && (
               <View style={styles.infoBox}>
                 <Text style={styles.infoTitle}>Dokumen</Text>
                 <Text style={styles.infoText}>
@@ -302,31 +300,33 @@ export default function SkripsiReadScreen() {
               </View>
             )}
 
-            <View style={styles.actionButtonsRow}>
-              <TouchableOpacity
-                style={[styles.actionButtonSmall, styles.actionButtonPrimary]}
-                onPress={handleOpenExternal}
-                activeOpacity={0.7}
-              >
-                <ExternalLink size={16} color="#FFFFFF" strokeWidth={2} />
-                <Text style={styles.actionButtonSmallText}>Buka di Browser</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButtonSmall, styles.actionButtonSecondary]}
-                onPress={handleDownload}
-                disabled={downloading}
-                activeOpacity={0.7}
-              >
-                {downloading ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <Download size={16} color={Colors.primary} strokeWidth={2} />
-                )}
-                <Text style={[styles.actionButtonSmallText, { color: Colors.primary }]}>
-                  Unduh
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {!fullscreenActive && (
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.actionButtonSmall, styles.actionButtonPrimary]}
+                  onPress={handleOpenExternal}
+                  activeOpacity={0.7}
+                >
+                  <ExternalLink size={16} color="#FFFFFF" strokeWidth={2} />
+                  <Text style={styles.actionButtonSmallText}>Buka di Browser</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButtonSmall, styles.actionButtonSecondary]}
+                  onPress={handleDownload}
+                  disabled={downloading}
+                  activeOpacity={0.7}
+                >
+                  {downloading ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <Download size={16} color={Colors.primary} strokeWidth={2} />
+                  )}
+                  <Text style={[styles.actionButtonSmallText, { color: Colors.primary }]}>
+                    Unduh
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.placeholderContainer}>
@@ -338,6 +338,17 @@ export default function SkripsiReadScreen() {
           </View>
         )}
       </View>
+
+      {fullscreenActive && (
+        <TouchableOpacity
+          style={[styles.exitFullscreenButton, { top: insets.top + 8 }]}
+          onPress={() => setIsFullscreen(false)}
+          activeOpacity={0.8}
+        >
+          <Minimize2 size={20} color="#FFFFFF" strokeWidth={2.2} />
+          <Text style={styles.exitFullscreenText}>Kecilkan</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -425,6 +436,9 @@ const styles = StyleSheet.create({
   fullscreenContainer: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  fullscreenContent: {
+    flex: 1,
   },
   webviewFullscreen: {
     flex: 1,
