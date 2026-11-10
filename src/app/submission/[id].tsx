@@ -1,8 +1,11 @@
 import { AppHeader, Avatar, Button, LoadingScreen, Section, StatusBadge } from '@/components';
-import type { ThesisSubmission } from '@/models/types';
+import { BUCKET_JOURNALS, COLLECTION_APPROVAL_LOGS, DATABASE_ID, type ThesisSubmission } from '@/models/types';
+import { account, databases, storage } from '@/services/appwrite';
 import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ID } from 'react-native-appwrite';
 import {
   AlertTriangle,
   Award,
@@ -12,15 +15,18 @@ import {
   Clock,
   ExternalLink,
   FileCheck,
+  FileText,
   GraduationCap,
   MessageSquare,
   Share2,
   TableProperties,
+  Upload,
   X,
   XCircle
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Linking,
   Modal,
   Platform,
@@ -39,6 +45,7 @@ export default function SubmissionDetailScreen() {
   const [submission, setSubmission] = useState<ThesisSubmission | null>(null);
   const [showSkModal, setShowSkModal] = useState(false);
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
+  const [uploadingSkripsi, setUploadingSkripsi] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -171,6 +178,132 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
     }
   };
 
+  // ---- Upload Skripsi (untuk status approved) ----
+  const skripsiLog = [...(submission.logs || [])]
+    .reverse()
+    .find((l) => l.action === 'UPLOAD_SKRSIPSI');
+
+  let uploadedSkripsi: {
+    file_id: string;
+    file_name: string;
+    size: number;
+    date: string;
+  } | null = null;
+  if (skripsiLog?.notes) {
+    try {
+      const parsed = JSON.parse(skripsiLog.notes);
+      if (parsed.file_id) {
+        uploadedSkripsi = {
+          file_id: parsed.file_id,
+          file_name: parsed.file_name || 'skripsi.pdf',
+          size: parsed.size || 0,
+          date: skripsiLog.created_at,
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const reloadSubmission = async () => {
+    if (!id) return;
+    try {
+      const sub = await submissionService.getSubmissionWithDetails(id);
+      setSubmission(sub);
+    } catch (e) {
+      console.error('Failed to reload submission', e);
+    }
+  };
+
+  const handleUploadSkripsi = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      const isPdf =
+        (asset.mimeType || '').toLowerCase() === 'application/pdf' ||
+        (asset.name || '').toLowerCase().endsWith('.pdf');
+      if (!isPdf) {
+        Alert.alert('Format Tidak Didukung', 'Hanya file PDF yang dapat diupload.');
+        return;
+      }
+
+      const current = await account.get();
+      setUploadingSkripsi(true);
+
+      const storedName = `owner_${current.$id}__${asset.name}`;
+      const uploaded = await storage.createFile({
+        bucketId: BUCKET_JOURNALS,
+        fileId: ID.unique(),
+        file: {
+          uri: asset.uri,
+          name: storedName,
+          type: asset.mimeType || 'application/pdf',
+          size: asset.size || 0,
+        },
+        permissions: [
+          'read("any")',
+          `update("user:${current.$id}")`,
+          `delete("user:${current.$id}")`,
+        ],
+      });
+
+      // Catat upload ke approval log agar terhubung dengan submission ini
+      await databases.createDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_APPROVAL_LOGS,
+        documentId: ID.unique(),
+        data: {
+          submission_id: submission.$id,
+          actor_id: 'Mahasiswa (Pemohon)',
+          action: 'UPLOAD_SKRSIPSI',
+          notes: JSON.stringify({
+            text: `File skripsi diupload: ${asset.name}`,
+            file_id: uploaded.$id,
+            file_name: asset.name,
+            size: asset.size || 0,
+          }),
+          created_at: new Date().toISOString(),
+        },
+      });
+
+      await reloadSubmission();
+      Alert.alert('Berhasil', 'File skripsi berhasil diupload.');
+    } catch (error: any) {
+      console.error('Upload skripsi error:', error);
+      Alert.alert('Error', `Gagal upload file: ${error.message || 'Unknown error'}`);
+    } finally {
+      setUploadingSkripsi(false);
+    }
+  };
+
+  const handleViewUploadedSkripsi = () => {
+    if (!uploadedSkripsi) return;
+    const viewUrl = storage.getFileViewURL(BUCKET_JOURNALS, uploadedSkripsi.file_id).toString();
+    router.push({
+      pathname: '/skripsiku/read',
+      params: {
+        id: uploadedSkripsi.file_id,
+        name: uploadedSkripsi.file_name,
+        uri: viewUrl,
+        size: String(uploadedSkripsi.size),
+        type: 'application/pdf',
+      },
+    } as any);
+  };
+
+  const formatSkripsiSize = (bytes: number) => {
+    if (!bytes) return '';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  };
+
   const formatLogNotes = (notes: string | null, action: string) => {
     if (!notes) return '';
     if (action === 'PENGAJUAN_MAHASISWA') {
@@ -300,6 +433,87 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                 <Share2 size={16} color={Colors.primary} strokeWidth={2.2} />
               </TouchableOpacity>
             </View>
+          </Section>
+        )}
+
+        {/* UPLOAD FILE SKRIPSI (khusus approved) */}
+        {submission.status === 'approved' && (
+          <Section style={styles.skripsiUploadCard}>
+            <View style={styles.sectionHeaderRow}>
+              <View style={styles.headerIconCircle}>
+                <FileText size={20} color={Colors.primary} strokeWidth={2.2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionHeading}>Upload File Skripsi</Text>
+                <Text style={styles.sectionSubheading}>
+                  Unggah berkas PDF skripsi Anda yang sudah jadi
+                </Text>
+              </View>
+            </View>
+
+            {uploadedSkripsi ? (
+              <View style={styles.skripsiUploadedBox}>
+                <View style={styles.skripsiFileRow}>
+                  <View style={styles.skripsiFileIcon}>
+                    <FileCheck size={22} color={Colors.primary} strokeWidth={2.2} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.skripsiFileName} numberOfLines={1}>
+                      {uploadedSkripsi.file_name}
+                    </Text>
+                    <Text style={styles.skripsiFileMeta}>
+                      {formatSkripsiSize(uploadedSkripsi.size)}
+                      {uploadedSkripsi.size ? ' • ' : ''}
+                      {new Date(uploadedSkripsi.date).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.skripsiActionRow}>
+                  <TouchableOpacity
+                    style={styles.skripsiViewBtn}
+                    onPress={handleViewUploadedSkripsi}
+                    activeOpacity={0.8}
+                  >
+                    <ExternalLink size={15} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text style={styles.skripsiViewBtnText}>Lihat File</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.skripsiReplaceBtn}
+                    onPress={handleUploadSkripsi}
+                    disabled={uploadingSkripsi}
+                    activeOpacity={0.8}
+                  >
+                    <Upload size={15} color={Colors.primary} strokeWidth={2.2} />
+                    <Text style={styles.skripsiReplaceBtnText}>
+                      {uploadingSkripsi ? 'Mengupload...' : 'Ganti File'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.skripsiUploadBtn}
+                onPress={handleUploadSkripsi}
+                disabled={uploadingSkripsi}
+                activeOpacity={0.8}
+              >
+                <View style={styles.skripsiUploadIcon}>
+                  <Upload size={22} color={Colors.primary} strokeWidth={2.2} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.skripsiUploadTitle}>
+                    {uploadingSkripsi ? 'Mengupload...' : 'Pilih File PDF Skripsi'}
+                  </Text>
+                  <Text style={styles.skripsiUploadSubtitle}>
+                    File akan tersimpan di cloud dan bisa dibaca kapan saja
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </Section>
         )}
 
@@ -777,6 +991,8 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                         ? 'Permintaan Revisi Judul'
                         : log.action === 'PENGAJUAN_MAHASISWA'
                         ? 'Usulan Pengajuan oleh Mahasiswa'
+                        : log.action === 'UPLOAD_SKRSIPSI'
+                        ? 'Upload File Skripsi'
                         : log.action}
                     </Text>
 
@@ -925,6 +1141,105 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  skripsiUploadCard: {
+    marginBottom: 4,
+  },
+  skripsiUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
+  },
+  skripsiUploadIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  skripsiUploadTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  skripsiUploadSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  skripsiUploadedBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  skripsiFileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  skripsiFileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  skripsiFileName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 2,
+  },
+  skripsiFileMeta: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  skripsiActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  skripsiViewBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  skripsiViewBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  skripsiReplaceBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  skripsiReplaceBtnText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   scrollContent: {
     padding: 16,

@@ -493,12 +493,66 @@ export const submissionService = {
   getFileViewUrl(fileId: string): string {
     if (!fileId) return '';
     try {
-      return storage.getFileView({
-        bucketId: BUCKET_JOURNALS,
-        fileId: fileId,
-      }).toString();
+      return storage.getFileViewURL(BUCKET_JOURNALS, fileId).toString();
     } catch {
       return '';
+    }
+  },
+
+  /**
+   * Get all title options from active submissions (excludes rejected/revision)
+   * for similarity checking. Paginates through all submissions and options.
+   */
+  async getComparableTitles(): Promise<{ title: string; submission_id: string }[]> {
+    try {
+      // 1. Fetch all submissions -> map id to status
+      const submissions: { $id: string; status: string }[] = [];
+      let cursor: string | undefined;
+      while (true) {
+        const queries = [Query.orderDesc('submitted_at'), Query.limit(100)];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const res = await databases.listDocuments({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_SUBMISSIONS,
+          queries,
+        });
+        submissions.push(...(res.documents as any[]));
+        if (res.documents.length < 100) break;
+        cursor = res.documents[res.documents.length - 1].$id;
+      }
+
+      const statusMap = new Map(submissions.map((s) => [s.$id, s.status]));
+
+      // 2. Fetch all options -> filter out rejected/revision submissions, dedupe titles
+      const titles: { title: string; submission_id: string }[] = [];
+      const seen = new Set<string>();
+      cursor = undefined;
+      while (true) {
+        const queries = [Query.orderAsc('option_number'), Query.limit(100)];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const res = await databases.listDocuments({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_OPTIONS,
+          queries,
+        });
+        for (const doc of res.documents as any[]) {
+          const status = statusMap.get(doc.submission_id);
+          if (status === 'rejected' || status === 'revision') continue;
+          const title = (doc.title || '').trim();
+          if (!title) continue;
+          const key = title.toLowerCase().replace(/\s+/g, ' ');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          titles.push({ title, submission_id: doc.submission_id });
+        }
+        if (res.documents.length < 100) break;
+        cursor = res.documents[res.documents.length - 1].$id;
+      }
+
+      return titles;
+    } catch (error: any) {
+      console.error('Failed to fetch comparable titles:', error);
+      return [];
     }
   },
 };

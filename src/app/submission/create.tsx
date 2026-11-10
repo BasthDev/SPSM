@@ -22,6 +22,7 @@ import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
 import { academicService } from '@/services/academicService';
 import { settingsService } from '@/services/settingsService';
+import { checkTitleSimilarity, type TitleMatch } from '@/services/geminiService';
 import type { OptionFormData, LecturerItem } from '@/models/types';
 import { Colors } from '@/theme/theme';
 import {
@@ -218,6 +219,54 @@ export default function CreateSubmissionScreen() {
         relevanceMethodology: t.relevanceMethodology.trim() || undefined,
         relevanceNote: t.relevanceNote.trim() || undefined,
       }));
+
+      // Cek kemiripan judul dengan pengajuan yang sudah ada (AI + exact match)
+      try {
+        const existingTitles = await submissionService.getComparableTitles();
+        const report = await checkTitleSimilarity(
+          optionsData.map((o) => o.title),
+          existingTitles
+        );
+
+        if (report.matches.length > 0) {
+          const formatList = (ms: TitleMatch[]) =>
+            ms
+              .map(
+                (m) =>
+                  `• "${m.newTitle}"\n  Mirip dengan: "${m.matchedTitle}"${m.reason ? ` (${m.reason})` : ''}`
+              )
+              .join('\n\n');
+
+          const blocking = report.matches.filter((m) => m.level === 'tinggi');
+          const warning = report.matches.filter((m) => m.level === 'sedang');
+
+          if (blocking.length > 0) {
+            Alert.alert(
+              'Judul Sudah Ada / Sangat Mirip',
+              `Pengajuan dibatalkan karena ada judul yang sudah ada atau sangat mirip dengan judul lain:\n\n${formatList(blocking)}`,
+              [{ text: 'Mengerti' }]
+            );
+            return;
+          }
+
+          if (warning.length > 0) {
+            const proceed = await new Promise<boolean>((resolve) => {
+              Alert.alert(
+                'Peringatan Kemiripan Judul',
+                `Beberapa judul mirip dengan yang sudah diajukan mahasiswa lain:\n\n${formatList(warning)}\n\nApakah Anda tetap ingin mengajukan?`,
+                [
+                  { text: 'Kembali & Perbaiki', style: 'cancel', onPress: () => resolve(false) },
+                  { text: 'Tetap Ajukan', onPress: () => resolve(true) },
+                ]
+              );
+            });
+            if (!proceed) return;
+          }
+        }
+      } catch (checkErr) {
+        // Jangan blokir pengajuan jika pengecekan gagal
+        console.warn('Similarity check skipped:', checkErr);
+      }
 
       await submissionService.createSubmission(
         acct.$id,

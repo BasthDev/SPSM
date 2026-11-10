@@ -235,23 +235,27 @@ export default function SkripsiKuScreen() {
     <View style={styles.container}>
       <AppHeader title="Skripsi Ku" showBack />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Upload Section */}
-        <View style={styles.uploadSection}>
+        {/* Upload Section (disabled — upload now happens on submission detail page) */}
+        <View style={[styles.uploadSection, { opacity: 0.6 }]}>
           <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={handlePickDocument}
+            style={[styles.uploadButton, { borderStyle: 'solid', borderColor: Colors.border }]}
+            onPress={() =>
+              Alert.alert(
+                'Upload Dinonaktifkan',
+                'Upload skripsi sekarang dilakukan dari halaman detail pengajuan yang sudah disetujui.'
+              )
+            }
             activeOpacity={0.7}
-            disabled={uploading}
           >
-            <View style={styles.uploadIconContainer}>
-              <Upload size={32} color={Colors.primary} strokeWidth={2} />
+            <View style={[styles.uploadIconContainer, { backgroundColor: '#F1F5F9' }]}>
+              <Upload size={32} color={Colors.textTertiary} strokeWidth={2} />
             </View>
             <View style={styles.uploadTextContainer}>
-              <Text style={styles.uploadTitle}>
-                {uploading ? 'Mengupload...' : 'Upload File Skripsi'}
+              <Text style={[styles.uploadTitle, { color: Colors.textSecondary }]}>
+                Upload File Skripsi
               </Text>
               <Text style={styles.uploadSubtitle}>
-                Pilih file PDF skripsi Anda
+                Upload tersedia di halaman detail pengajuan (status Disetujui)
               </Text>
             </View>
           </TouchableOpacity>
