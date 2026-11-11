@@ -1,41 +1,63 @@
-{{#> auth-layout title="Sign In"}}
-  <main class="mx-auto grid min-h-dvh max-w-[55.375rem] content-center items-center gap-8 px-4 py-12 lg:grid-cols-[1fr_23.5rem] lg:gap-20">
+{{#> auth-layout title="Masuk SPSM Portal" script="signin"}}
+  <main class="mx-auto grid min-h-dvh max-w-[55.375rem] content-center items-center gap-8 px-4 py-12 lg:grid-cols-[1fr_25rem] lg:gap-20">
     {{! brand + welcome }}
     <div class="text-center lg:text-start">
-      <div class="flex justify-center lg:mb-12 lg:justify-start">{{> logo size=32 textClass="text-2xl"}}</div>
-      <h1 class="mb-5 hidden text-[2rem] leading-[1.4] font-bold text-default lg:block">Welcome back<br />to {{site.name}}</h1>
-      <p class="mb-0 hidden max-w-77 leading-[1.65] text-muted lg:block">
-        We are lorem ipsum team dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+      <div class="flex justify-center lg:mb-8 lg:justify-start">{{> logo size=64 src="images/logo.png" textClass="text-2xl text-primary font-black tracking-wide"}}</div>
+      <h1 class="mb-4 hidden text-[2.2rem] leading-[1.3] font-bold text-default lg:block">Portal Manajemen<br />Skripsi Mahasiswa</h1>
+      <p class="mb-0 hidden max-w-85 leading-[1.65] text-muted lg:block">
+        Sistem Informasi Akademik Resmi untuk Pengajuan Skripsi Mahasiswa, Evaluasi Dosen Penilai, Pengesahan SK Kaprodi, dan Monitoring Bimbingan Dosen.
       </p>
     </div>
 
     {{! sign in card }}
-    <div class="card mx-auto w-full max-w-[23.5rem]">
+    <div class="card mx-auto w-full max-w-[25rem] shadow-card border border-default">
       <div class="card-body p-6">
-        <h2 class="mb-2 text-[1.375rem] leading-tight font-semibold text-default">Sign in</h2>
-        <p class="mb-8 text-default">
-          Don't have an account?
-          <a href="{{root}}signup.html" class="link link-primary link-hover font-medium">Sign Up</a>
+        <h2 class="mb-1 text-[1.375rem] leading-tight font-bold text-default">Masuk Akun</h2>
+        <p class="mb-6 text-xs text-muted">
+          Pilih metode autentikasi sesuai dengan hak akses Anda.
         </p>
 
-        <form action="{{root}}index.html" class="flex flex-col" novalidate>
-          <input type="email" class="form-control form-control-bordered mb-6" name="email" placeholder="Email address" aria-label="Email address" autocomplete="email" required />
-          {{> password-field id="password" placeholder="Password" autocomplete="current-password"}}
-          <a href="#" class="link link-primary link-hover mt-4 mb-6 self-start font-medium">Forgot password?</a>
-          <button type="submit" class="btn btn-primary w-full">Sign In</button>
-        </form>
+        <div id="login-alert" class="hidden mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-xs font-medium border border-red-200"></div>
 
-        <div class="hr-label my-2 text-muted">or</div>
-
-        <div class="grid grid-cols-2 gap-5">
-          <a href="#" class="btn btn-outline-neutral min-w-0!">{{> icons/brand-google size=16}}Google</a>
-          <a href="#" class="btn btn-outline-neutral min-w-0!">{{> icons/brand-facebook size=16}}Facebook</a>
+        <div id="active-session-banner" class="hidden mb-5 p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-2">
+          <div class="font-bold flex items-center gap-1.5">
+            <span class="inline-block size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Sesi Aktif Ditemukan</span>
+          </div>
+          <p id="active-session-info" class="text-blue-800 leading-relaxed"></p>
+          <div class="flex items-center gap-2 pt-1">
+            <a href="index.html" class="btn btn-primary text-xs py-1.5 px-3 rounded-lg font-bold">Lanjut ke Dashboard →</a>
+            <button type="button" id="btn-banner-logout" class="btn btn-outline-neutral text-xs py-1.5 px-2.5 rounded-lg text-rose-600 hover:bg-rose-50">Keluar / Ganti Akun</button>
+          </div>
         </div>
+
+        {{! Google Sign In for Lecturers }}
+        <div class="mb-5">
+          <button id="btn-google-login" type="button" class="btn btn-outline-neutral w-full flex items-center justify-center gap-2.5 py-2.5 hover:border-primary hover:bg-primary-lighter/40 transition">
+            {{> icons/brand-google size=18}}
+            <span class="font-bold text-sm text-default">Masuk dengan Google (Akun Dosen)</span>
+          </button>
+        </div>
+
+        <div class="hr-label my-4 text-muted text-xs">atau login Administrator Kampus</div>
+
+        <form id="login-form" class="flex flex-col" novalidate>
+          <div class="mb-3">
+            <label class="block text-xs font-semibold text-muted mb-1.5" for="login-email">Email Administrator</label>
+            <input type="email" id="login-email" class="form-control form-control-bordered w-full h-10 text-xs px-3 rounded-lg border border-default focus:border-primary" name="email" placeholder="admin@kampus.ac.id" required autocomplete="username" />
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-muted mb-1.5" for="password">Kata Sandi</label>
+            {{> password-field id="password" placeholder="••••••••"}}
+          </div>
+
+          <button id="btn-submit-login" type="submit" class="btn btn-primary w-full py-2.5 font-bold text-sm">Masuk Portal Administrator</button>
+        </form>
       </div>
-      <div class="card-footer border-t border-default px-6 pt-4 pb-4 text-[11px] leading-[1.75] text-muted">
-        Protected by reCAPTCHA and subject to the {{site.name}}
-        <a href="#" class="link link-primary link-hover font-medium">Privacy Policy</a> and
-        <a href="#" class="link link-primary link-hover font-medium">Terms of Service</a>.
+      <div class="card-footer border-t border-default px-6 pt-3.5 pb-3.5 text-[11px] leading-[1.6] text-muted flex items-center justify-between">
+        <span>Sistem Informasi Terenkripsi</span>
+        <span class="text-primary font-bold">SPSM PORTAL</span>
       </div>
     </div>
   </main>

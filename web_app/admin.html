@@ -1,0 +1,207 @@
+{{#> layout page="admin" title="Manajemen Dosen & Master Data" script="admin"}}
+  {{! Page Header }}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight">Manajemen & Master Data Portal</h2>
+      <p class="text-xs text-muted mt-1">Kelola data dosen, kuota bimbingan, hak akses peran, dan pengaturan periode akademik</p>
+    </div>
+    <div id="toast-feedback-admin" class="hidden py-2 px-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold"></div>
+  </div>
+
+  {{! Navigation Tabs }}
+  <div class="flex items-center gap-2 mb-6 border-b border-default overflow-x-auto">
+    <button type="button" class="admin-tab-btn active px-4 py-2.5 text-xs font-bold text-primary border-b-2 border-primary cursor-pointer" onclick="switchAdminTab('lecturers', this)">
+      {{> icons/business size=15}}
+      <span>Manajemen Dosen</span>
+    </button>
+    <button type="button" class="admin-tab-btn px-4 py-2.5 text-xs font-semibold text-muted hover:text-default border-b-2 border-transparent cursor-pointer" onclick="switchAdminTab('masterdata', this)">
+      {{> icons/assignment size=15}}
+      <span>Prodi & Angkatan</span>
+    </button>
+    <button type="button" class="admin-tab-btn px-4 py-2.5 text-xs font-semibold text-muted hover:text-default border-b-2 border-transparent cursor-pointer" onclick="switchAdminTab('settings', this)">
+      {{> icons/event-note size=15}}
+      <span>Pengaturan Periode</span>
+    </button>
+  </div>
+
+  {{! TAB 1: MANAJEMEN DOSEN }}
+  <div id="admintab-lecturers" class="admin-tab-section space-y-4">
+    <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+      <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <button type="button" id="btn-add-lecturer" class="btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer">
+            + Tambah Dosen Baru
+          </button>
+          <span class="text-xs text-muted" id="lecturer-total-badge">Total: 0 dosen</span>
+        </div>
+
+        <div class="relative">
+          <input
+            type="search"
+            id="search-lecturer"
+            placeholder="Cari dosen, NIP, keahlian..."
+            class="form-control text-xs h-8 ps-8 pe-3 w-56 border-default rounded-lg"
+          />
+          <div class="absolute inset-y-0 start-2.5 flex items-center pointer-events-none text-muted">
+            {{> icons/search size=13}}
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="table w-full text-start text-xs border-collapse">
+          <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+            <tr>
+              <th class="py-3 px-4">Nama Dosen & NIP</th>
+              <th class="py-3 px-4">Email</th>
+              <th class="py-3 px-4">Prodi / Bidang</th>
+              <th class="py-3 px-4">Hak Akses Peran</th>
+              <th class="py-3 px-4">Beban Kuota Bimbingan</th>
+              <th class="py-3 px-4 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="lecturers-table-body" class="divide-y divide-default">
+            <tr>
+              <td colspan="6" class="py-8 text-center text-muted">Memuat data dosen...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {{! TAB 2: PRODI & ANGKATAN }}
+  <div id="admintab-masterdata" class="admin-tab-section hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+      <div class="p-4 border-b border-default bg-subtle">
+        <h3 class="text-xs font-bold text-default uppercase tracking-wider">Daftar Program Studi</h3>
+      </div>
+      <div class="p-4 overflow-x-auto">
+        <table class="table w-full text-xs">
+          <thead>
+            <tr class="border-b border-default text-muted text-[11px]">
+              <th class="py-2">Kode</th>
+              <th class="py-2">Nama Program Studi</th>
+              <th class="py-2">Fakultas</th>
+            </tr>
+          </thead>
+          <tbody id="dept-table-body" class="divide-y divide-default">
+            <tr><td colspan="3" class="py-4 text-center text-muted">Memuat prodi...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+      <div class="p-4 border-b border-default bg-subtle">
+        <h3 class="text-xs font-bold text-default uppercase tracking-wider">Daftar Tahun Angkatan</h3>
+      </div>
+      <div class="p-4 overflow-x-auto">
+        <table class="table w-full text-xs">
+          <thead>
+            <tr class="border-b border-default text-muted text-[11px]">
+              <th class="py-2">Tahun</th>
+              <th class="py-2">Label Angkatan</th>
+            </tr>
+          </thead>
+          <tbody id="batch-table-body" class="divide-y divide-default">
+            <tr><td colspan="2" class="py-4 text-center text-muted">Memuat angkatan...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {{! TAB 3: PENGATURAN PERIODE }}
+  <div id="admintab-settings" class="admin-tab-section hidden max-w-xl">
+    <div class="card border border-default shadow-sm bg-default rounded-xl p-6 space-y-4">
+      <div>
+        <h3 class="text-sm font-bold text-default">Pengaturan Masa Pengajuan Skripsi</h3>
+        <p class="text-xs text-muted">Atur periode aktif dan tahun ajaran pengajuan skripsi bagi mahasiswa</p>
+      </div>
+
+      <div class="space-y-3 pt-2">
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Tahun Ajaran / Semester</label>
+          <input type="text" id="setting-academic-year" value="2025/2026 Ganjil" class="form-control text-xs w-full h-9 border-default rounded-lg" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-default mb-1">Tanggal Buka Pendaftaran</label>
+            <input type="date" id="setting-start-date" class="form-control text-xs w-full h-9 border-default rounded-lg" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-default mb-1">Tanggal Tutup Pendaftaran</label>
+            <input type="date" id="setting-end-date" class="form-control text-xs w-full h-9 border-default rounded-lg" />
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-default flex justify-end">
+        <button type="button" id="btn-save-settings" class="btn btn-primary text-xs font-bold py-2 px-4">
+          Simpan Pengaturan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {{! Modal Tambah / Edit Dosen }}
+  <div id="lecturer-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="card w-full max-w-lg bg-default shadow-2xl border border-default rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 bg-primary text-white border-b border-default">
+        <h3 class="text-sm font-bold text-white" id="lecturer-modal-title">Tambah Dosen Baru</h3>
+        <button type="button" class="btn btn-icon size-8 text-white/80 hover:text-white bg-white/10 rounded-lg cursor-pointer" onclick="closeLecturerModal()">✕</button>
+      </div>
+
+      <form id="lecturer-form" class="p-6 space-y-3.5">
+        <input type="hidden" id="form-lecturer-id" />
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Nomor Induk Pegawai (NIP) *</label>
+          <input type="text" id="form-lecturer-nip" class="form-control text-xs w-full h-9 border-default rounded-lg" required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Nama Lengkap & Gelar *</label>
+          <input type="text" id="form-lecturer-name" class="form-control text-xs w-full h-9 border-default rounded-lg" required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Alamat Email Kampus *</label>
+          <input type="email" id="form-lecturer-email" class="form-control text-xs w-full h-9 border-default rounded-lg" required />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-default mb-1">Departemen / Prodi</label>
+            <select id="form-lecturer-dept" class="form-select text-xs w-full h-9 border-default rounded-lg px-2 bg-subtle">
+              <option value="TI">Teknik Informatika</option>
+              <option value="BD">Bisnis Digital</option>
+              <option value="SI">Sistem Informasi</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-default mb-1">Batas Kuota Bimbingan</label>
+            <input type="number" id="form-lecturer-quota" min="1" max="50" value="10" class="form-control text-xs w-full h-9 border-default rounded-lg" required />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Bidang Keahlian / Riset</label>
+          <input type="text" id="form-lecturer-expertise" placeholder="Kecerdasan Buatan, Rekayasa Perangkat Lunak..." class="form-control text-xs w-full h-9 border-default rounded-lg" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Peran Akses Utama</label>
+          <select id="form-lecturer-role" class="form-select text-xs w-full h-9 border-default rounded-lg px-2 bg-subtle">
+            <option value="lecturer">Dosen Pembimbing</option>
+            <option value="reviewer">Dosen Penilai / Reviewer</option>
+            <option value="kaprodi">Ketua Program Studi</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-default">
+          <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeLecturerModal()">Batal</button>
+          <button type="submit" id="btn-save-lecturer" class="btn btn-primary text-xs font-bold py-2 px-4">Simpan Data Dosen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{> dossier-modal}}
+{{/layout}}

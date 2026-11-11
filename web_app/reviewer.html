@@ -1,0 +1,175 @@
+{{#> layout page="reviewer" title="Panel Penilaian Reviewer" script="reviewer"}}
+  {{! Page Header }}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight">Panel Dosen Penilai (Reviewer)</h2>
+      <p class="text-xs text-muted mt-1">Evaluasi 3 usulan judul mahasiswa, telaah tabel relevansi, dan plot 2 Dosen Pembimbing</p>
+    </div>
+    <div id="toast-feedback" class="hidden py-2 px-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold"></div>
+  </div>
+
+  {{! Metric Cards }}
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-7">
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center shrink-0">
+        {{> icons/event-note size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-pending">0</div>
+        <div class="text-xs font-medium text-muted">Perlu Diperiksa</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-blue-100 text-blue-900 flex items-center justify-center shrink-0">
+        {{> icons/stars size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-waiting">0</div>
+        <div class="text-xs font-medium text-muted">Diteruskan ke Kaprodi</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+        {{> icons/trending-up size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-approved">0</div>
+        <div class="text-xs font-medium text-muted">Disahkan Kaprodi</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-rose-100 text-rose-900 flex items-center justify-center shrink-0">
+        {{> icons/lock size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-revisions">0</div>
+        <div class="text-xs font-medium text-muted">Perlu Revisi / Ditolak</div>
+      </div>
+    </div>
+  </div>
+
+  {{! Table Card }}
+  <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+    {{! Filter Tabs }}
+    <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2" id="filter-pill-group">
+        <button type="button" class="btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="pending_lecturer">
+          Perlu Diperiksa (<span id="count-pending">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="waiting_kaprodi">
+          Diteruskan (<span id="count-waiting">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="approved">
+          Disahkan (<span id="count-approved">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="all">
+          Semua (<span id="count-all">0</span>)
+        </button>
+      </div>
+
+      <div class="relative">
+        <input
+          type="search"
+          id="reviewer-search"
+          placeholder="Cari mahasiswa atau judul..."
+          class="form-control text-xs h-8 ps-8 pe-3 w-56 border-default rounded-lg"
+        />
+        <div class="absolute inset-y-0 start-2.5 flex items-center pointer-events-none text-muted">
+          {{> icons/search size=13}}
+        </div>
+      </div>
+    </div>
+
+    {{! Table }}
+    <div class="overflow-x-auto">
+      <table class="table w-full text-start text-xs border-collapse">
+        <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+          <tr>
+            <th class="py-3 px-4">Mahasiswa</th>
+            <th class="py-3 px-4">Program Studi</th>
+            <th class="py-3 px-4">Usulan Judul & Jumlah Opsi</th>
+            <th class="py-3 px-4">Status</th>
+            <th class="py-3 px-4">Dosen Pembimbing Diplot</th>
+            <th class="py-3 px-4 text-center">Aksi Review</th>
+          </tr>
+        </thead>
+        <tbody id="reviewer-table-body" class="divide-y divide-default">
+          <tr>
+            <td colspan="6" class="py-8 text-center text-muted">Memuat proposal...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {{! Review Action Modal }}
+  <div id="review-action-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="card w-full max-w-3xl max-h-[90vh] flex flex-col bg-default shadow-2xl border border-default rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 bg-primary text-white border-b border-default">
+        <div>
+          <h3 class="text-sm font-bold text-white">Lembar Evaluasi Proposal Skripsi</h3>
+          <p class="text-[11px] text-blue-200" id="review-modal-student-info">Mahasiswa</p>
+        </div>
+        <button type="button" class="btn btn-icon size-8 text-white/80 hover:text-white bg-white/10 rounded-lg cursor-pointer" onclick="closeReviewModal()">
+          ✕
+        </button>
+      </div>
+
+      <form id="review-form" class="p-6 overflow-y-auto space-y-5">
+        <div>
+          <label class="block text-xs font-bold text-default uppercase tracking-wider mb-2">
+            Pilih 1 Judul yang Disetujui (Wajib):
+          </label>
+          <div id="review-options-container" class="space-y-3">
+            {{! dynamic options radio }}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-default">
+          <div>
+            <label class="block text-xs font-bold text-default mb-1.5">Dosen Pembimbing 1 (Utama) *</label>
+            <select id="review-advisor-1" class="form-select text-xs w-full h-9 border-default rounded-lg px-2 bg-subtle" required>
+              <option value="">Pilih Pembimbing 1...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-default mb-1.5">Dosen Pembimbing 2 (Pendamping)</label>
+            <select id="review-advisor-2" class="form-select text-xs w-full h-9 border-default rounded-lg px-2 bg-subtle">
+              <option value="">(Opsional) Pilih Pembimbing 2...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <label class="block text-xs font-bold text-default mb-1.5">Catatan Evaluasi / Rekomendasi Reviewer</label>
+          <textarea id="review-notes" rows="3" class="form-control text-xs w-full p-2.5 border-default rounded-lg" placeholder="Berikan catatan teknis atau masukan penyempurnaan..."></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-default">
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-request-revision" class="btn btn-outline-neutral border-orange-300 text-orange-800 hover:bg-orange-50 text-xs font-bold py-2 px-3">
+              Minta Revisi
+            </button>
+            <button type="button" id="btn-reject-submission" class="btn btn-outline-neutral border-rose-300 text-rose-800 hover:bg-rose-50 text-xs font-bold py-2 px-3">
+              Tolak Usulan
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeReviewModal()">
+              Batal
+            </button>
+            <button type="submit" id="btn-submit-review" class="btn btn-primary text-xs font-bold py-2 px-4">
+              Setujui & Teruskan ke Kaprodi
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{> dossier-modal}}
+{{/layout}}

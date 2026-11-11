@@ -1,0 +1,151 @@
+{{#> layout page="kaprodi" title="Pengesahan Final Kaprodi" script="kaprodi"}}
+  {{! Page Header }}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight">Panel Pengesahan SK (Ketua Prodi)</h2>
+      <p class="text-xs text-muted mt-1">Pengesahan resmi Surat Keputusan (SK) judul skripsi dan penetapan Dosen Pembimbing</p>
+    </div>
+    <div id="toast-feedback-kaprodi" class="hidden py-2 px-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold"></div>
+  </div>
+
+  {{! Metric Cards }}
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 mb-7">
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-blue-100 text-blue-900 flex items-center justify-center shrink-0">
+        {{> icons/stars size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="kaprodi-waiting-count">0</div>
+        <div class="text-xs font-medium text-muted">Menunggu Pengesahan SK</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-primary-lighter text-primary flex items-center justify-center shrink-0">
+        {{> icons/assignment size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="kaprodi-total-count">0</div>
+        <div class="text-xs font-medium text-muted">Total Pengajuan Masuk</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+        {{> icons/trending-up size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="kaprodi-approved-count">0</div>
+        <div class="text-xs font-medium text-muted">Resmi Diterbitkan SK</div>
+      </div>
+    </div>
+  </div>
+
+  {{! Table Card }}
+  <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+    {{! Filter Tabs }}
+    <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2" id="kaprodi-filter-group">
+        <button type="button" class="btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="waiting_kaprodi">
+          Menunggu Validasi (<span id="count-wait-k">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="approved">
+          Telah Disahkan (<span id="count-app-k">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="all">
+          Semua (<span id="count-all-k">0</span>)
+        </button>
+      </div>
+
+      <div class="relative">
+        <input
+          type="search"
+          id="kaprodi-search"
+          placeholder="Cari mahasiswa atau judul..."
+          class="form-control text-xs h-8 ps-8 pe-3 w-56 border-default rounded-lg"
+        />
+        <div class="absolute inset-y-0 start-2.5 flex items-center pointer-events-none text-muted">
+          {{> icons/search size=13}}
+        </div>
+      </div>
+    </div>
+
+    {{! Table }}
+    <div class="overflow-x-auto">
+      <table class="table w-full text-start text-xs border-collapse">
+        <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+          <tr>
+            <th class="py-3 px-4">Mahasiswa & NIM</th>
+            <th class="py-3 px-4">Program Studi</th>
+            <th class="py-3 px-4">Judul Terpilih (Rekomendasi Reviewer)</th>
+            <th class="py-3 px-4">Status & No. SK</th>
+            <th class="py-3 px-4">Dosen Pembimbing 1 & 2</th>
+            <th class="py-3 px-4 text-center">Aksi Kaprodi</th>
+          </tr>
+        </thead>
+        <tbody id="kaprodi-table-body" class="divide-y divide-default">
+          <tr>
+            <td colspan="6" class="py-8 text-center text-muted">Memuat pengajuan...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {{! Kaprodi Endorsement Modal }}
+  <div id="kaprodi-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="card w-full max-w-2xl max-h-[90vh] flex flex-col bg-default shadow-2xl border border-default rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 bg-emerald-700 text-white border-b border-default">
+        <div>
+          <h3 class="text-sm font-bold text-white">Lembar Pengesahan SK Judul & Dosen Pembimbing</h3>
+          <p class="text-[11px] text-emerald-200" id="kaprodi-modal-subhead">Ketua Program Studi</p>
+        </div>
+        <button type="button" class="btn btn-icon size-8 text-white/80 hover:text-white bg-white/10 rounded-lg cursor-pointer" onclick="closeKaprodiModal()">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4">
+        <div class="p-4 rounded-xl border border-emerald-200 bg-emerald-50/50 space-y-2">
+          <span class="badge badge-primary bg-emerald-700 text-white text-[10px] font-bold px-2 py-0.5">Judul yang Akan Disahkan</span>
+          <h4 class="text-sm font-bold text-default leading-snug" id="kaprodi-modal-title">-</h4>
+          <p class="text-xs text-muted" id="kaprodi-modal-bg">-</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-default mb-1.5">Dosen Pembimbing 1 (Utama) *</label>
+            <select id="kaprodi-adv-1" class="form-select text-xs w-full h-9 border-default rounded-lg px-2 bg-subtle" required></select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-default mb-1.5">Dosen Pembimbing 2 (Pendamping)</label>
+            <select id="kaprodi-adv-2" class="form-select text-xs w-full h-9 border-default rounded-lg px-2 bg-subtle"></select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-default mb-1.5">Catatan Keputusan Kaprodi</label>
+          <textarea id="kaprodi-notes" rows="2" class="form-control text-xs w-full p-2.5 border-default rounded-lg" placeholder="Tambahkan catatan resmi SK jika ada..."></textarea>
+        </div>
+
+        <div class="p-3.5 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/40 text-xs text-emerald-900 flex items-start gap-2.5">
+          <span class="text-emerald-700 font-bold">ℹ</span>
+          <div>
+            Dengan mengesahkan, sistem akan secara otomatis menerbitkan <strong>Nomor Surat resmi (URUTAN/SPSM/PRODI/ANGKATAN/TAHUN)</strong>, menyimpan status Disetujui, dan menambah kuota bimbingan dosen pembimbing.
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 bg-subtle border-t border-default flex items-center justify-between">
+        <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeKaprodiModal()">
+          Batal
+        </button>
+        <button type="button" id="btn-kaprodi-approve" class="btn btn-primary bg-emerald-700 hover:bg-emerald-800 border-none text-white text-xs font-bold py-2.5 px-5">
+          Sahkan & Terbitkan SK
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {{> dossier-modal}}
+{{/layout}}

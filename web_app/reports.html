@@ -1,0 +1,221 @@
+{{#> layout page="reports" title="Laporan Kinerja & Rekapitulasi Skripsi" script="reports"}}
+  {{! Page Header }}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight">Laporan Kinerja & Rekapitulasi Skripsi</h2>
+      <p class="text-xs text-muted mt-1">Monitoring keputusan evaluasi dosen (terima/tolak) dan rekapitulasi mahasiswa yang telah menyelesaikan skripsi</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-2 px-3 flex items-center gap-1.5 cursor-pointer" onclick="window.print()">
+        {{> icons/file-download size=15}}
+        <span>Cetak / Ekspor Laporan</span>
+      </button>
+    </div>
+  </div>
+
+  {{! Navigation Tabs }}
+  <div class="flex items-center gap-2 mb-6 border-b border-default overflow-x-auto">
+    <button type="button" class="report-tab-btn active px-4 py-2.5 text-xs font-bold text-primary border-b-2 border-primary cursor-pointer flex items-center gap-2" onclick="switchReportTab('lecturers', this)">
+      {{> icons/business size=15}}
+      <span>Kinerja Dosen (Terima / Tolak / Kuota)</span>
+    </button>
+    <button type="button" class="report-tab-btn px-4 py-2.5 text-xs font-semibold text-muted hover:text-default border-b-2 border-transparent cursor-pointer flex items-center gap-2" onclick="switchReportTab('students', this)">
+      {{> icons/assignment size=15}}
+      <span>Mahasiswa Selesai Skripsi & Berkas Terupload</span>
+    </button>
+  </div>
+
+  {{! TAB 1: KINERJA DOSEN }}
+  <div id="reporttab-lecturers" class="report-tab-section space-y-6">
+    {{! Metric Summary }}
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-primary-lighter text-primary flex items-center justify-center shrink-0">
+          {{> icons/business size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-default" id="rep-total-lecturers">0</div>
+          <div class="text-xs font-medium text-muted">Total Dosen Terdaftar</div>
+        </div>
+      </div>
+
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+          {{> icons/stars size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-emerald-700" id="rep-total-accepted">0</div>
+          <div class="text-xs font-medium text-muted">Pengajuan Diterima / Lolos</div>
+        </div>
+      </div>
+
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-rose-100 text-rose-900 flex items-center justify-center shrink-0">
+          {{> icons/assignment size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-rose-700" id="rep-total-rejected">0</div>
+          <div class="text-xs font-medium text-muted">Pengajuan Ditolak / Revisi</div>
+        </div>
+      </div>
+
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-blue-100 text-blue-900 flex items-center justify-center shrink-0">
+          {{> icons/trending-up size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-primary" id="rep-avg-approval">0%</div>
+          <div class="text-xs font-medium text-muted">Tingkat Persetujuan Rata-rata</div>
+        </div>
+      </div>
+    </div>
+
+    {{! Lecturer Performance Table Card }}
+    <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+      <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-muted">Filter Program Studi:</span>
+          <select id="report-dept-filter" class="form-select text-xs h-8 border-default rounded-lg px-2.5 bg-default cursor-pointer">
+            <option value="all">Semua Program Studi</option>
+            <option value="TI">Teknik Informatika (TI)</option>
+            <option value="BD">Bisnis Digital (BD)</option>
+            <option value="SI">Sistem Informasi (SI)</option>
+          </select>
+        </div>
+
+        <div class="text-xs text-muted" id="report-date-banner">
+          Monitoring Evaluasi & Kuota Bimbingan Dosen
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="table w-full text-start text-xs border-collapse">
+          <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+            <tr>
+              <th class="py-3 px-4">Nama Dosen & NIP</th>
+              <th class="py-3 px-4">Departemen</th>
+              <th class="py-3 px-4">Peran</th>
+              <th class="py-3 px-4 text-center">Diterima / Lolos</th>
+              <th class="py-3 px-4 text-center">Ditolak / Revisi</th>
+              <th class="py-3 px-4">Approval Rate</th>
+              <th class="py-3 px-4">Beban Bimbingan (Kapasitas)</th>
+              <th class="py-3 px-4">Status Kuota</th>
+            </tr>
+          </thead>
+          <tbody id="report-table-body" class="divide-y divide-default">
+            <tr>
+              <td colspan="8" class="py-8 text-center text-muted">Memuat data kinerja dosen...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-4 bg-subtle border-t border-default flex items-center justify-between text-xs text-muted">
+        <span id="report-counter">Menampilkan 0 dosen</span>
+        <span class="font-medium">Data Terkini Evaluasi & Pembimbingan</span>
+      </div>
+    </div>
+  </div>
+
+  {{! TAB 2: REKAPITULASI MAHASISWA SELESAI SKRIPSI }}
+  <div id="reporttab-students" class="report-tab-section hidden space-y-6">
+    {{! Metric Summary }}
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+          {{> icons/stars size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-emerald-700" id="rep-total-graduated">0</div>
+          <div class="text-xs font-medium text-muted">Total Siswa SK Sah Terbit</div>
+        </div>
+      </div>
+
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-primary-lighter text-primary flex items-center justify-center shrink-0">
+          {{> icons/assignment size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-primary" id="rep-total-uploaded">0</div>
+          <div class="text-xs font-medium text-muted">Sudah Upload Naskah Skripsi</div>
+        </div>
+      </div>
+
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-amber-100 text-amber-900 flex items-center justify-center shrink-0">
+          {{> icons/event-note size=24}}
+        </div>
+        <div>
+          <div class="text-2xl font-black text-amber-800" id="rep-total-pending-upload">0</div>
+          <div class="text-xs font-medium text-muted">Menunggu Upload Naskah</div>
+        </div>
+      </div>
+
+      <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+        <div class="size-12 rounded-xl bg-indigo-100 text-indigo-900 flex items-center justify-center shrink-0">
+          {{> icons/trending-up size=24}}
+        </div>
+        <div>
+          <div class="text-sm font-black text-indigo-950 font-mono line-clamp-1" id="rep-latest-sk">-</div>
+          <div class="text-xs font-medium text-muted">Nomor Surat Terakhir</div>
+        </div>
+      </div>
+    </div>
+
+    {{! Students Selesai Skripsi Table Card }}
+    <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+      <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-muted">Filter Program Studi:</span>
+          <select id="report-student-dept-filter" class="form-select text-xs h-8 border-default rounded-lg px-2.5 bg-default cursor-pointer">
+            <option value="all">Semua Program Studi</option>
+            <option value="TI">Teknik Informatika (TI)</option>
+            <option value="BD">Bisnis Digital (BD)</option>
+            <option value="SI">Sistem Informasi (SI)</option>
+          </select>
+        </div>
+
+        <div class="relative">
+          <input
+            type="search"
+            id="search-finished-students"
+            placeholder="Cari mahasiswa, NIM, judul skripsi..."
+            class="form-control text-xs h-8 ps-8 pe-3 w-64 border-default rounded-lg"
+          />
+          <div class="absolute inset-y-0 start-2.5 flex items-center pointer-events-none text-muted">
+            {{> icons/search size=13}}
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="table w-full text-start text-xs border-collapse">
+          <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+            <tr>
+              <th class="py-3 px-4">Mahasiswa & NIM</th>
+              <th class="py-3 px-4">Prodi & Angkatan</th>
+              <th class="py-3 px-4">Judul Skripsi Disahkan</th>
+              <th class="py-3 px-4">Dosen Pembimbing</th>
+              <th class="py-3 px-4">Nomor SK Resmi</th>
+              <th class="py-3 px-4 text-center">Berkas Skripsi</th>
+              <th class="py-3 px-4">Tanggal SK</th>
+              <th class="py-3 px-4 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="student-report-table-body" class="divide-y divide-default">
+            <tr>
+              <td colspan="8" class="py-8 text-center text-muted">Memuat data mahasiswa selesai skripsi...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-4 bg-subtle border-t border-default flex items-center justify-between text-xs text-muted">
+        <span id="student-report-counter">Menampilkan 0 mahasiswa</span>
+        <span class="font-medium">Daftar Rekapitulasi Surat Keputusan & Naskah Mahasiswa</span>
+      </div>
+    </div>
+  </div>
+
+  {{> dossier-modal}}
+{{/layout}}

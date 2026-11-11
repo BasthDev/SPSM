@@ -1,149 +1,164 @@
-import * as echarts from 'echarts/core';
-import { LineChart, PieChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent } from 'echarts/components';
-import { CanvasRenderer } from 'echarts/renderers';
+import { submissionService, formatDateShort } from './spsm.js';
 
-echarts.use([LineChart, PieChart, GridComponent, TooltipComponent, CanvasRenderer]);
+let allSubmissions = [];
 
-/* ---------- Theme colors ---------- */
+async function loadDashboard() {
+  const tableBody = document.getElementById('submissions-table-body');
+  const counterEl = document.getElementById('record-counter');
 
-// read Rhombus theme tokens so the charts follow style.css
-const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+  try {
+    const submissions = await submissionService.getAllSubmissions();
+    allSubmissions = submissions;
 
-const theme = () => ({
-  font: getComputedStyle(document.body).fontFamily,
-  primary: token('color-primary'),
-  primaryLighter: token('color-primary-lighter'),
-  text: token('text-color-default'),
-  muted: token('text-color-muted'),
-  border: token('border-color-default'),
-  bg: token('background-color-default'),
-});
+    // Calculate metrics
+    const total = submissions.length;
+    const pending = submissions.filter((s) => s.status === 'pending_lecturer').length;
+    const waiting = submissions.filter((s) => s.status === 'waiting_kaprodi').length;
+    const approved = submissions.filter((s) => s.status === 'approved').length;
 
-const tooltip = (t) => ({
-  backgroundColor: t.bg,
-  borderColor: t.border,
-  borderWidth: 1,
-  padding: [6, 10],
-  extraCssText: 'box-shadow: 0 4px 16px rgb(0 0 0 / 0.1); border-radius: 4px;',
-  textStyle: { color: t.text, fontFamily: t.font, fontSize: 13 },
-});
+    // Set stat cards
+    const totalEl = document.getElementById('stat-total-submissions');
+    const pendEl = document.getElementById('stat-pending-submissions');
+    const waitEl = document.getElementById('stat-waiting-kaprodi');
+    const appEl = document.getElementById('stat-approved-submissions');
 
-/* ---------- Email sent total (pie) ---------- */
+    if (totalEl) totalEl.innerText = total;
+    if (pendEl) pendEl.innerText = pending;
+    if (waitEl) waitEl.innerText = waiting;
+    if (appEl) appEl.innerText = approved;
 
-// the legend under the pie is the data source, so chart and legend never disagree
-const emails = [...document.querySelectorAll('[data-email]')].map((item) => ({
-  name: item.dataset.email,
-  value: Number(item.dataset.value),
-  percent: Number(item.dataset.percent),
-  color: item.dataset.color,
-}));
+    renderTable();
+  } catch (err) {
+    console.error('loadDashboard failed:', err);
+    if (tableBody) {
+      tableBody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-red-600 font-medium">Gagal memuat data pengajuan: ${err.message || err}</td></tr>`;
+    }
+  }
+}
 
-const emailOptions = (t) => ({
-  textStyle: { fontFamily: t.font },
-  tooltip: { ...tooltip(t), trigger: 'item', formatter: ({ name, value }) => `${value} ${name}` },
-  series: [
-    {
-      type: 'pie',
-      radius: '98%',
-      startAngle: 90,
-      itemStyle: { borderColor: t.bg, borderWidth: 2 },
-      label: {
-        position: 'inside',
-        color: '#fff',
-        fontFamily: t.font,
-        fontSize: 14,
-        fontWeight: 600,
-        formatter: ({ data }) => `${data.percent}%`,
-      },
-      labelLine: { show: false },
-      emphasis: { scale: false },
-      data: emails.map((e) => ({ ...e, itemStyle: { color: token(`color-${e.color}`) } })),
-    },
-  ],
-});
+function renderTable() {
+  const tableBody = document.getElementById('submissions-table-body');
+  const counterEl = document.getElementById('record-counter');
+  const searchInput = document.getElementById('search-input');
+  const filterSelect = document.getElementById('filter-status');
 
-/* ---------- Revenue (area line) ---------- */
+  const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const filterStatus = filterSelect ? filterSelect.value : 'all';
 
-// a deterministic, slightly noisy trend traced from the design: dips early, climbs late, eases off
-const revenue = (() => {
-  const keys = [
-    [0, 66],
-    [0.06, 66],
-    [0.12, 57],
-    [0.2, 52],
-    [0.28, 46],
-    [0.34, 37],
-    [0.4, 37],
-    [0.46, 44],
-    [0.52, 52],
-    [0.58, 56],
-    [0.63, 56],
-    [0.66, 64],
-    [0.7, 82],
-    [0.76, 86],
-    [0.82, 92],
-    [0.86, 100],
-    [0.9, 92],
-    [0.95, 93],
-    [1, 74],
-  ];
-  const at = (x) => {
-    const i = keys.findIndex(([kx]) => kx >= x);
-    if (i <= 0) return keys[0][1];
-    const [x0, y0] = keys[i - 1];
-    const [x1, y1] = keys[i];
-    return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+  const filtered = allSubmissions.filter((sub) => {
+    if (filterStatus !== 'all' && sub.status !== filterStatus) return false;
+    if (!q) return true;
+
+    const studentName = sub.student?.name?.toLowerCase() || '';
+    const studentNim = sub.student?.nim_or_nip?.toLowerCase() || '';
+    const title =
+      sub.options?.find((o) => o.is_selected_by_lecturer)?.title?.toLowerCase() ||
+      sub.options?.[0]?.title?.toLowerCase() ||
+      '';
+
+    return studentName.includes(q) || studentNim.includes(q) || title.includes(q);
+  });
+
+  if (counterEl) {
+    counterEl.innerText = `Menampilkan ${filtered.length} dari ${allSubmissions.length} pengajuan`;
+  }
+
+  if (!tableBody) return;
+
+  if (filtered.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-10 text-center text-muted italic">
+          Tidak ada data pengajuan skripsi yang cocok dengan kriteria filter.
+        </td>
+      </tr>`;
+    return;
+  }
+
+  const statusBadges = {
+    pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
+    waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+    approved: { label: 'Disahkan', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+    revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
+    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },
   };
-  let seed = 11;
-  const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 2;
-  return Array.from({ length: 120 }, (_, i) => Math.round((at(i / 119) + rand() * 2.2) * 10) / 10);
-})();
 
-const revenueOptions = (t) => ({
-  textStyle: { fontFamily: t.font },
-  grid: { top: 0, right: 0, bottom: 0, left: 0 },
-  tooltip: {
-    ...tooltip(t),
-    trigger: 'axis',
-    axisPointer: { type: 'line', lineStyle: { color: t.border } },
-    valueFormatter: (v) => `$${(v * 1000).toLocaleString()}`,
-  },
-  xAxis: { type: 'category', data: revenue.map((_, i) => `Day ${i + 1}`), boundaryGap: false, show: false },
-  yAxis: { type: 'value', min: 0, max: 104, show: false },
-  series: [
-    {
-      type: 'line',
-      data: revenue,
-      showSymbol: false,
-      symbolSize: 6,
-      smooth: 0.3,
-      lineStyle: { width: 2, color: t.primary },
-      itemStyle: { color: t.primary },
-      areaStyle: { color: t.primaryLighter, opacity: 1 },
-    },
-  ],
+  tableBody.innerHTML = filtered
+    .map((sub, idx) => {
+      const student = sub.student;
+      const chosenOpt = sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
+      const statusBadge = statusBadges[sub.status] || { label: sub.status, cls: 'bg-slate-100 text-slate-800' };
+
+      return `
+      <tr class="hover:bg-subtle/80 transition-colors">
+        <td class="py-3 px-4">
+          <div class="font-bold text-default">${student?.name || 'Mahasiswa'}</div>
+          <div class="font-mono text-muted text-[11px] mt-0.5">${student?.nim_or_nip || sub.student_id}</div>
+        </td>
+        <td class="py-3 px-4">
+          <span class="badge badge-neutral text-xs px-2 py-0.5">${student?.department || 'TI'}</span>
+          <div class="text-[11px] text-muted mt-0.5">Letting ${student?.batch_year || 2026}</div>
+        </td>
+        <td class="py-3 px-4 max-w-sm">
+          <div class="text-[10px] font-bold text-primary mb-0.5">Opsi ${chosenOpt?.option_number || 1}</div>
+          <div class="font-medium text-default line-clamp-2 text-xs leading-snug">${chosenOpt?.title || '(Belum ada judul)'}</div>
+        </td>
+        <td class="py-3 px-4 whitespace-nowrap">
+          <span class="badge text-xs px-2.5 py-0.5 font-bold border ${statusBadge.cls}">
+            ${statusBadge.label}
+          </span>
+          ${
+            sub.status === 'approved' && sub.nomor_surat
+              ? `<div class="font-mono text-[10px] font-bold text-emerald-700 mt-1">${sub.nomor_surat}</div>`
+              : ''
+          }
+        </td>
+        <td class="py-3 px-4">
+          ${
+            sub.advisor
+              ? `
+            <div class="space-y-0.5">
+              <div class="font-semibold text-default text-[11px]">1. ${sub.advisor.name}</div>
+              ${sub.advisor2 ? `<div class="text-muted text-[11px]">2. ${sub.advisor2.name}</div>` : ''}
+            </div>`
+              : `<span class="text-muted italic text-[11px]">Belum diplot</span>`
+          }
+        </td>
+        <td class="py-3 px-4 text-center whitespace-nowrap">
+          <button
+            type="button"
+            class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg hover:border-primary hover:text-primary cursor-pointer"
+            data-index="${idx}"
+          >
+            Lihat Berkas
+          </button>
+        </td>
+      </tr>`;
+    })
+    .join('');
+
+  // Attach click listeners to open dossier
+  tableBody.querySelectorAll('button[data-index]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const index = parseInt(btn.getAttribute('data-index'), 10);
+      const sub = filtered[index];
+      if (sub && window.openDossierModal) {
+        window.openDossierModal(sub);
+      }
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboard();
+
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => renderTable());
+  }
+
+  const filterSelect = document.getElementById('filter-status');
+  if (filterSelect) {
+    filterSelect.addEventListener('change', () => renderTable());
+  }
 });
-
-/* ---------- Render ---------- */
-
-const charts = [
-  ['emailChart', emailOptions],
-  ['revenueChart', revenueOptions],
-]
-  .map(([id, options]) => ({ el: document.getElementById(id), options }))
-  .filter(({ el }) => el)
-  .map(({ el, options }) => ({ el, options, chart: echarts.init(el) }));
-
-const t = theme();
-const draw = ({ chart, options }) => chart.setOption(options(t), true);
-charts.forEach(draw);
-
-const resizeObserver = new ResizeObserver((entries) =>
-  entries.forEach(({ target }) => {
-    const entry = charts.find(({ el }) => el === target);
-    if (!entry) return;
-    entry.chart.resize();
-  }),
-);
-charts.forEach(({ el }) => resizeObserver.observe(el));

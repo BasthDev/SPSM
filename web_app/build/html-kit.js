@@ -31,6 +31,7 @@ export default function htmlKit() {
     hb.registerHelper('add', (a, b) => a + b);
     // {{> (concat 'icons/' icon)}} renders an icon by name
     hb.registerHelper('concat', (...args) => args.slice(0, -1).join(''));
+    hb.registerHelper('join', (arr, sep) => (Array.isArray(arr) ? arr.join(sep) : ''));
     // {{year}} for the footer copyright
     hb.registerHelper('year', () => new Date().getFullYear());
 

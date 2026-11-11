@@ -1,0 +1,109 @@
+{{#> layout page="advisor" title="Portal Dosen Pembimbing" script="advisor"}}
+  {{! Page Header }}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight" id="advisor-portal-title">Portal Dosen Pembimbing</h2>
+      <p class="text-xs text-muted mt-1" id="advisor-portal-desc">Daftar mahasiswa skripsi yang resmi berada di bawah bimbingan Anda setelah disahkan Kaprodi</p>
+    </div>
+
+    {{! Admin filter dropdown if admin }}
+    <div id="admin-advisor-picker" class="hidden items-center gap-2">
+      <span class="text-xs font-semibold text-muted">Pilih Dosen:</span>
+      <select id="select-advisor-filter" class="form-select text-xs h-9 border-default rounded-lg px-2.5 bg-subtle">
+        <option value="all">Semua Dosen Pembimbing</option>
+      </select>
+    </div>
+  </div>
+
+  {{! Metric Cards & Quota Bar }}
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-7">
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-primary-lighter text-primary flex items-center justify-center shrink-0">
+        {{> icons/account-box size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-adv-active">0</div>
+        <div class="text-xs font-medium text-muted">Mahasiswa Bimbingan Aktif</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+        {{> icons/trending-up size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-adv-quota">10</div>
+        <div class="text-xs font-medium text-muted">Batas Maksimal Kuota</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-blue-100 text-blue-900 flex items-center justify-center shrink-0">
+        {{> icons/stars size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-adv-remaining">10</div>
+        <div class="text-xs font-medium text-muted">Sisa Kuota Tersedia</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-purple-100 text-purple-900 flex items-center justify-center shrink-0">
+        {{> icons/business size=24}}
+      </div>
+      <div>
+        <div class="text-xl font-bold text-default" id="metric-adv-dept">TI</div>
+        <div class="text-xs font-medium text-muted">Program Studi Naungan</div>
+      </div>
+    </div>
+  </div>
+
+  {{! Table Card }}
+  <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+    <div class="p-5 border-b border-default flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h3 class="text-base font-bold text-default">Daftar Mahasiswa Bimbingan Resmi</h3>
+        <p class="text-xs text-muted mt-0.5">Mahasiswa aktif dengan SK resmi yang telah diterbitkan oleh Ketua Program Studi</p>
+      </div>
+
+      <div class="relative">
+        <input
+          type="search"
+          id="advisor-search"
+          placeholder="Cari nama, NIM, atau judul skripsi..."
+          class="form-control text-xs h-9 ps-8 pe-3 w-64 border-default rounded-lg"
+        />
+        <div class="absolute inset-y-0 start-2.5 flex items-center pointer-events-none text-muted">
+          {{> icons/search size=14}}
+        </div>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table w-full text-start text-xs border-collapse">
+        <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+          <tr>
+            <th class="py-3 px-4">Mahasiswa & NIM</th>
+            <th class="py-3 px-4">Program Studi</th>
+            <th class="py-3 px-4">Judul Skripsi Disahkan</th>
+            <th class="py-3 px-4">Nomor SK Pengesahan</th>
+            <th class="py-3 px-4">Tanggal Pengesahan</th>
+            <th class="py-3 px-4 text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="advisor-table-body" class="divide-y divide-default">
+          <tr>
+            <td colspan="6" class="py-8 text-center text-muted">Memuat mahasiswa bimbingan...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="p-4 bg-subtle border-t border-default flex items-center justify-between text-xs text-muted">
+      <span id="advisor-counter">Total: 0 mahasiswa bimbingan</span>
+      <span class="font-medium">SPSM Portal • Surat Keputusan Sah</span>
+    </div>
+  </div>
+
+  {{> dossier-modal}}
+{{/layout}}

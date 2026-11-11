@@ -1,0 +1,146 @@
+{{! Dossier Detail Modal }}
+<div id="dossier-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+  <div class="card w-full max-w-4xl max-h-[90vh] flex flex-col bg-default shadow-2xl border border-default rounded-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    {{! Header }}
+    <div class="flex items-center justify-between px-6 py-4 bg-primary text-white border-b border-default">
+      <div class="flex items-center gap-3">
+        <div class="size-9 rounded-lg bg-white/15 flex items-center justify-center border border-white/20">
+          <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="text-[11px] font-bold tracking-wider uppercase text-blue-200">Berkas Dossier Pengajuan Skripsi</div>
+          <div class="text-sm font-mono font-bold text-white" id="modal-doc-id">SPSM-DOKUMEN</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="modal-status-badge" class="badge badge-secondary text-xs px-3 py-1 font-bold">Status</span>
+        <button type="button" class="btn btn-icon size-8 p-0 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg cursor-pointer" onclick="closeDossierModal()">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    {{! Tab Navigation }}
+    <div class="flex items-center gap-1 px-6 border-b border-default bg-subtle overflow-x-auto">
+      <button type="button" class="dossier-tab-btn active px-4 py-3 text-xs font-bold text-primary border-b-2 border-primary cursor-pointer" onclick="switchDossierTab('overview', this)">
+        Ringkasan & Profil
+      </button>
+      <button type="button" class="dossier-tab-btn px-4 py-3 text-xs font-semibold text-muted hover:text-default border-b-2 border-transparent cursor-pointer" onclick="switchDossierTab('titles', this)">
+        3 Opsi Judul & Relevansi
+      </button>
+      <button type="button" class="dossier-tab-btn px-4 py-3 text-xs font-semibold text-muted hover:text-default border-b-2 border-transparent cursor-pointer" onclick="switchDossierTab('files', this)">
+        Berkas & SK Pengesahan
+      </button>
+      <button type="button" class="dossier-tab-btn px-4 py-3 text-xs font-semibold text-muted hover:text-default border-b-2 border-transparent cursor-pointer" onclick="switchDossierTab('logs', this)">
+        Riwayat & Audit Log
+      </button>
+    </div>
+
+    {{! Modal Body }}
+    <div class="p-6 overflow-y-auto grow space-y-5" id="modal-body-content">
+      {{! Tab 1: Overview }}
+      <div id="tab-overview" class="dossier-tab-content space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="p-3.5 rounded-xl border border-default bg-subtle">
+            <span class="block text-[11px] font-semibold text-muted uppercase tracking-wider">Tanggal Pengajuan</span>
+            <span class="block text-sm font-bold text-default mt-1" id="modal-submitted-at">-</span>
+          </div>
+          <div class="p-3.5 rounded-xl border border-default bg-subtle">
+            <span class="block text-[11px] font-semibold text-muted uppercase tracking-wider">Program Studi & Letting</span>
+            <span class="block text-sm font-bold text-default mt-1" id="modal-department">-</span>
+          </div>
+          <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
+            <span class="block text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Nomor SK Pengesahan</span>
+            <span class="block text-sm font-mono font-bold text-emerald-900 mt-1" id="modal-nomor-surat">-</span>
+          </div>
+        </div>
+
+        <div class="card border border-default">
+          <div class="card-header border-b border-default px-4 py-3 bg-subtle text-xs font-bold text-primary uppercase">
+            Data Mahasiswa Pemohon
+          </div>
+          <div class="card-body p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <span class="text-muted block">Nama Lengkap Mahasiswa:</span>
+              <span class="text-sm font-bold text-default block mt-0.5" id="modal-student-name">-</span>
+            </div>
+            <div>
+              <span class="text-muted block">Nomor Induk Mahasiswa (NIM):</span>
+              <span class="text-sm font-mono font-bold text-default block mt-0.5" id="modal-student-nim">-</span>
+            </div>
+            <div>
+              <span class="text-muted block">Email Mahasiswa:</span>
+              <span class="text-xs text-default block mt-0.5" id="modal-student-email">-</span>
+            </div>
+            <div>
+              <span class="text-muted block">Usulan Pilihan Dosen oleh Mahasiswa:</span>
+              <span class="text-xs text-default block mt-0.5" id="modal-student-pref-advisors">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border border-default">
+          <div class="card-header border-b border-default px-4 py-3 bg-subtle text-xs font-bold text-primary uppercase">
+            Penetapan Dosen Pembimbing Resmi
+          </div>
+          <div class="card-body p-4 grid grid-cols-1 md:grid-cols-2 gap-3" id="modal-advisors-box">
+            {{! dynamic }}
+          </div>
+        </div>
+      </div>
+
+      {{! Tab 2: 3 Title Options & Relevance }}
+      <div id="tab-titles" class="dossier-tab-content hidden space-y-4">
+        <div id="modal-titles-container" class="space-y-4">
+          {{! dynamic }}
+        </div>
+      </div>
+
+      {{! Tab 3: Files & SK }}
+      <div id="tab-files" class="dossier-tab-content hidden space-y-4">
+        <div id="modal-sk-box" class="p-5 rounded-2xl border border-emerald-200 bg-emerald-50/70 text-emerald-950 space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="badge badge-primary bg-emerald-600 text-white font-bold text-xs uppercase px-2 py-0.5">Dokumen SK Sah</span>
+            <span class="font-mono font-bold text-sm" id="modal-sk-number">-</span>
+          </div>
+          <p class="text-xs leading-relaxed" id="modal-sk-text">
+            Berdasarkan rapat tim verifikator dan pengesahan Ketua Program Studi, usulan judul skripsi beserta penugasan Dosen Pembimbing dinyatakan RESMI DISAHKAN.
+          </p>
+          <div class="pt-2 flex items-center justify-between border-t border-emerald-200 text-xs">
+            <span class="text-emerald-700 italic">Disahkan secara elektronik oleh SPSM Portal</span>
+            <button type="button" class="btn btn-outline-neutral border-emerald-400 text-emerald-800 hover:bg-emerald-100 py-1 px-3 text-xs font-bold" onclick="window.print()">
+              Cetak Dokumen SK
+            </button>
+          </div>
+        </div>
+
+        <div id="modal-draft-file-box" class="card border border-default p-4 flex items-center justify-between">
+          <div>
+            <div class="text-sm font-bold text-default" id="modal-draft-filename">Naskah_Skripsi.pdf</div>
+            <div class="text-xs text-muted" id="modal-draft-fileinfo">-</div>
+          </div>
+          <a id="modal-draft-filelink" href="#" target="_blank" class="btn btn-primary btn-sm text-xs font-bold py-1.5 px-3">
+            Lihat File Naskah
+          </a>
+        </div>
+      </div>
+
+      {{! Tab 4: Logs }}
+      <div id="tab-logs" class="dossier-tab-content hidden space-y-3">
+        <div id="modal-logs-timeline" class="space-y-3">
+          {{! dynamic }}
+        </div>
+      </div>
+    </div>
+
+    {{! Footer }}
+    <div class="px-6 py-3.5 bg-subtle border-t border-default flex items-center justify-between">
+      <div class="text-xs text-muted">SPSM Portal • Dokumen Manajemen Akademik</div>
+      <button type="button" class="btn btn-outline-neutral text-xs font-semibold px-4 py-2" onclick="closeDossierModal()">
+        Tutup Berkas
+      </button>
+    </div>
+  </div>
+</div>

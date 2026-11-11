@@ -1,0 +1,354 @@
+import { submissionService, lecturerService, authService } from './spsm.js';
+
+let submissions = [];
+let lecturers = [];
+let currentFilter = 'pending_lecturer';
+let selectedSubmission = null;
+let currentUserName = 'Dosen Penilai';
+
+async function init() {
+  try {
+    const auth = await authService.getCurrentUser();
+    if (auth) {
+      currentUserName = auth.lecturer?.name || auth.profile?.name || auth.account?.name || 'Dosen Penilai';
+    }
+
+    const [subList, lecList] = await Promise.all([
+      submissionService.getAllSubmissions(),
+      lecturerService.getLecturers(),
+    ]);
+
+    submissions = subList;
+    lecturers = lecList;
+
+    updateMetrics();
+    renderTable();
+    setupAdvisorDropdowns();
+  } catch (err) {
+    console.error('Reviewer init failed:', err);
+  }
+}
+
+function showToast(message, isError = false) {
+  const toast = document.getElementById('toast-feedback');
+  if (!toast) return;
+  toast.innerText = message;
+  toast.className = `py-2 px-4 rounded-lg text-xs font-bold ${
+    isError ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+  }`;
+  toast.classList.remove('hidden');
+  setTimeout(() => toast.classList.add('hidden'), 4000);
+}
+
+function updateMetrics() {
+  const pending = submissions.filter((s) => s.status === 'pending_lecturer').length;
+  const waiting = submissions.filter((s) => s.status === 'waiting_kaprodi').length;
+  const approved = submissions.filter((s) => s.status === 'approved').length;
+  const revisions = submissions.filter((s) => s.status === 'revision' || s.status === 'rejected').length;
+
+  document.getElementById('metric-pending').innerText = pending;
+  document.getElementById('metric-waiting').innerText = waiting;
+  document.getElementById('metric-approved').innerText = approved;
+  document.getElementById('metric-revisions').innerText = revisions;
+
+  document.getElementById('count-pending').innerText = pending;
+  document.getElementById('count-waiting').innerText = waiting;
+  document.getElementById('count-approved').innerText = approved;
+  document.getElementById('count-all').innerText = submissions.length;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('reviewer-table-body');
+  const searchInput = document.getElementById('reviewer-search');
+  const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  const filtered = submissions.filter((s) => {
+    if (currentFilter !== 'all' && s.status !== currentFilter) return false;
+    if (!q) return true;
+    const name = s.student?.name?.toLowerCase() || '';
+    const nim = s.student?.nim_or_nip?.toLowerCase() || '';
+    const title =
+      s.options?.find((o) => o.is_selected_by_lecturer)?.title?.toLowerCase() ||
+      s.options?.[0]?.title?.toLowerCase() ||
+      '';
+    return name.includes(q) || nim.includes(q) || title.includes(q);
+  });
+
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-muted italic">Tidak ada proposal pada filter ini.</td></tr>`;
+    return;
+  }
+
+  const statusBadges = {
+    pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
+    waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+    approved: { label: 'Disahkan', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+    revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
+    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },
+  };
+
+  tbody.innerHTML = filtered
+    .map((sub, idx) => {
+      const student = sub.student;
+      const chosenOpt = sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
+      const statusBadge = statusBadges[sub.status] || { label: sub.status, cls: 'bg-slate-100 text-slate-800' };
+
+      return `
+      <tr class="hover:bg-subtle/80 transition-colors">
+        <td class="py-3 px-4">
+          <div class="font-bold text-default">${student?.name || 'Mahasiswa'}</div>
+          <div class="font-mono text-muted text-[11px]">${student?.nim_or_nip || sub.student_id}</div>
+        </td>
+        <td class="py-3 px-4">
+          <span class="badge badge-neutral text-xs px-2 py-0.5">${student?.department || 'TI'}</span>
+          <div class="text-[11px] text-muted mt-0.5">Letting ${student?.batch_year || 2026}</div>
+        </td>
+        <td class="py-3 px-4 max-w-sm">
+          <div class="font-medium text-default line-clamp-2 text-xs">${chosenOpt?.title || '(Belum ada judul)'}</div>
+          <div class="text-[11px] text-muted mt-0.5">${sub.options?.length || 0} opsi diajukan</div>
+        </td>
+        <td class="py-3 px-4 whitespace-nowrap">
+          <span class="badge text-xs px-2.5 py-0.5 font-bold border ${statusBadge.cls}">${statusBadge.label}</span>
+          ${sub.status === 'approved' && sub.nomor_surat ? `<div class="font-mono text-[10px] font-bold text-emerald-700 mt-0.5">${sub.nomor_surat}</div>` : ''}
+        </td>
+        <td class="py-3 px-4">
+          ${
+            sub.advisor
+              ? `
+            <div class="space-y-0.5">
+              <div class="font-semibold text-default text-[11px]">1. ${sub.advisor.name}</div>
+              ${sub.advisor2 ? `<div class="text-muted text-[11px]">2. ${sub.advisor2.name}</div>` : ''}
+            </div>`
+              : `<span class="text-muted italic text-[11px]">Belum diplot</span>`
+          }
+        </td>
+        <td class="py-3 px-4 text-center whitespace-nowrap space-x-1.5">
+          <button
+            type="button"
+            class="btn btn-outline-neutral text-xs py-1.5 px-2.5 rounded-lg"
+            onclick="viewDossier(${idx})"
+          >
+            Berkas
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg"
+            onclick="openReviewDrawer(${idx})"
+          >
+            Evaluasi
+          </button>
+        </td>
+      </tr>`;
+    })
+    .join('');
+}
+
+window.viewDossier = (idx) => {
+  const sub = submissions[idx];
+  if (sub && window.openDossierModal) {
+    window.openDossierModal(sub);
+  }
+};
+
+window.openReviewDrawer = (idx) => {
+  const sub = submissions[idx];
+  if (!sub) return;
+  selectedSubmission = sub;
+
+  document.getElementById('review-modal-student-info').innerText = `${sub.student?.name || 'Mahasiswa'} • NIM: ${
+    sub.student?.nim_or_nip || sub.student_id
+  } • ${sub.student?.department || 'TI'}`;
+
+  // Populate options
+  const container = document.getElementById('review-options-container');
+  if (container) {
+    const selectedOpt = sub.options?.find((o) => o.is_selected_by_lecturer);
+    const selectedId = selectedOpt?.$id || sub.options?.[0]?.$id;
+
+    container.innerHTML = (sub.options || [])
+      .map(
+        (opt) => `
+      <label class="block p-3.5 rounded-xl border border-default hover:border-primary cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary-lighter/30 has-[:checked]:ring-1 has-[:checked]:ring-primary">
+        <div class="flex items-start gap-3">
+          <input type="radio" name="selected_option_id" value="${opt.$id}" class="mt-1" ${
+          opt.$id === selectedId ? 'checked' : ''
+        } required />
+          <div class="grow space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="badge badge-primary text-[10px] font-bold px-2 py-0.5">Opsi ${opt.option_number}</span>
+              ${
+                opt.journal_file_id
+                  ? `<a href="${submissionService.getFileViewUrl(
+                      opt.journal_file_id
+                    )}" target="_blank" class="text-xs text-primary font-bold hover:underline" onclick="event.stopPropagation()">Lihat PDF ↗</a>`
+                  : ''
+              }
+            </div>
+            <div class="text-xs font-bold text-default">${opt.title}</div>
+            <div class="text-[11px] text-muted line-clamp-2">${opt.background || '-'}</div>
+          </div>
+        </div>
+      </label>`
+      )
+      .join('');
+  }
+
+  // Pre-select advisors
+  const adv1Select = document.getElementById('review-advisor-1');
+  const adv2Select = document.getElementById('review-advisor-2');
+
+  if (adv1Select) {
+    adv1Select.value = sub.advisor?.$id || sub.preferredAdvisor1?.$id || (lecturers[0]?.$id || '');
+  }
+  if (adv2Select) {
+    adv2Select.value = sub.advisor2?.$id || sub.preferredAdvisor2?.$id || '';
+  }
+
+  document.getElementById('review-notes').value = '';
+  document.getElementById('review-action-modal').classList.remove('hidden');
+};
+
+window.closeReviewModal = () => {
+  const modal = document.getElementById('review-action-modal');
+  if (modal) modal.classList.add('hidden');
+};
+
+function setupAdvisorDropdowns() {
+  const adv1 = document.getElementById('review-advisor-1');
+  const adv2 = document.getElementById('review-advisor-2');
+
+  const optionsHtml = lecturers
+    .map(
+      (lec) =>
+        `<option value="${lec.$id}">${lec.name} (Kuota: ${lec.current_students || 0}/${lec.quota} mhs)</option>`
+    )
+    .join('');
+
+  if (adv1) {
+    adv1.innerHTML = `<option value="">Pilih Pembimbing 1 (Utama)...</option>` + optionsHtml;
+  }
+  if (adv2) {
+    adv2.innerHTML = `<option value="">(Opsional) Pilih Pembimbing 2 (Pendamping)...</option>` + optionsHtml;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+
+  // Search
+  const searchInput = document.getElementById('reviewer-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => renderTable());
+  }
+
+  // Filters
+  document.querySelectorAll('#filter-pill-group button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#filter-pill-group button').forEach((b) => {
+        b.className = 'btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer';
+      });
+      btn.className = 'btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer';
+      currentFilter = btn.getAttribute('data-filter') || 'all';
+      renderTable();
+    });
+  });
+
+  // Submit Review Form
+  const reviewForm = document.getElementById('review-form');
+  if (reviewForm) {
+    reviewForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!selectedSubmission) return;
+
+      const checkedOpt = document.querySelector('input[name="selected_option_id"]:checked');
+      if (!checkedOpt) {
+        alert('Pilih salah satu opsi judul!');
+        return;
+      }
+
+      const adv1 = document.getElementById('review-advisor-1').value;
+      const adv2 = document.getElementById('review-advisor-2').value;
+      const notes = document.getElementById('review-notes').value.trim();
+
+      if (!adv1) {
+        alert('Dosen Pembimbing 1 wajib dipilih!');
+        return;
+      }
+      if (adv1 && adv2 && adv1 === adv2) {
+        alert('Pembimbing 1 dan Pembimbing 2 tidak boleh orang yang sama!');
+        return;
+      }
+
+      const btn = document.getElementById('btn-submit-review');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Menyimpan...';
+      }
+
+      try {
+        await submissionService.reviewAndSelectTitle(
+          selectedSubmission.$id,
+          checkedOpt.value,
+          adv1,
+          adv2,
+          currentUserName,
+          notes
+        );
+        showToast('Verifikasi berhasil! Judul dan Dosen Pembimbing diteruskan ke Kaprodi.');
+        closeReviewModal();
+        init();
+      } catch (err) {
+        showToast(`Gagal memproses: ${err.message}`, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = 'Setujui & Teruskan ke Kaprodi';
+        }
+      }
+    });
+  }
+
+  // Request Revision
+  const btnRevision = document.getElementById('btn-request-revision');
+  if (btnRevision) {
+    btnRevision.addEventListener('click', async () => {
+      if (!selectedSubmission) return;
+      const notes = prompt('Masukkan catatan perbaikan / revisi untuk mahasiswa:');
+      if (notes === null) return;
+      if (!notes.trim()) {
+        alert('Catatan revisi wajib diisi!');
+        return;
+      }
+
+      try {
+        await submissionService.requestRevision(selectedSubmission.$id, currentUserName, notes);
+        showToast('Status berhasil diubah menjadi Perlu Revisi.');
+        closeReviewModal();
+        init();
+      } catch (err) {
+        showToast(`Gagal: ${err.message}`, true);
+      }
+    });
+  }
+
+  // Reject
+  const btnReject = document.getElementById('btn-reject-submission');
+  if (btnReject) {
+    btnReject.addEventListener('click', async () => {
+      if (!selectedSubmission) return;
+      const notes = prompt('Masukkan alasan penolakan proposal:');
+      if (notes === null) return;
+
+      try {
+        await submissionService.rejectSubmission(selectedSubmission.$id, currentUserName, notes);
+        showToast('Proposal resmi ditolak.');
+        closeReviewModal();
+        init();
+      } catch (err) {
+        showToast(`Gagal: ${err.message}`, true);
+      }
+    });
+  }
+});

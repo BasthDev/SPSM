@@ -16,7 +16,7 @@ const input = Object.fromEntries(
 
 export default defineConfig({
   base: './',
-  plugins: [tailwindcss(), htmlKit(), classicScripts()],
+  plugins: [tailwindcss(), htmlKit()],
   build: {
     rollupOptions: { input },
     chunkSizeWarningLimit: 700, // ECharts is most of the bundle
