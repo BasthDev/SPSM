@@ -87,12 +87,13 @@ export const AdvisorView: React.FC<Props> = ({
 
   // Filter based on search query and lecturer isolation
   const filteredSubs = submissions.filter((s) => {
+    const advisorParts = (s.advisor_id || '').split(',').map((p) => p.trim());
     // Role isolation: lecturer CANNOT see others
-    if (!isAdmin && currentLecturerId && s.advisor_id !== currentLecturerId) {
+    if (!isAdmin && currentLecturerId && !advisorParts.includes(currentLecturerId)) {
       return false;
     }
 
-    if (selectedLecturerId !== 'all' && s.advisor_id !== selectedLecturerId) {
+    if (selectedLecturerId !== 'all' && !advisorParts.includes(selectedLecturerId)) {
       return false;
     }
 

@@ -162,7 +162,7 @@ export const settingsService = {
     if (!isNaN(start) && now < start) {
       const startStr = new Date(settings.start_date).toLocaleDateString('id-ID', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
       });
       return {
@@ -174,7 +174,7 @@ export const settingsService = {
     if (!isNaN(end) && now > end) {
       const endStr = new Date(settings.end_date).toLocaleDateString('id-ID', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
       });
       return {

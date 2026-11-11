@@ -13,48 +13,48 @@ export const StatusBadge: React.FC<Props> = ({ status, size = 'md' }) => {
     { label: string; bg: string; text: string; border: string; icon: React.ReactNode }
   > = {
     pending_lecturer: {
-      label: 'Menunggu Review Dosen',
+      label: 'Menunggu Reviewer',
       bg: '#FEF3C7',
       text: '#92400E',
       border: '#FDE68A',
-      icon: <Clock size={size === 'sm' ? 12 : 14} />,
+      icon: <Clock size={size === 'sm' ? 12 : 13} />,
     },
     waiting_kaprodi: {
-      label: 'Menunggu Pengesahan Kaprodi',
-      bg: '#E0E7FF',
-      text: '#3730A3',
-      border: '#C7D2FE',
-      icon: <Clock size={size === 'sm' ? 12 : 14} />,
+      label: 'Menunggu Kaprodi',
+      bg: '#EFF6FF',
+      text: '#1D4ED8',
+      border: '#BFDBFE',
+      icon: <Clock size={size === 'sm' ? 12 : 13} />,
     },
     approved: {
-      label: 'Disetujui',
-      bg: '#D1FAE5',
+      label: 'Disahkan (SK Terbit)',
+      bg: '#ECFDF5',
       text: '#065F46',
       border: '#A7F3D0',
-      icon: <CheckCircle2 size={size === 'sm' ? 12 : 14} />,
+      icon: <CheckCircle2 size={size === 'sm' ? 12 : 13} />,
     },
     revision: {
       label: 'Perlu Revisi',
-      bg: '#FFEDD5',
-      text: '#9A3412',
-      border: '#FED7AA',
-      icon: <RotateCcw size={size === 'sm' ? 12 : 14} />,
+      bg: '#FFF7ED',
+      text: '#C2410C',
+      border: '#FFEDD5',
+      icon: <RotateCcw size={size === 'sm' ? 12 : 13} />,
     },
     rejected: {
       label: 'Ditolak',
-      bg: '#FEE2E2',
+      bg: '#FEF2F2',
       text: '#991B1B',
       border: '#FECACA',
-      icon: <XCircle size={size === 'sm' ? 12 : 14} />,
+      icon: <XCircle size={size === 'sm' ? 12 : 13} />,
     },
   };
 
   const current = configs[status] || {
     label: status,
-    bg: '#F3F4F6',
-    text: '#374151',
-    border: '#E5E7EB',
-    icon: <AlertCircle size={size === 'sm' ? 12 : 14} />,
+    bg: '#F8FAFC',
+    text: '#475569',
+    border: '#E2E8F0',
+    icon: <AlertCircle size={size === 'sm' ? 12 : 13} />,
   };
 
   return (
@@ -62,8 +62,8 @@ export const StatusBadge: React.FC<Props> = ({ status, size = 'md' }) => {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: '6px',
-        padding: size === 'sm' ? '3px 8px' : '5px 12px',
+        gap: '5px',
+        padding: size === 'sm' ? '3px 8px' : '4px 11px',
         fontSize: size === 'sm' ? '11px' : '12px',
         fontWeight: 600,
         borderRadius: '9999px',
@@ -71,6 +71,7 @@ export const StatusBadge: React.FC<Props> = ({ status, size = 'md' }) => {
         color: current.text,
         border: `1px solid ${current.border}`,
         whiteSpace: 'nowrap',
+        lineHeight: 1.2,
       }}
     >
       {current.icon}

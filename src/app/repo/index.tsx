@@ -32,38 +32,42 @@ export default function RepoScreen() {
   }, [files, search]);
 
   useEffect(() => {
-    loadFiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let ignore = false;
+    const fetchFiles = async () => {
+      try {
+        const response = await storage.listFiles({
+          bucketId: BUCKET_JOURNALS,
+          queries: [
+            Query.orderDesc('$createdAt'),
+            Query.limit(100),
+          ],
+        });
+
+        if (!ignore) {
+          setFiles(
+            response.files.map((file) => ({
+              id: file.$id,
+              name: stripOwnerPrefix(file.name) || file.name,
+              size: file.sizeOriginal || 0,
+              type: file.mimeType || 'application/octet-stream',
+              uploadedAt: file.$createdAt,
+              viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, file.$id).toString(),
+            }))
+          );
+        }
+      } catch (error) {
+        console.error('Failed to load repo files:', error);
+        if (!ignore) setFiles([]);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+
+    fetchFiles();
+    return () => {
+      ignore = true;
+    };
   }, []);
-
-  const loadFiles = async () => {
-    try {
-      setLoading(true);
-      const response = await storage.listFiles({
-        bucketId: BUCKET_JOURNALS,
-        queries: [
-          Query.orderDesc('$createdAt'),
-          Query.limit(100),
-        ],
-      });
-
-      setFiles(
-        response.files.map((file) => ({
-          id: file.$id,
-          name: stripOwnerPrefix(file.name) || file.name,
-          size: file.sizeOriginal || 0,
-          type: file.mimeType || 'application/octet-stream',
-          uploadedAt: file.$createdAt,
-          viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, file.$id).toString(),
-        }))
-      );
-    } catch (error) {
-      console.error('Failed to load repo files:', error);
-      setFiles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleViewFile = (file: RepoFile) => {
     router.push({
@@ -166,7 +170,7 @@ export default function RepoScreen() {
             <Search size={48} color={Colors.textTertiary} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>File Tidak Ditemukan</Text>
             <Text style={styles.emptySubtitle}>
-              Tidak ada file dengan nama "{search}"
+              Tidak ada file dengan nama &ldquo;{search}&rdquo;
             </Text>
           </View>
         ) : (

@@ -7,7 +7,7 @@ import {
   Award,
   UserCheck,
   LogOut,
-  User,
+  Building,
 } from 'lucide-react';
 
 interface Props {
@@ -40,13 +40,13 @@ export const Navbar: React.FC<Props> = ({
     },
     {
       id: 'reviewer',
-      label: 'Dosen Reviewer',
+      label: 'Dosen Penilai',
       icon: <FileCheck size={15} />,
-      color: '#D97706',
+      color: '#0284C7',
     },
     {
       id: 'kaprodi',
-      label: 'Kaprodi',
+      label: 'Ketua Prodi',
       icon: <Award size={15} />,
       color: '#059669',
     },
@@ -54,7 +54,7 @@ export const Navbar: React.FC<Props> = ({
       id: 'lecturer',
       label: 'Dosen Pembimbing',
       icon: <UserCheck size={15} />,
-      color: '#7C3AED',
+      color: '#4F46E5',
     },
   ];
 
@@ -85,18 +85,18 @@ export const Navbar: React.FC<Props> = ({
         {/* Brand */}
         <div className="navbar-brand">
           <div className="brand-icon">
-            <GraduationCap size={24} color="#FFFFFF" />
+            <GraduationCap size={22} color="#FFFFFF" />
           </div>
-          <div>
+          <div className="brand-text-col">
             <div className="brand-title">SPSM PORTAL</div>
-            <div className="brand-subtitle">Sarana Pengajuan Skripsi Mahasiswa</div>
+            <div className="brand-subtitle">Sistem Pengajuan Skripsi Mahasiswa</div>
           </div>
         </div>
 
         {/* Role Selector Tabs (Visible to Admin or Multi-role) */}
         {visibleRoles.length > 1 ? (
           <div className="role-selector">
-            <span className="role-selector-label">Navigasi Peran:</span>
+            <span className="role-selector-label">Peran Aktif:</span>
             <div className="role-pills">
               {visibleRoles.map((r) => {
                 const isActive = currentRole === r.id;
@@ -105,11 +105,7 @@ export const Navbar: React.FC<Props> = ({
                     key={r.id}
                     onClick={() => onRoleChange(r.id)}
                     className={`role-pill ${isActive ? 'active' : ''}`}
-                    style={{
-                      backgroundColor: isActive ? r.color : 'transparent',
-                      color: isActive ? '#FFFFFF' : '#475569',
-                      borderColor: isActive ? r.color : '#E2E8F0',
-                    }}
+                    title={`Pindah ke tampilan ${r.label}`}
                   >
                     {r.icon}
                     <span>{r.label}</span>
@@ -129,27 +125,30 @@ export const Navbar: React.FC<Props> = ({
 
         {/* User Profile & Logout */}
         <div className="navbar-user">
-          <div className="user-info">
-            <span className="user-name">{activeUserName}</span>
-            <span className="user-role-badge">{getRoleDisplayName(userRole)}</span>
+          <div className="user-profile-badge">
+            <div className="user-avatar" title={activeUserEmail || activeUserName}>
+              {activeAvatarUrl ? (
+                <img
+                  src={activeAvatarUrl}
+                  alt={activeUserName}
+                  className="user-avatar-img"
+                />
+              ) : (
+                <span className="user-initial">{activeUserName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="user-info">
+              <span className="user-name">{activeUserName}</span>
+              <span className="user-role-badge">{getRoleDisplayName(userRole)}</span>
+            </div>
           </div>
-          <div className="user-avatar" title={activeUserEmail || activeUserName}>
-            {activeAvatarUrl ? (
-              <img
-                src={activeAvatarUrl}
-                alt={activeUserName}
-                className="user-avatar-img"
-              />
-            ) : (
-              activeUserName.charAt(0).toUpperCase()
-            )}
-          </div>
+
           <button
             onClick={onLogout}
             className="btn-logout"
             title="Keluar dari Akun"
           >
-            <LogOut size={16} />
+            <LogOut size={15} />
             <span className="logout-text">Keluar</span>
           </button>
         </div>

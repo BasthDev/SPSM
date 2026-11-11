@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import {
   BookOpen,
   FileText,
-  GraduationCap,
   User,
   HelpCircle,
 } from 'lucide-react-native';

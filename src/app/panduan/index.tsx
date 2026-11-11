@@ -9,7 +9,6 @@ import {
   XCircle,
   Clock,
   FileText,
-  GraduationCap,
   User,
   HelpCircle,
   ChevronDown,
@@ -238,7 +237,7 @@ export default function PanduanScreen() {
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Tekan tombol fullscreen (ikon persegi) untuk membaca lebih nyaman, lalu tekan "Kecilkan" untuk kembali
+                    Tekan tombol fullscreen (ikon persegi) untuk membaca lebih nyaman, lalu tekan &ldquo;Kecilkan&rdquo; untuk kembali
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
@@ -301,7 +300,7 @@ export default function PanduanScreen() {
                     <Text style={styles.stepNumberText}>2</Text>
                   </View>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Klik "Ajukan Judul Skripsi"</Text>
+                    <Text style={styles.stepTitle}>Klik &ldquo;Ajukan Judul Skripsi&rdquo;</Text>
                     <Text style={styles.stepDesc}>
                       Pada dashboard, klik tombol hero untuk memulai pengajuan baru.
                     </Text>
@@ -438,7 +437,7 @@ export default function PanduanScreen() {
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Klik "Ajukan Ulang" untuk mengirimkan revisi
+                    Klik &ldquo;Ajukan Ulang&rdquo; untuk mengirimkan revisi
                   </Text>
                 </View>
                 <View style={styles.tipItem}>

@@ -44,7 +44,6 @@ export default function SkripsiReadScreen() {
       size: first(params.size),
       type: first(params.type),
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [params.name, params.uri, params.size, params.type]
   );
 

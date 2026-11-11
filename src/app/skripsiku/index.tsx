@@ -1,6 +1,5 @@
 import { AppHeader } from '@/components';
 import { Colors } from '@/theme/theme';
-import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import {
   Eye,
@@ -9,11 +8,10 @@ import {
   Trash2,
   Upload
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ID, Query } from 'react-native-appwrite';
+import { Query } from 'react-native-appwrite';
 import { account, storage } from '@/services/appwrite';
-import { authService } from '@/services/authService';
 import { BUCKET_JOURNALS } from '@/models/types';
 
 type UploadedFile = {
@@ -33,28 +31,11 @@ const stripOwnerPrefix = (name: string) => name.replace(/^owner_[A-Za-z0-9]+__/,
 export default function SkripsiKuScreen() {
   const router = useRouter();
   const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [, setUserId] = useState<string | null>(null);
 
-  // Load current user, then load only their files from Appwrite storage
-  useEffect(() => {
-    (async () => {
-      try {
-        const current = await account.get();
-        setUserId(current.$id);
-        await loadFiles(current.$id);
-      } catch (error) {
-        console.error('Failed to get current user:', error);
-        setLoading(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadFiles = async (uid: string) => {
+  const loadFiles = useCallback(async (uid: string) => {
     try {
-      setLoading(true);
       const prefix = ownerPrefix(uid);
 
       // Storage has no fulltext index on name, so paginate and filter client-side
@@ -95,71 +76,21 @@ export default function SkripsiKuScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handlePickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/pdf',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled) return;
-
-      const asset = result.assets[0];
-      const isPdf =
-        (asset.mimeType || '').toLowerCase() === 'application/pdf' ||
-        (asset.name || '').toLowerCase().endsWith('.pdf');
-      if (!isPdf) {
-        Alert.alert('Format Tidak Didukung', 'Hanya file PDF yang dapat diupload.');
-        return;
+  // Load current user, then load only their files from Appwrite storage
+  useEffect(() => {
+    (async () => {
+      try {
+        const current = await account.get();
+        setUserId(current.$id);
+        await loadFiles(current.$id);
+      } catch (error) {
+        console.error('Failed to get current user:', error);
+        setLoading(false);
       }
-      if (!userId) {
-        Alert.alert('Error', 'Sesi tidak ditemukan. Silakan login ulang.');
-        return;
-      }
-      setUploading(true);
-
-      const storedName = `${ownerPrefix(userId)}${asset.name}`;
-
-      // Upload file to Appwrite with correct format for react-native-appwrite
-      const uploadedFile = await storage.createFile({
-        bucketId: BUCKET_JOURNALS,
-        fileId: ID.unique(),
-        file: {
-          uri: asset.uri,
-          name: storedName,
-          type: asset.mimeType || 'application/octet-stream',
-          size: asset.size || 0,
-        },
-        permissions: [
-          'read("any")',
-          `update("user:${userId}")`,
-          `delete("user:${userId}")`,
-        ],
-      });
-
-      const newFile: UploadedFile = {
-        id: uploadedFile.$id,
-        name: asset.name,
-        uri: storage.getFileDownloadURL(BUCKET_JOURNALS, uploadedFile.$id).toString(),
-        size: asset.size || 0,
-        type: asset.mimeType || 'application/octet-stream',
-        uploadedAt: new Date().toISOString(),
-        appwriteId: uploadedFile.$id,
-        viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, uploadedFile.$id).toString(),
-      };
-
-      setFiles((prev) => [newFile, ...prev]);
-      await authService.markThesisUploaded(userId);
-      Alert.alert('Berhasil', 'File skripsi berhasil diupload');
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      Alert.alert('Error', `Gagal upload file: ${error.message || 'Unknown error'}`);
-    } finally {
-      setUploading(false);
-    }
-  };
+    })();
+  }, [loadFiles]);
 
   const handleDeleteFile = (fileId: string) => {
     Alert.alert(
