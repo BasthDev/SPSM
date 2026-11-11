@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  Download,
   ExternalLink,
   FileCheck,
   FileText,
@@ -136,9 +137,70 @@ export default function SubmissionDetailScreen() {
       })
     : null;
 
+  const kaprodiLog = submission.logs?.find(
+    (log) => log.action === 'PENGESAHAN_KAPRODI' || log.action === 'APPROVAL_KAPRODI'
+  );
+  const formattedKaprodiDate = kaprodiLog
+    ? new Date(kaprodiLog.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : formattedApprovalDate;
+
+  const tuLog = submission.logs?.find(
+    (log) => log.action === 'PROSES_TTD_DEKAN' || log.action === 'PENOMORAN_SURAT'
+  );
+  const formattedTuDate = tuLog
+    ? new Date(tuLog.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
+  const skIssuedLog = submission.logs?.find(
+    (log) => log.action === 'UPLOAD_SCAN_SK' || log.action === 'SK_TERBIT'
+  );
+  const formattedSkIssuedDate = skIssuedLog
+    ? new Date(skIssuedLog.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : submission.sk_generated_at
+    ? new Date(submission.sk_generated_at).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
   let currentStage = 1;
-  if (submission.status === 'waiting_kaprodi') currentStage = 2;
-  if (submission.status === 'approved') currentStage = 3;
+  if (submission.status === 'pending_lecturer') currentStage = 1;
+  else if (submission.status === 'waiting_kaprodi') currentStage = 2;
+  else if (submission.status === 'waiting_akademik') currentStage = 3;
+  else if (submission.status === 'sk_process') currentStage = 4;
+  else if (submission.status === 'sk_issued' || submission.status === 'approved') currentStage = 5;
+
+  const isSkReady = Boolean(
+    submission.status === 'sk_issued' ||
+      submission.status === 'approved' ||
+      submission.surat?.scanned_sk_id ||
+      (submission.nomor_surat &&
+        submission.status !== 'pending_lecturer' &&
+        submission.status !== 'waiting_kaprodi' &&
+        submission.status !== 'revision' &&
+        submission.status !== 'rejected')
+  );
 
   const selectedOption =
     submission.selectedOption ||
@@ -158,6 +220,26 @@ export default function SubmissionDetailScreen() {
     if (url) {
       Linking.openURL(url).catch((err) => console.warn('Cannot open URL', err));
     }
+  };
+
+  const handleDownloadSk = () => {
+    if (!submission) return;
+    if (submission.surat?.scanned_sk_id) {
+      const url = submissionService.getFileViewUrl(submission.surat.scanned_sk_id);
+      if (url) {
+        Linking.openURL(url).catch((err) => console.warn('Cannot open scanned SK URL', err));
+        return;
+      }
+    }
+    if (submission.surat?.template_sk_id) {
+      const url = submissionService.getFileViewUrl(submission.surat.template_sk_id);
+      if (url) {
+        Linking.openURL(url).catch((err) => console.warn('Cannot open template SK URL', err));
+        return;
+      }
+    }
+    // Jika belum ada file upload tapi data SK digital ada, tampilkan modal SK
+    setShowSkModal(true);
   };
 
   const handleShareSk = async () => {
@@ -355,14 +437,20 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
 
   const statusLabel =
     submission.status === 'approved'
-      ? 'Disahkan Kaprodi'
+      ? 'SK Disahkan Resmi'
+      : submission.status === 'sk_issued'
+      ? 'SK Resmi Terbit'
+      : submission.status === 'sk_process'
+      ? 'Proses TTD Dekan'
+      : submission.status === 'waiting_akademik'
+      ? 'Menunggu Administrasi TU'
       : submission.status === 'waiting_kaprodi'
-        ? 'Menunggu Kaprodi'
-        : submission.status === 'revision'
-          ? 'Perlu Revisi'
-          : submission.status === 'rejected'
-            ? 'Ditolak'
-            : 'Tahap Penilaian Reviewer';
+      ? 'Pleno Penetapan Kaprodi'
+      : submission.status === 'revision'
+      ? 'Perlu Revisi'
+      : submission.status === 'rejected'
+      ? 'Ditolak'
+      : 'Tahap Penilaian Reviewer';
 
   return (
     <View style={styles.flex}>
@@ -411,15 +499,45 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               <Text style={styles.headerMetaValueHL}>{statusLabel}</Text>
             </View>
           </View>
+
+          {/* Quick Download SK Action in Header when issued by akademik */}
+          {isSkReady && (
+            <View style={styles.headerSkActionContainer}>
+              <TouchableOpacity
+                style={styles.headerSkDownloadBtn}
+                onPress={handleDownloadSk}
+                activeOpacity={0.8}
+              >
+                <Download size={16} color="#FFFFFF" strokeWidth={2.4} />
+                <Text style={styles.headerSkDownloadBtnText}>
+                  {submission.surat?.scanned_sk_id
+                    ? 'Unduh SK Resmi Dekan (PDF)'
+                    : 'Unduh Lembar SK Pembimbing'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerSkPreviewBtn}
+                onPress={() => setShowSkModal(true)}
+                activeOpacity={0.8}
+              >
+                <FileCheck size={16} color={Colors.primary} strokeWidth={2.2} />
+                <Text style={styles.headerSkPreviewBtnText}>Pratinjau SK</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Section>
 
         {/* SK PENGESAHAN RESMI CARD */}
-        {submission.status === 'approved' && (
+        {isSkReady && (
           <Section style={styles.skOfficialCard}>
             <View style={styles.skOfficialTop}>
               <View style={styles.skOfficialBadge}>
                 <Award size={15} color={Colors.primary} strokeWidth={2.4} />
-                <Text style={styles.skOfficialBadgeText}>SK RESMI DISAHKAN</Text>
+                <Text style={styles.skOfficialBadgeText}>
+                  {submission.status === 'sk_issued' || submission.status === 'approved'
+                    ? 'SK RESMI TELAH TERBIT'
+                    : 'SURAT KEPUTUSAN DALAM PENERBITAN'}
+                </Text>
               </View>
               {submission.urutan_surat && (
                 <View style={styles.skUrutanBadge}>
@@ -436,11 +554,15 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
             <View style={styles.skButtonRow}>
               <TouchableOpacity
                 style={styles.skDownloadBtn}
-                onPress={() => setShowSkModal(true)}
+                onPress={handleDownloadSk}
                 activeOpacity={0.8}
               >
-                <FileCheck size={16} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.skDownloadBtnText}>Unduh / Cetak Dokumen SK</Text>
+                <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.skDownloadBtnText}>
+                  {submission.surat?.scanned_sk_id
+                    ? 'Unduh File Scan SK Basah (PDF)'
+                    : 'Unduh / Cetak Dokumen SK'}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.skShareBtn}
@@ -453,8 +575,8 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
           </Section>
         )}
 
-        {/* UPLOAD FILE SKRIPSI (khusus approved) */}
-        {submission.status === 'approved' && (
+        {/* UPLOAD FILE SKRIPSI (khusus approved / sk_issued) */}
+        {(submission.status === 'approved' || submission.status === 'sk_issued') && (
           <Section style={styles.skripsiUploadCard}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.headerIconCircle}>
@@ -599,7 +721,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                   <Text style={styles.vStepTitle}>2. Verifikasi Dosen Penilai</Text>
                   {submission.status === 'pending_lecturer' && (
                     <View style={[styles.vStepBadge, styles.vBadgeActive]}>
-                      <Text style={styles.vBadgeTextActive}>Sedang Berlangsung</Text>
+                      <Text style={styles.vBadgeTextActive}>Sedang Diverifikasi</Text>
                     </View>
                   )}
                   {currentStage >= 2 && (
@@ -634,7 +756,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               </View>
             </View>
 
-            <View style={[styles.vStepItem, styles.vStepItemLast]}>
+            <View style={styles.vStepItem}>
               <View style={styles.vStepLeft}>
                 <View
                   style={[
@@ -653,11 +775,17 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                     <Award size={16} color={Colors.textTertiary} strokeWidth={2} />
                   )}
                 </View>
+                <View
+                  style={[
+                    styles.vStepLine,
+                    currentStage >= 4 && styles.vStepLineActive,
+                  ]}
+                />
               </View>
               <View style={styles.vStepRight}>
                 <View style={styles.vStepHeader}>
-                  <Text style={styles.vStepTitle}>3. Pengesahan Kaprodi</Text>
-                  {submission.status === 'approved' && (
+                  <Text style={styles.vStepTitle}>3. Penetapan & Pengesahan Kaprodi</Text>
+                  {currentStage >= 3 && (
                     <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
                       <Text style={styles.vBadgeTextSuccess}>Disahkan</Text>
                     </View>
@@ -679,17 +807,133 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                   )}
                 </View>
                 <Text style={styles.vStepDesc}>
-                  {submission.status === 'approved' &&
-                    `Pengesahan judul resmi oleh ${submission.kaprodiName || 'Ketua Program Studi'}.`}
+                  {currentStage >= 3 &&
+                    `Pengesahan judul resmi dan penunjukan pembimbing oleh ${submission.kaprodiName || 'Ketua Program Studi'}.`}
                   {submission.status === 'waiting_kaprodi' &&
-                    'Menunggu validasi akhir dan pengesahan oleh Kaprodi.'}
+                    'Menunggu validasi akhir dan penetapan resmi oleh Kaprodi.'}
                   {currentStage === 1 &&
                     'Pengesahan akan diproses setelah lolos verifikasi Dosen Penilai.'}
                   {(submission.status === 'revision' || submission.status === 'rejected') &&
                     'Tahap pengesahan ditiadakan karena pengajuan tidak berlanjut.'}
                 </Text>
-                {formattedApprovalDate ? (
-                  <Text style={styles.vStepDate}>Disahkan: {formattedApprovalDate}</Text>
+                {formattedKaprodiDate ? (
+                  <Text style={styles.vStepDate}>Disahkan: {formattedKaprodiDate}</Text>
+                ) : null}
+              </View>
+            </View>
+
+            {/* 4. TAHAP ADMINISTRASI & PENOMORAN SK (TU) */}
+            <View style={styles.vStepItem}>
+              <View style={styles.vStepLeft}>
+                <View
+                  style={[
+                    styles.vStepCircle,
+                    currentStage >= 5 && styles.vStepCircleCompleted,
+                    (currentStage === 3 || currentStage === 4) && styles.vStepCircleActive,
+                    (currentStage < 3 || submission.status === 'revision' || submission.status === 'rejected') &&
+                      styles.vStepCircleInactive,
+                  ]}
+                >
+                  {currentStage >= 5 ? (
+                    <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+                  ) : currentStage === 3 || currentStage === 4 ? (
+                    <FileCheck size={16} color={Colors.primary} strokeWidth={2.2} />
+                  ) : (
+                    <FileCheck size={16} color={Colors.textTertiary} strokeWidth={2} />
+                  )}
+                </View>
+                <View
+                  style={[
+                    styles.vStepLine,
+                    currentStage >= 5 && styles.vStepLineActive,
+                  ]}
+                />
+              </View>
+              <View style={styles.vStepRight}>
+                <View style={styles.vStepHeader}>
+                  <Text style={styles.vStepTitle}>4. Administrasi & Penomoran SK</Text>
+                  {currentStage >= 5 && (
+                    <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
+                      <Text style={styles.vBadgeTextSuccess}>SK Selesai</Text>
+                    </View>
+                  )}
+                  {submission.status === 'sk_process' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeWarning]}>
+                      <Text style={styles.vBadgeTextWarning}>Proses TTD Dekan</Text>
+                    </View>
+                  )}
+                  {submission.status === 'waiting_akademik' && (
+                    <View style={[styles.vStepBadge, styles.vBadgeActive]}>
+                      <Text style={styles.vBadgeTextActive}>Penomoran Surat</Text>
+                    </View>
+                  )}
+                  {currentStage < 3 && (
+                    <View style={[styles.vStepBadge, styles.vBadgeInactive]}>
+                      <Text style={styles.vBadgeTextInactive}>Menunggu Kaprodi</Text>
+                    </View>
+                  )}
+                  {(submission.status === 'revision' || submission.status === 'rejected') && (
+                    <View style={[styles.vStepBadge, styles.vBadgeInactive]}>
+                      <Text style={styles.vBadgeTextInactive}>Tidak Diproses</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.vStepDesc}>
+                  {currentStage >= 5 &&
+                    'Nomor SK resmi telah dicatat dalam sistem dan pengesahan Dekan selesai.'}
+                  {submission.status === 'sk_process' &&
+                    'Draf SK sedang dalam proses tanda tangan basah pimpinan fakultas (Dekan).'}
+                  {submission.status === 'waiting_akademik' &&
+                    'Berkas pengesahan masuk antrean Bagian Administrasi / TU untuk registrasi nomor SK resmi.'}
+                  {currentStage < 3 &&
+                    'Diproses oleh Bagian Akademik setelah penetapan dan persetujuan Kaprodi.'}
+                  {(submission.status === 'revision' || submission.status === 'rejected') &&
+                    'Tahap administrasi ditiadakan karena pengajuan tidak berlanjut.'}
+                </Text>
+                {formattedTuDate ? (
+                  <Text style={styles.vStepDate}>Diproses: {formattedTuDate}</Text>
+                ) : null}
+              </View>
+            </View>
+
+            {/* 5. TAHAP SK RESMI TERBIT & BIMBINGAN AKTIF */}
+            <View style={[styles.vStepItem, styles.vStepItemLast]}>
+              <View style={styles.vStepLeft}>
+                <View
+                  style={[
+                    styles.vStepCircle,
+                    currentStage >= 5 && styles.vStepCircleCompleted,
+                    currentStage < 5 && styles.vStepCircleInactive,
+                  ]}
+                >
+                  {currentStage >= 5 ? (
+                    <CheckCircle2 size={16} color="#FFFFFF" strokeWidth={2.5} />
+                  ) : (
+                    <Award size={16} color={Colors.textTertiary} strokeWidth={2} />
+                  )}
+                </View>
+              </View>
+              <View style={styles.vStepRight}>
+                <View style={styles.vStepHeader}>
+                  <Text style={styles.vStepTitle}>5. Penerbitan SK & Bimbingan</Text>
+                  {currentStage >= 5 && (
+                    <View style={[styles.vStepBadge, styles.vBadgeSuccess]}>
+                      <Text style={styles.vBadgeTextSuccess}>SK Resmi Terbit</Text>
+                    </View>
+                  )}
+                  {currentStage < 5 && (
+                    <View style={[styles.vStepBadge, styles.vBadgeInactive]}>
+                      <Text style={styles.vBadgeTextInactive}>Belum Terbit</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.vStepDesc}>
+                  {currentStage >= 5
+                    ? 'Surat Keputusan resmi telah diterbitkan oleh Akademik. Dokumen siap diunduh dan proses bimbingan skripsi dapat dimulai.'
+                    : 'SK resmi dapat diunduh mahasiswa setelah seluruh rangkaian administrasi dan tanda tangan selesai.'}
+                </Text>
+                {formattedSkIssuedDate ? (
+                  <Text style={styles.vStepDate}>Terbit: {formattedSkIssuedDate}</Text>
                 ) : null}
               </View>
             </View>
@@ -700,9 +944,13 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               {submission.status === 'pending_lecturer' &&
                 'Pengajuan Anda sedang dalam antrean pemeriksaan oleh Dosen Penilai untuk penentuan judul terbaik dan calon pembimbing.'}
               {submission.status === 'waiting_kaprodi' &&
-                'Dosen Penilai telah memilih usulan judul dan menentukan Dosen Pembimbing. Menunggu validasi & pengesahan final oleh Ketua Program Studi.'}
-              {submission.status === 'approved' &&
-                'Selamat! Pengajuan judul dan Dosen Pembimbing Anda telah resmi disahkan oleh Kaprodi.'}
+                'Dosen Penilai telah memilih usulan judul dan menentukan Dosen Pembimbing. Menunggu validasi & penetapan resmi oleh Ketua Program Studi.'}
+              {submission.status === 'waiting_akademik' &&
+                'Pengajuan telah disahkan oleh Kaprodi! Berkas saat ini sedang dalam antrean Bagian Administrasi / TU untuk penomoran SK resmi.'}
+              {submission.status === 'sk_process' &&
+                'Nomor SK resmi telah diterbitkan. Berkas saat ini sedang dalam proses tanda tangan basah pimpinan fakultas (Dekan).'}
+              {(submission.status === 'sk_issued' || submission.status === 'approved') &&
+                'Selamat! SK Pengesahan Judul dan Dosen Pembimbing telah resmi terbit. Silakan unduh dokumen SK di atas dan mulai proses bimbingan.'}
               {submission.status === 'revision' &&
                 'Usulan judul skripsi Anda perlu diperbaiki. Anda dapat mengajukan judul baru dari halaman Dashboard.'}
               {submission.status === 'rejected' &&
@@ -746,8 +994,10 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                 <View>
                   <Text style={styles.sectionHeading}>Dosen Pembimbing Skripsi</Text>
                   <Text style={styles.sectionSubheading}>
-                    {submission.status === 'approved'
-                      ? 'Resmi ditetapkan oleh Kaprodi'
+                    {submission.status === 'approved' || submission.status === 'sk_issued'
+                      ? 'Resmi ditetapkan dalam SK Pembimbing'
+                      : submission.status === 'waiting_akademik' || submission.status === 'sk_process'
+                      ? 'Ditetapkan Kaprodi (Dalam Proses Penerbitan SK)'
                       : 'Ditetapkan oleh Reviewer (Menunggu Pengesahan Final)'}
                   </Text>
                 </View>
@@ -1388,6 +1638,59 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
+  headerSkActionContainer: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerSkDownloadBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  headerSkDownloadBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  headerSkPreviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  headerSkPreviewBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
   trackerCard: {
     padding: 18,
     borderRadius: 16,
@@ -1467,7 +1770,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: 15,
   },
   vStepTitle: {
     fontSize: 14,
@@ -1478,7 +1781,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: Colors.textSecondary,
     lineHeight: 18,
-    marginTop: 2,
+    marginTop: 10,
   },
   vStepDate: {
     fontSize: 11,
@@ -1490,6 +1793,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
+    position: 'absolute',
+    top: 20,
+    left:0,
   },
   vBadgeSuccess: {
     backgroundColor: '#EFF6FF',

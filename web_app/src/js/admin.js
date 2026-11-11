@@ -363,7 +363,7 @@ const DEFAULT_CURRICULUM_COURSES = [
 ];
 
 let availableCourses = [...DEFAULT_CURRICULUM_COURSES];
-let selectedCourses = new Set(['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah']);
+let selectedCourses = new Set();
 
 function renderCourseSelector() {
   const container = document.getElementById('course-selector-container');
@@ -441,13 +441,15 @@ function fillSettingsForm(settings) {
   if (minSksEl) minSksEl.value = typeof settings.min_sks === 'number' ? settings.min_sks : 100;
   if (countEl) countEl.value = typeof settings.required_title_count === 'number' ? settings.required_title_count : 3;
 
-  if (Array.isArray(settings.required_courses) && settings.required_courses.length > 0) {
+  if (Array.isArray(settings.required_courses)) {
     selectedCourses = new Set(settings.required_courses);
     settings.required_courses.forEach((c) => {
       if (!availableCourses.includes(c)) {
         availableCourses.push(c);
       }
     });
+  } else {
+    selectedCourses = new Set();
   }
 
   renderCourseSelector();
@@ -648,7 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
         end_date: document.getElementById('setting-end-date')?.value || '',
         min_sks: isNaN(minSksVal) ? 100 : minSksVal,
         required_title_count: isNaN(titleCountVal) ? 3 : titleCountVal,
-        required_courses: coursesArr.length > 0 ? coursesArr : ['Metodologi Penelitian'],
+        required_courses: coursesArr,
       };
       saveSettingsBtn.disabled = true;
       saveSettingsBtn.innerText = 'Menyimpan...';

@@ -17,3 +17,5 @@ export { LoadingScreen } from './LoadingScreen';
 export { Avatar } from './Avatar';
 export { EmptyState } from './EmptyState';
 export { GridNav } from './GridNav';
+export { PeriodInfoCard } from './dashboard/PeriodInfoCard';
+export { EligibilityCard, ClosedPeriodCard, HeroSubmitCard } from './dashboard/EligibilityCard';

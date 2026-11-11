@@ -17,7 +17,8 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   academic_year: '2025/2026 Ganjil',
   min_sks: 100,
   required_title_count: 3,
-  required_courses: ['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah'],
+  // No hardcoded courses — admin controls required_courses via system_settings
+  required_courses: [],
 };
 
 export interface PeriodDisplayStatus {
@@ -66,9 +67,11 @@ export const settingsService = {
             typeof doc.required_title_count === 'number' && doc.required_title_count > 0
               ? doc.required_title_count
               : DEFAULT_SETTINGS.required_title_count,
+          // Always trust the DB value — even if it's an empty array (admin cleared it)
+          // Only fall back to [] if the field is completely absent/null
           required_courses: Array.isArray(doc.required_courses)
             ? doc.required_courses
-            : DEFAULT_SETTINGS.required_courses,
+            : [],
         };
       }
     } catch (err) {

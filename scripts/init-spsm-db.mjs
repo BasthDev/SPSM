@@ -235,6 +235,7 @@ async function setupCollections() {
   console.log('\n[3/9] Setting up thesis_submissions');
   await createCollection('thesis_submissions', 'Thesis Submissions');
   await createStringAttribute('thesis_submissions', 'student_id', 255, true);
+  await createStringAttribute('thesis_submissions', 'advisor_id', 255, false);
   await createStringAttribute('thesis_submissions', 'advisor_1_id', 255, false);
   await createStringAttribute('thesis_submissions', 'advisor_2_id', 255, false);
   await createStringAttribute('thesis_submissions', 'status', 50, false, 'pending_lecturer');

@@ -74,7 +74,11 @@ function updateMetricsAndTable() {
   // Filter approved submissions matching advisor
   const filtered = submissions.filter((s) => {
     if (targetId && targetId !== 'all') {
-      const parts = (s.advisor_id || '').split(',').map((p) => p.trim());
+      const parts = [
+        s.advisor_1_id,
+        s.advisor_2_id,
+        ...(s.advisor_id ? s.advisor_id.split(',') : []),
+      ].filter(Boolean).map((p) => p.trim());
       if (!parts.includes(targetId)) return false;
     }
     return true;

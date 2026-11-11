@@ -202,8 +202,11 @@ export const lecturerService = {
       );
 
       const count = allApproved.documents.filter((sub) => {
-        if (!sub.advisor_id) return false;
-        const parts = sub.advisor_id.split(',').map((p) => p.trim());
+        const parts = [
+          sub.advisor_1_id,
+          sub.advisor_2_id,
+          ...(sub.advisor_id ? sub.advisor_id.split(',') : []),
+        ].filter(Boolean).map((p) => p.trim());
         return parts.includes(lecturerId);
       }).length;
 
@@ -277,8 +280,11 @@ export const submissionService = {
 
       if (advisorIdFilter && advisorIdFilter !== 'all') {
         submissions = submissions.filter((sub) => {
-          if (!sub.advisor_id) return false;
-          const parts = sub.advisor_id.split(',').map((s) => s.trim());
+          const parts = [
+            sub.advisor_1_id,
+            sub.advisor_2_id,
+            ...(sub.advisor_id ? sub.advisor_id.split(',') : []),
+          ].filter(Boolean).map((s) => s.trim());
           return parts.includes(advisorIdFilter);
         });
       }
@@ -314,25 +320,24 @@ export const submissionService = {
 
             let advisor = null;
             let advisor2 = null;
-            if (sub.advisor_id) {
-              const advisorIds = sub.advisor_id.split(',').map((id) => id.trim());
-              try {
-                if (advisorIds[0]) {
-                  advisor = await databases.getDocument(
-                    APPWRITE_CONFIG.databaseId,
-                    APPWRITE_CONFIG.collections.lecturers,
-                    advisorIds[0]
-                  );
-                }
-                if (advisorIds[1]) {
-                  advisor2 = await databases.getDocument(
-                    APPWRITE_CONFIG.databaseId,
-                    APPWRITE_CONFIG.collections.lecturers,
-                    advisorIds[1]
-                  );
-                }
-              } catch {}
-            }
+            const a1Id = sub.advisor_1_id || (sub.advisor_id ? sub.advisor_id.split(',')[0]?.trim() : null);
+            const a2Id = sub.advisor_2_id || (sub.advisor_id ? sub.advisor_id.split(',')[1]?.trim() : null);
+            try {
+              if (a1Id) {
+                advisor = await databases.getDocument(
+                  APPWRITE_CONFIG.databaseId,
+                  APPWRITE_CONFIG.collections.lecturers,
+                  a1Id
+                );
+              }
+              if (a2Id) {
+                advisor2 = await databases.getDocument(
+                  APPWRITE_CONFIG.databaseId,
+                  APPWRITE_CONFIG.collections.lecturers,
+                  a2Id
+                );
+              }
+            } catch {}
 
             // Parse log untuk nomor SK & usulan pembimbing mahasiswa
             let nomorSurat = null;
@@ -741,7 +746,7 @@ export const settingsService = {
       academic_year: '2025/2026 Ganjil',
       min_sks: 100,
       required_title_count: 3,
-      required_courses: ['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah'],
+      required_courses: [],
     };
     try {
       // 1. Coba collection system_settings khusus

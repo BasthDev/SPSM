@@ -433,12 +433,15 @@ export const submissionService = {
             options.find((o) => o.is_selected || o.is_selected_by_lecturer) || null;
 
           // Populate advisor 1 & 2
-          const adv1Id = sub.advisor_1_id || sub.advisor_id;
+          const adv1Id =
+            sub.advisor_1_id || (sub.advisor_id ? sub.advisor_id.split(',')[0]?.trim() : undefined);
+          const adv2Id =
+            sub.advisor_2_id || (sub.advisor_id ? sub.advisor_id.split(',')[1]?.trim() : undefined);
           if (adv1Id) {
             sub.advisor = await this.getLecturer(adv1Id);
           }
-          if (sub.advisor_2_id) {
-            sub.advisor2 = await this.getLecturer(sub.advisor_2_id);
+          if (adv2Id) {
+            sub.advisor2 = await this.getLecturer(adv2Id);
           }
 
           // Populate Surat info if available
