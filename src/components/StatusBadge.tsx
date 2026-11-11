@@ -1,13 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Colors } from '@/theme/theme';
+import type { SubmissionStatus } from '@/models/types';
 
-export type BadgeStatus =
-  | 'pending_lecturer'
-  | 'waiting_kaprodi'
-  | 'approved'
-  | 'revision'
-  | 'rejected';
+export type BadgeStatus = SubmissionStatus;
 
 type StatusBadgeProps = {
   status: BadgeStatus;
@@ -15,7 +11,13 @@ type StatusBadgeProps = {
   style?: ViewStyle;
 };
 
-const STATUS_CONFIG: Record<BadgeStatus, { label: string; bg: string; text: string; dot: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+  drafting: {
+    label: 'Draf',
+    bg: '#64748B',
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
+  },
   pending_lecturer: {
     label: 'Menunggu Review',
     bg: Colors.warning,
@@ -23,20 +25,38 @@ const STATUS_CONFIG: Record<BadgeStatus, { label: string; bg: string; text: stri
     dot: '#FFFFFF',
   },
   waiting_kaprodi: {
-    label: 'Menunggu Kaprodi',
-    bg: Colors.primary,
+    label: 'Pleno Kaprodi',
+    bg: '#2563EB',
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
+  },
+  waiting_akademik: {
+    label: 'Menunggu Administrasi TU',
+    bg: '#7C3AED',
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
+  },
+  sk_process: {
+    label: 'Proses TTD Dekan',
+    bg: '#EA580C',
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
+  },
+  sk_issued: {
+    label: 'SK Resmi Terbit',
+    bg: '#059669',
     text: '#FFFFFF',
     dot: '#FFFFFF',
   },
   approved: {
     label: 'Disetujui',
-    bg: Colors.primary,
+    bg: '#059669',
     text: '#FFFFFF',
     dot: '#FFFFFF',
   },
   revision: {
     label: 'Perlu Revisi',
-    bg: Colors.warning,
+    bg: '#D97706',
     text: '#FFFFFF',
     dot: '#FFFFFF',
   },
@@ -99,7 +119,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: -0.1,
+    fontWeight: '500',
   },
 });
+export default StatusBadge;

@@ -13,6 +13,8 @@ export const APPWRITE_CONFIG = {
     departments: 'departments',
     batchYears: 'batch_years',
     lecturers: 'lecturers',
+    systemSettings: 'system_settings',
+    surat: 'surat',
   },
 };
 

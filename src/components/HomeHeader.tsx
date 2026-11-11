@@ -12,6 +12,7 @@ interface HomeHeaderProps {
   userNim?: string;
   userDepartmentName?: string;
   userSubtitle?: string;
+  userSks?: number;
   avatarUrl?: string | null;
   onProfilePress?: () => void;
   onSignOutPress?: () => void;
@@ -24,6 +25,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
   userNim,
   userDepartmentName,
   userSubtitle,
+  userSks,
   avatarUrl,
   onProfilePress,
   onSignOutPress,
@@ -50,10 +52,16 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
         <View style={styles.brandLeft}>
           <GraduationCap size={18} color="#BAE6FD" strokeWidth={2.2} />
           <Text style={styles.brandText}>SPSM Portal</Text>
+         
         </View>
-        <Text style={styles.campusText} numberOfLines={1}>
+        {/* <Text style={styles.campusText} numberOfLines={1}> */}
           {/* Universitas Muhammadiyah Aceh */}
-        </Text>
+        {/* </Text> */}
+         {typeof userSks === 'number' && (
+            <View style={styles.sksBadge}>
+              <Text style={styles.sksBadgeText}>{userSks} SKS</Text>
+            </View>
+          )}
       </View>
 
       {/* Content Row */}
@@ -160,6 +168,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#E0F2FE',
     letterSpacing: 0.2,
+  },
+  sksBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    marginLeft: 6,
+  },
+  sksBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.4,
   },
   campusText: {
     fontSize: 14,

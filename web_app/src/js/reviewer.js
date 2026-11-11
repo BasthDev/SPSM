@@ -188,6 +188,17 @@ window.openReviewDrawer = (idx) => {
             </div>
             <div class="text-xs font-bold text-default">${opt.title}</div>
             <div class="text-[11px] text-muted line-clamp-2">${opt.background || '-'}</div>
+            ${
+              opt.relevance_variable || opt.relevance_methodology || opt.relevance_note
+                ? `
+              <div class="mt-2 p-2 rounded bg-subtle border border-default text-[10px] space-y-0.5">
+                <div><span class="font-bold text-primary">Variabel/Fokus:</span> ${opt.relevance_variable || '-'}</div>
+                <div><span class="font-bold text-primary">Metodologi Jurnal:</span> ${opt.relevance_methodology || '-'}</div>
+                <div><span class="font-bold text-primary">Kesesuaian:</span> ${opt.relevance_note || '-'}</div>
+              </div>
+            `
+                : ''
+            }
           </div>
         </div>
       </label>`

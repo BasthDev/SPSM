@@ -1,0 +1,149 @@
+{{#> layout page="akademik" title="Administrasi SK & Tata Usaha" script="akademik"}}
+  {{! Page Header }}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight">Administrasi Surat Keputusan (TU Fakultas)</h2>
+      <p class="text-xs text-muted mt-1">Cetak draf SK pengesahan judul, urus tanda tangan basah Dekan (offline), dan unggah kembali scan PDF resmi.</p>
+    </div>
+    <div id="toast-feedback-akademik" class="hidden py-2 px-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold"></div>
+  </div>
+
+  {{! Metric Cards }}
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-7">
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-indigo-100 text-indigo-900 flex items-center justify-center shrink-0">
+        {{> icons/description size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-waiting-akademik">0</div>
+        <div class="text-xs font-medium text-muted">Menunggu Draf & Cetak</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-orange-100 text-orange-900 flex items-center justify-center shrink-0">
+        {{> icons/event-note size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-sk-process">0</div>
+        <div class="text-xs font-medium text-muted">Proses TTD Dekan (Offline)</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-emerald-100 text-emerald-900 flex items-center justify-center shrink-0">
+        {{> icons/trending-up size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-sk-issued">0</div>
+        <div class="text-xs font-medium text-muted">SK Resmi Terbit</div>
+      </div>
+    </div>
+
+    <div class="card p-5 border border-default shadow-xs flex items-center gap-4 bg-default">
+      <div class="size-12 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center shrink-0">
+        {{> icons/briefcase-check size=24}}
+      </div>
+      <div>
+        <div class="text-2xl font-black text-default" id="metric-total">0</div>
+        <div class="text-xs font-medium text-muted">Total Arsip Dokumen</div>
+      </div>
+    </div>
+  </div>
+
+  {{! Table Card }}
+  <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+    {{! Filter Tabs }}
+    <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2" id="akademik-filter-group">
+        <button type="button" class="btn btn-primary text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="waiting_akademik">
+          Menunggu Draf (<span id="count-waiting-akademik">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="sk_process">
+          Proses TTD Dekan (<span id="count-sk-process">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="sk_issued">
+          SK Terbit (<span id="count-sk-issued">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-neutral text-xs font-semibold py-1.5 px-3 rounded-lg cursor-pointer" data-filter="all">
+          Semua Arsip (<span id="count-all">0</span>)
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <input
+          type="text"
+          id="akademik-search"
+          placeholder="Cari mahasiswa, NIM, atau nomor SK..."
+          class="form-control text-xs w-64 h-9 rounded-lg border-default"
+        />
+      </div>
+    </div>
+
+    {{! Table }}
+    <div class="overflow-x-auto">
+      <table class="table text-xs w-full">
+        <thead>
+          <tr class="border-b border-default bg-subtle/50 text-muted font-bold uppercase text-[10px] tracking-wider">
+            <th class="py-3 px-4 text-left">Mahasiswa</th>
+            <th class="py-3 px-4 text-left">Nomor Surat & Dokumen</th>
+            <th class="py-3 px-4 text-left">Judul Disahkan</th>
+            <th class="py-3 px-4 text-left">Pembimbing 1 & 2</th>
+            <th class="py-3 px-4 text-left">Status</th>
+            <th class="py-3 px-4 text-right">Aksi Administrasi</th>
+          </tr>
+        </thead>
+        <tbody id="akademik-table-body" class="divide-y divide-default">
+          <tr>
+            <td colspan="6" class="py-12 text-center text-muted italic">Memuat data administrasi SK...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {{! Modal Upload Scan SK Basah }}
+  <div id="upload-sk-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-default border border-default rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-default">
+        <div>
+          <h3 class="text-base font-bold text-default">Unggah Scan SK Basah</h3>
+          <p class="text-xs text-muted mt-0.5" id="upload-sk-subtitle">Format PDF hasil scan bertanda tangan Dekan</p>
+        </div>
+        <button type="button" onclick="closeUploadSkModal()" class="text-muted hover:text-default text-lg">&times;</button>
+      </div>
+
+      <form id="upload-sk-form" class="space-y-4">
+        <input type="hidden" id="upload-sub-id" />
+        <div class="p-3 rounded-lg border border-default bg-subtle space-y-1">
+          <div class="text-[11px] font-bold text-primary" id="upload-doc-info">NOMOR SURAT: -</div>
+          <div class="text-xs font-bold text-default" id="upload-student-info">Mahasiswa: -</div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Pilih File PDF Scan SK Resmi</label>
+          <input
+            type="file"
+            id="upload-sk-file"
+            accept=".pdf,application/pdf"
+            required
+            class="form-control text-xs w-full border-default rounded-lg p-2"
+          />
+          <div class="text-[10px] text-muted mt-1">Ukuran maksimal 50MB. Pastikan tanda tangan dan cap stempel terlihat jelas.</div>
+        </div>
+
+        <div class="pt-3 border-t border-default flex justify-end gap-2">
+          <button type="button" onclick="closeUploadSkModal()" class="btn btn-neutral text-xs font-bold py-2 px-3 rounded-lg">
+            Batal
+          </button>
+          <button type="submit" id="btn-submit-upload-sk" class="btn btn-primary text-xs font-bold py-2 px-4 rounded-lg">
+            Unggah & Terbitkan SK
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{! Dossier Modal }}
+  {{> dossier-modal}}
+{{/layout}}

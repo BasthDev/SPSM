@@ -4,6 +4,7 @@ import {
   DATABASE_ID,
   COLLECTION_SUBMISSIONS,
   COLLECTION_OPTIONS,
+  COLLECTION_SURAT,
   COLLECTION_APPROVAL_LOGS,
   COLLECTION_LECTURERS,
   BUCKET_JOURNALS,
@@ -12,6 +13,7 @@ import {
   type OptionFormData,
   type LecturerItem,
   type ApprovalLog,
+  type SuratItem,
 } from '@/models/types';
 
 /**
@@ -43,7 +45,6 @@ export function extractAngkatan(batchYear?: number | string): string {
 
 /**
  * Helper to format official Nomor Surat: URUTAN/SPSM/PRODI/ANGKATAN/TAHUN
- * Contoh: 01/SPSM/BD/23/2026
  */
 export function formatNomorSurat(
   urutanNum: number,
@@ -56,31 +57,10 @@ export function formatNomorSurat(
   return { nomor_surat, urutan };
 }
 
-/**
- * Helper to parse embedded relevance table data from background text.
- */
-function parseOptionRelevance(opt: SubmissionOption): SubmissionOption {
-  if (opt.background && opt.background.includes('<!-- RELEVANCE_DATA:')) {
-    const match = opt.background.match(/<!-- RELEVANCE_DATA:\s*(\{[\s\S]*?\})\s*-->/);
-    if (match) {
-      try {
-        const parsed = JSON.parse(match[1]);
-        opt.relevance_variable = parsed.v || '';
-        opt.relevance_methodology = parsed.m || '';
-        opt.relevance_note = parsed.r || '';
-        opt.background = opt.background.replace(/<!-- RELEVANCE_DATA:[\s\S]*?-->/g, '').trim();
-      } catch {
-        // ignore
-      }
-    }
-  }
-  return opt;
-}
-
 export const submissionService = {
   /**
-   * Create a new thesis submission with up to 3 title options
-   * and student's 2 candidate advisors.
+   * Create a new thesis submission with dynamic N title options
+   * and student's candidate advisors.
    */
   async createSubmission(
     studentId: string,
@@ -96,24 +76,38 @@ export const submissionService = {
         documentId: ID.unique(),
         data: {
           student_id: studentId,
+          advisor_1_id: preferredAdvisor1Id || null,
+          advisor_2_id: preferredAdvisor2Id || null,
+          preferred_advisor_1_id: preferredAdvisor1Id || null,
+          preferred_advisor_2_id: preferredAdvisor2Id || null,
           status: 'pending_lecturer',
           submitted_at: new Date().toISOString(),
         },
       });
 
-      // 2. Create each title option (encoding relevance table if present)
+      // 2. Create each title option (1..N)
       for (const option of optionsData) {
         let fileId: string | null = null;
 
         // Upload PDF journal if provided
         if (option.pdfFile) {
-          const uploadedFile = await storage.createFile({
-            bucketId: BUCKET_JOURNALS,
-            fileId: ID.unique(),
-            file: option.pdfFile,
-          });
-          fileId = uploadedFile.$id;
+          try {
+            const uploadedFile = await storage.createFile({
+              bucketId: BUCKET_JOURNALS,
+              fileId: ID.unique(),
+              file: option.pdfFile,
+            });
+            fileId = uploadedFile.$id;
+          } catch (uploadErr) {
+            console.warn('PDF upload warning:', uploadErr);
+          }
         }
+
+        const relevanceTableObj = {
+          variable: option.relevanceVariable || '',
+          methodology: option.relevanceMethodology || '',
+          note: option.relevanceNote || '',
+        };
 
         await databases.createDocument({
           databaseId: DATABASE_ID,
@@ -123,54 +117,136 @@ export const submissionService = {
             submission_id: submission.$id,
             option_number: option.number,
             title: option.title,
-            background: option.background,
+            background: option.background || '',
+            relevance_table: JSON.stringify(relevanceTableObj),
+            relevance_variable: option.relevanceVariable ?? '',
+            relevance_methodology: option.relevanceMethodology ?? '',
+            relevance_note: option.relevanceNote ?? '',
             journal_title: option.journalTitle ?? '',
             journal_author: option.journalAuthor ?? '',
             journal_year: option.journalYear ?? '',
             journal_file_id: fileId,
-            is_selected_by_lecturer: false,
-            relevance_variable: option.relevanceVariable ?? '',
-            relevance_methodology: option.relevanceMethodology ?? '',
-            relevance_note: option.relevanceNote ?? '',
+            is_selected: false,
           },
         });
       }
 
-      // 3. Record student's 2 preferred advisors in an initial log
-      if (preferredAdvisor1Id || preferredAdvisor2Id) {
-        let name1 = '';
-        let name2 = '';
-        if (preferredAdvisor1Id) {
-          const l1 = await this.getLecturer(preferredAdvisor1Id);
-          if (l1?.name) name1 = l1.name;
-        }
-        if (preferredAdvisor2Id) {
-          const l2 = await this.getLecturer(preferredAdvisor2Id);
-          if (l2?.name) name2 = l2.name;
-        }
-
-        await databases.createDocument({
-          databaseId: DATABASE_ID,
-          collectionId: COLLECTION_APPROVAL_LOGS,
-          documentId: ID.unique(),
-          data: {
-            submission_id: submission.$id,
-            actor_id: 'Mahasiswa (Pemohon)',
-            action: 'PENGAJUAN_MAHASISWA',
-            notes: JSON.stringify({
-              pref1: preferredAdvisor1Id || null,
-              pref2: preferredAdvisor2Id || null,
-              pref1_name: name1 || null,
-              pref2_name: name2 || null,
-            }),
-            created_at: new Date().toISOString(),
-          },
-        });
-      }
+      // 3. Record student submission action in approval_logs
+      await databases.createDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_APPROVAL_LOGS,
+        documentId: ID.unique(),
+        data: {
+          submission_id: submission.$id,
+          actor_id: studentId,
+          action: 'SUBMIT_MAHASISWA',
+          notes: `Mahasiswa mengajukan ${optionsData.length} usulan judul skripsi`,
+          created_at: new Date().toISOString(),
+        },
+      });
 
       return submission as unknown as ThesisSubmission;
     } catch (error: any) {
       throw new Error(`Gagal mengirim pengajuan: ${error.message}`);
+    }
+  },
+
+  /**
+   * Resubmit a revision when status is 'revision' or 'rejected'.
+   */
+  async resubmitRevision(
+    submissionId: string,
+    optionsData: OptionFormData[]
+  ): Promise<void> {
+    try {
+      // 1. Get existing options
+      const existingOptions = await this.getSubmissionOptions(submissionId);
+
+      // 2. Update or recreate options
+      for (const option of optionsData) {
+        const existing = existingOptions.find((o) => o.option_number === option.number);
+        let fileId = existing?.journal_file_id || null;
+
+        if (option.pdfFile) {
+          try {
+            const uploaded = await storage.createFile({
+              bucketId: BUCKET_JOURNALS,
+              fileId: ID.unique(),
+              file: option.pdfFile,
+            });
+            fileId = uploaded.$id;
+          } catch (e) {
+            console.warn('File upload warning:', e);
+          }
+        }
+
+        const relevanceTableObj = {
+          variable: option.relevanceVariable || '',
+          methodology: option.relevanceMethodology || '',
+          note: option.relevanceNote || '',
+        };
+
+        const payload: Record<string, any> = {
+          title: option.title,
+          background: option.background || '',
+          relevance_table: JSON.stringify(relevanceTableObj),
+          relevance_variable: option.relevanceVariable || '',
+          relevance_methodology: option.relevanceMethodology || '',
+          relevance_note: option.relevanceNote || '',
+          journal_title: option.journalTitle || '',
+          journal_author: option.journalAuthor || '',
+          journal_year: option.journalYear || '',
+          journal_file_id: fileId,
+          is_selected: false,
+        };
+
+        if (existing) {
+          await databases.updateDocument({
+            databaseId: DATABASE_ID,
+            collectionId: COLLECTION_OPTIONS,
+            documentId: existing.$id,
+            data: payload,
+          });
+        } else {
+          await databases.createDocument({
+            databaseId: DATABASE_ID,
+            collectionId: COLLECTION_OPTIONS,
+            documentId: ID.unique(),
+            data: {
+              submission_id: submissionId,
+              option_number: option.number,
+              ...payload,
+            },
+          });
+        }
+      }
+
+      // 3. Reset status to pending_lecturer
+      await databases.updateDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_SUBMISSIONS,
+        documentId: submissionId,
+        data: {
+          status: 'pending_lecturer',
+          submitted_at: new Date().toISOString(),
+        },
+      });
+
+      // 4. Log the revision submission
+      await databases.createDocument({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_APPROVAL_LOGS,
+        documentId: ID.unique(),
+        data: {
+          submission_id: submissionId,
+          actor_id: 'Mahasiswa',
+          action: 'REVISI_MAHASISWA',
+          notes: 'Mahasiswa mengirimkan revisi judul skripsi',
+          created_at: new Date().toISOString(),
+        },
+      });
+    } catch (err: any) {
+      throw new Error(`Gagal mengirim revisi: ${err.message}`);
     }
   },
 
@@ -194,6 +270,14 @@ export const submissionService = {
   },
 
   /**
+   * Get all submissions for a student with full hydrated details.
+   */
+  async getStudentSubmissionsWithDetails(studentId: string): Promise<ThesisSubmission[]> {
+    const subs = await this.getStudentSubmissions(studentId);
+    return this.hydrateSubmissions(subs);
+  },
+
+  /**
    * Get a single submission by ID.
    */
   async getSubmission(submissionId: string): Promise<ThesisSubmission> {
@@ -210,6 +294,21 @@ export const submissionService = {
   },
 
   /**
+   * Get a single submission with full details (hydrated).
+   */
+  async getSubmissionWithDetails(submissionId: string): Promise<ThesisSubmission | null> {
+    try {
+      const sub = await this.getSubmission(submissionId);
+      if (!sub) return null;
+      const [hydrated] = await this.hydrateSubmissions([sub]);
+      return hydrated;
+    } catch (error: any) {
+      console.warn('Failed to load submission with details:', error);
+      return null;
+    }
+  },
+
+  /**
    * Get all options for a given submission.
    */
   async getSubmissionOptions(submissionId: string): Promise<SubmissionOption[]> {
@@ -222,8 +321,7 @@ export const submissionService = {
           Query.orderAsc('option_number'),
         ],
       });
-      const docs = response.documents as unknown as SubmissionOption[];
-      return docs.map(parseOptionRelevance);
+      return response.documents as unknown as SubmissionOption[];
     } catch (error: any) {
       throw new Error(`Gagal mengambil opsi judul: ${error.message}`);
     }
@@ -246,12 +344,49 @@ export const submissionService = {
         const res = await databases.listDocuments({
           databaseId: DATABASE_ID,
           collectionId: COLLECTION_LECTURERS,
-          queries: [Query.equal('user_id', advisorId), Query.limit(1)],
+          queries: [Query.equal('nip', advisorId), Query.limit(1)],
         });
         if (res.documents.length > 0) return res.documents[0] as unknown as LecturerItem;
       } catch {
         // ignore
       }
+      return null;
+    }
+  },
+
+  /**
+   * Get all lecturers with active status.
+   */
+  async getLecturers(): Promise<LecturerItem[]> {
+    try {
+      const response = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_LECTURERS,
+        queries: [Query.equal('is_active', true), Query.orderAsc('name'), Query.limit(100)],
+      });
+      return response.documents as unknown as LecturerItem[];
+    } catch (error: any) {
+      console.warn('Failed to fetch lecturers:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Get surat document associated with a submission.
+   */
+  async getSubmissionSurat(submissionId: string): Promise<SuratItem | null> {
+    try {
+      const res = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_SURAT,
+        queries: [Query.equal('submission_id', submissionId), Query.limit(1)],
+      });
+      if (res.documents.length > 0) {
+        return res.documents[0] as unknown as SuratItem;
+      }
+      return null;
+    } catch (e) {
+      console.warn('Error fetching surat document:', e);
       return null;
     }
   },
@@ -266,215 +401,54 @@ export const submissionService = {
         collectionId: COLLECTION_APPROVAL_LOGS,
         queries: [
           Query.equal('submission_id', submissionId),
-          Query.orderDesc('created_at'),
+          Query.orderAsc('created_at'),
         ],
       });
       return response.documents as unknown as ApprovalLog[];
-    } catch {
+    } catch (error: any) {
+      console.warn('Error fetching approval logs:', error);
       return [];
     }
   },
 
   /**
-   * Get complete submission with hydrated advisors (1 & 2),
-   * preferred advisors, options, relevance tables, and per-option notes.
+   * Hydrates a submission with its options, advisors, surat, and logs.
    */
-  async getSubmissionWithDetails(submissionId: string): Promise<ThesisSubmission> {
-    const sub = await this.getSubmission(submissionId);
-    const [options, logs] = await Promise.all([
-      this.getSubmissionOptions(submissionId),
-      this.getApprovalLogs(submissionId),
-    ]);
-
-    sub.options = options;
-    sub.logs = logs;
-    sub.selectedOption = options.find((o) => o.is_selected_by_lecturer) || null;
-
-    // Hydrate Pembimbing 1 and Pembimbing 2
-    if (sub.advisor_id) {
-      const parts = sub.advisor_id.split(',').map((s) => s.trim()).filter(Boolean);
-      if (parts.length > 0) {
-        sub.advisor = await this.getLecturer(parts[0]);
-      }
-      if (parts.length > 1) {
-        sub.advisor2 = await this.getLecturer(parts[1]);
-      }
-    }
-
-    // Hydrate student's preferred advisors
-    const studentLog = logs.find((l) => l.action === 'PENGAJUAN_MAHASISWA');
-    if (studentLog && studentLog.notes) {
-      try {
-        const parsed = JSON.parse(studentLog.notes);
-        if (parsed.pref1) {
-          sub.preferredAdvisor1 =
-            (await this.getLecturer(parsed.pref1)) ||
-            (parsed.pref1_name ? ({ name: parsed.pref1_name, $id: parsed.pref1 } as LecturerItem) : null);
-        }
-        if (parsed.pref2) {
-          sub.preferredAdvisor2 =
-            (await this.getLecturer(parsed.pref2)) ||
-            (parsed.pref2_name ? ({ name: parsed.pref2_name, $id: parsed.pref2 } as LecturerItem) : null);
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    // Find Kaprodi approval log
-    const kaprodiLog = logs.find(
-      (l) =>
-        l.action === 'DISAHKAN_KAPRODI' ||
-        l.action === 'kaprodi_approve' ||
-        l.action?.toUpperCase().includes('KAPRODI')
-    );
-    if (kaprodiLog) {
-      sub.kaprodiApprovalDate = kaprodiLog.created_at;
-      sub.kaprodiName = kaprodiLog.actor_id;
-      sub.kaprodiNotes = kaprodiLog.notes;
-
-      // Extract nomor_surat if available
-      if (kaprodiLog.notes && kaprodiLog.notes.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(kaprodiLog.notes);
-          sub.nomor_surat = parsed.nomor_surat || null;
-          sub.urutan_surat = parsed.urutan || null;
-          sub.sk_generated_at = parsed.generated_at || kaprodiLog.created_at;
-          if (parsed.text) sub.kaprodiNotes = parsed.text;
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    // Fallback nomor surat if approved
-    if (sub.status === 'approved' && !sub.nomor_surat) {
-      const year = sub.$createdAt ? new Date(sub.$createdAt).getFullYear() : new Date().getFullYear();
-      const { nomor_surat, urutan } = formatNomorSurat(1, 'TI', '23', year);
-      sub.nomor_surat = nomor_surat;
-      sub.urutan_surat = urutan;
-      sub.sk_generated_at = sub.kaprodiApprovalDate || sub.$createdAt || new Date().toISOString();
-    }
-
-    // Find Reviewer log
-    const reviewerLog = logs.find(
-      (l) =>
-        l.action === 'VERIFIKASI_DOSEN_PENILAI' ||
-        l.action === 'select_title_and_advisor'
-    );
-    if (reviewerLog) {
-      sub.reviewerNotes = reviewerLog.notes;
-    }
-
-    // Parse per-title rejection/revision notes if available
-    const decisionLog = logs.find(
-      (l) => l.action === 'MINTA_REVISI' || l.action === 'DITOLAK'
-    );
-    if (decisionLog && decisionLog.notes) {
-      options.forEach((opt) => {
-        const regex = new RegExp(`Judul\\s*#?${opt.option_number}\\s*:\\s*([^\\n]+)`, 'i');
-        const m = decisionLog.notes!.match(regex);
-        if (m && m[1]) {
-          opt.revision_note = m[1].trim();
-        }
-      });
-    }
-
-    return sub;
-  },
-
-  /**
-   * Get all submissions for a student with detailed options and advisors.
-   */
-  async getStudentSubmissionsWithDetails(studentId: string): Promise<ThesisSubmission[]> {
-    const subs = await this.getStudentSubmissions(studentId);
+  async hydrateSubmissions(submissions: ThesisSubmission[]): Promise<ThesisSubmission[]> {
     return Promise.all(
-      subs.map(async (sub) => {
+      submissions.map(async (sub) => {
         try {
-          const [options, logs] = await Promise.all([
+          const [options, logs, surat] = await Promise.all([
             this.getSubmissionOptions(sub.$id),
             this.getApprovalLogs(sub.$id),
+            this.getSubmissionSurat(sub.$id),
           ]);
+
           sub.options = options;
           sub.logs = logs;
-          sub.selectedOption = options.find((o) => o.is_selected_by_lecturer) || null;
+          sub.surat = surat;
 
-          if (sub.advisor_id) {
-            const parts = sub.advisor_id.split(',').map((s) => s.trim()).filter(Boolean);
-            if (parts.length > 0) {
-              sub.advisor = await this.getLecturer(parts[0]);
-            }
-            if (parts.length > 1) {
-              sub.advisor2 = await this.getLecturer(parts[1]);
-            }
+          // Detect selected option
+          sub.selectedOption =
+            options.find((o) => o.is_selected || o.is_selected_by_lecturer) || null;
+
+          // Populate advisor 1 & 2
+          const adv1Id = sub.advisor_1_id || sub.advisor_id;
+          if (adv1Id) {
+            sub.advisor = await this.getLecturer(adv1Id);
+          }
+          if (sub.advisor_2_id) {
+            sub.advisor2 = await this.getLecturer(sub.advisor_2_id);
           }
 
-          const studentLog = logs.find((l) => l.action === 'PENGAJUAN_MAHASISWA');
-          if (studentLog && studentLog.notes) {
-            try {
-              const parsed = JSON.parse(studentLog.notes);
-              if (parsed.pref1) {
-                sub.preferredAdvisor1 =
-                  (await this.getLecturer(parsed.pref1)) ||
-                  (parsed.pref1_name ? ({ name: parsed.pref1_name, $id: parsed.pref1 } as LecturerItem) : null);
-              }
-              if (parsed.pref2) {
-                sub.preferredAdvisor2 =
-                  (await this.getLecturer(parsed.pref2)) ||
-                  (parsed.pref2_name ? ({ name: parsed.pref2_name, $id: parsed.pref2 } as LecturerItem) : null);
-              }
-            } catch {
-              // ignore
-            }
+          // Populate Surat info if available
+          if (surat) {
+            sub.nomor_surat = surat.nomor_surat;
+            sub.urutan_surat = String(surat.urutan);
+            sub.sk_generated_at = surat.created_at;
           }
-
-          const kaprodiLog = logs.find(
-            (l) =>
-              l.action === 'DISAHKAN_KAPRODI' ||
-              l.action === 'kaprodi_approve' ||
-              l.action?.toUpperCase().includes('KAPRODI')
-          );
-          if (kaprodiLog) {
-            sub.kaprodiApprovalDate = kaprodiLog.created_at;
-            sub.kaprodiName = kaprodiLog.actor_id;
-            sub.kaprodiNotes = kaprodiLog.notes;
-
-            if (kaprodiLog.notes && kaprodiLog.notes.startsWith('{')) {
-              try {
-                const parsed = JSON.parse(kaprodiLog.notes);
-                sub.nomor_surat = parsed.nomor_surat || null;
-                sub.urutan_surat = parsed.urutan || null;
-                sub.sk_generated_at = parsed.generated_at || kaprodiLog.created_at;
-                if (parsed.text) sub.kaprodiNotes = parsed.text;
-              } catch {
-                // ignore
-              }
-            }
-          }
-
-          if (sub.status === 'approved' && !sub.nomor_surat) {
-            const year = sub.$createdAt ? new Date(sub.$createdAt).getFullYear() : new Date().getFullYear();
-            const { nomor_surat, urutan } = formatNomorSurat(1, 'TI', '23', year);
-            sub.nomor_surat = nomor_surat;
-            sub.urutan_surat = urutan;
-            sub.sk_generated_at = sub.kaprodiApprovalDate || sub.$createdAt || new Date().toISOString();
-          }
-
-          // Parse per-title rejection/revision notes if available
-          const decisionLog = logs.find(
-            (l) => l.action === 'MINTA_REVISI' || l.action === 'DITOLAK'
-          );
-          if (decisionLog && decisionLog.notes) {
-            options.forEach((opt) => {
-              const regex = new RegExp(`Judul\\s*#?${opt.option_number}\\s*:\\s*([^\\n]+)`, 'i');
-              const m = decisionLog.notes!.match(regex);
-              if (m && m[1]) {
-                opt.revision_note = m[1].trim();
-              }
-            });
-          }
-        } catch {
-          // ignore
+        } catch (err) {
+          console.warn('Hydration error:', err);
         }
         return sub;
       })
@@ -482,7 +456,7 @@ export const submissionService = {
   },
 
   /**
-   * Get public file view URL for journal PDF.
+   * Get public file view URL for PDF from bucket.
    */
   getFileViewUrl(fileId: string): string {
     if (!fileId) return '';
@@ -494,58 +468,32 @@ export const submissionService = {
   },
 
   /**
-   * Get all title options from active submissions (excludes rejected/revision)
-   * for similarity checking. Paginates through all submissions and options.
+   * Get public file download URL for PDF from bucket.
+   */
+  getFileDownloadUrl(fileId: string): string {
+    if (!fileId) return '';
+    try {
+      return storage.getFileDownloadURL(BUCKET_JOURNALS, fileId).toString();
+    } catch {
+      return '';
+    }
+  },
+
+  /**
+   * Get comparable titles for similarity checking.
    */
   async getComparableTitles(): Promise<{ title: string; submission_id: string }[]> {
     try {
-      // 1. Fetch all submissions -> map id to status
-      const submissions: { $id: string; status: string }[] = [];
-      let cursor: string | undefined;
-      while (true) {
-        const queries = [Query.orderDesc('submitted_at'), Query.limit(100)];
-        if (cursor) queries.push(Query.cursorAfter(cursor));
-        const res = await databases.listDocuments({
-          databaseId: DATABASE_ID,
-          collectionId: COLLECTION_SUBMISSIONS,
-          queries,
-        });
-        submissions.push(...(res.documents as any[]));
-        if (res.documents.length < 100) break;
-        cursor = res.documents[res.documents.length - 1].$id;
-      }
-
-      const statusMap = new Map(submissions.map((s) => [s.$id, s.status]));
-
-      // 2. Fetch all options -> filter out rejected/revision submissions, dedupe titles
-      const titles: { title: string; submission_id: string }[] = [];
-      const seen = new Set<string>();
-      cursor = undefined;
-      while (true) {
-        const queries = [Query.orderAsc('option_number'), Query.limit(100)];
-        if (cursor) queries.push(Query.cursorAfter(cursor));
-        const res = await databases.listDocuments({
-          databaseId: DATABASE_ID,
-          collectionId: COLLECTION_OPTIONS,
-          queries,
-        });
-        for (const doc of res.documents as any[]) {
-          const status = statusMap.get(doc.submission_id);
-          if (status === 'rejected' || status === 'revision') continue;
-          const title = (doc.title || '').trim();
-          if (!title) continue;
-          const key = title.toLowerCase().replace(/\s+/g, ' ');
-          if (seen.has(key)) continue;
-          seen.add(key);
-          titles.push({ title, submission_id: doc.submission_id });
-        }
-        if (res.documents.length < 100) break;
-        cursor = res.documents[res.documents.length - 1].$id;
-      }
-
-      return titles;
-    } catch (error: any) {
-      console.error('Failed to fetch comparable titles:', error);
+      const res = await databases.listDocuments({
+        databaseId: DATABASE_ID,
+        collectionId: COLLECTION_OPTIONS,
+        queries: [Query.limit(100)],
+      });
+      return res.documents.map((d: any) => ({
+        title: d.title,
+        submission_id: d.submission_id,
+      }));
+    } catch {
       return [];
     }
   },

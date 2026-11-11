@@ -1,36 +1,59 @@
 import { databases } from './appwrite';
 import { Query } from 'react-native-appwrite';
-import { DATABASE_ID, COLLECTION_DEPARTMENTS } from '@/models/types';
+import {
+  DATABASE_ID,
+  COLLECTION_SYSTEM_SETTINGS,
+  SystemSettings,
+  UserProfile,
+  AcademicRequirements,
+} from '@/models/types';
 
-export interface SystemSettings {
-  is_active: boolean;
-  start_date: string;
-  end_date: string;
-  academic_year: string;
-}
+export type { SystemSettings };
 
-const DEFAULT_SETTINGS: SystemSettings = {
+export const DEFAULT_SETTINGS: SystemSettings = {
   is_active: true,
   start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   end_date: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
   academic_year: '2025/2026 Ganjil',
+  min_sks: 100,
+  required_title_count: 3,
+  required_courses: ['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah'],
 };
 
-const SETTINGS_DOC_CODE = 'SETTINGS_SYS';
+export interface PeriodDisplayStatus {
+  status: 'open' | 'upcoming' | 'closed';
+  title: string;
+  description: string;
+  dateRangeText: string;
+  academicYear: string;
+  isOpen: boolean;
+}
+
+export interface EligibilityResult {
+  isEligible: boolean;
+  studentSks: number;
+  minSks: number;
+  sksSatisfied: boolean;
+  requiredCourses: string[];
+  completedCourses: string[];
+  missingCourses: string[];
+  coursesSatisfied: boolean;
+  gpa?: number;
+  reasons: string[];
+}
 
 export const settingsService = {
   /**
-   * Fetch system settings. First tries `system_settings` collection.
-   * If not found, falls back to the special document in `departments`.
+   * Fetch system settings directly from Appwrite `system_settings` collection.
    */
   async getSettings(): Promise<SystemSettings> {
-    // 1. Try dedicated system_settings collection if exists
     try {
       const res = await databases.listDocuments({
         databaseId: DATABASE_ID,
-        collectionId: 'system_settings',
+        collectionId: COLLECTION_SYSTEM_SETTINGS,
         queries: [Query.limit(1)],
       });
+
       if (res.documents.length > 0) {
         const doc = res.documents[0] as any;
         return {
@@ -38,77 +61,216 @@ export const settingsService = {
           start_date: doc.start_date || DEFAULT_SETTINGS.start_date,
           end_date: doc.end_date || DEFAULT_SETTINGS.end_date,
           academic_year: doc.academic_year || DEFAULT_SETTINGS.academic_year,
+          min_sks: typeof doc.min_sks === 'number' ? doc.min_sks : DEFAULT_SETTINGS.min_sks,
+          required_title_count:
+            typeof doc.required_title_count === 'number' && doc.required_title_count > 0
+              ? doc.required_title_count
+              : DEFAULT_SETTINGS.required_title_count,
+          required_courses: Array.isArray(doc.required_courses)
+            ? doc.required_courses
+            : DEFAULT_SETTINGS.required_courses,
         };
       }
-    } catch {
-      // ignore
-    }
-
-    // 2. Fallback to departments collection document
-    try {
-      const res = await databases.listDocuments({
-        databaseId: DATABASE_ID,
-        collectionId: COLLECTION_DEPARTMENTS,
-        queries: [Query.equal('code', SETTINGS_DOC_CODE), Query.limit(1)],
-      });
-
-      if (res.documents.length > 0) {
-        const rawJson = res.documents[0].name;
-        const parsed = JSON.parse(rawJson);
-        return {
-          is_active: Boolean(parsed.is_active),
-          start_date: parsed.start_date || DEFAULT_SETTINGS.start_date,
-          end_date: parsed.end_date || DEFAULT_SETTINGS.end_date,
-          academic_year: parsed.academic_year || DEFAULT_SETTINGS.academic_year,
-        };
-      }
-
-      return DEFAULT_SETTINGS;
     } catch (err) {
       console.warn('Failed to load system settings from database, using defaults:', err);
-      return DEFAULT_SETTINGS;
     }
+
+    return DEFAULT_SETTINGS;
+  },
+
+  /**
+   * Returns rich display status for top info card: BUKA, AKAN DATANG, or TUTUP.
+   */
+  getPeriodDisplayStatus(settings: SystemSettings): PeriodDisplayStatus {
+    const formatDate = (isoString: string) => {
+      try {
+        const d = new Date(isoString);
+        return d.toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
+      } catch {
+        return isoString;
+      }
+    };
+
+    const startFormatted = formatDate(settings.start_date);
+    const endFormatted = formatDate(settings.end_date);
+    const dateRangeText = `${startFormatted} – ${endFormatted}`;
+    const academicYear = settings.academic_year || '2025/2026 Ganjil';
+
+    if (!settings.is_active) {
+      return {
+        status: 'closed',
+        title: 'Masa Pengajuan Ditutup',
+        description: 'Pendaftaran judul skripsi saat ini sedang ditutup sementara oleh Administrator.',
+        dateRangeText,
+        academicYear,
+        isOpen: false,
+      };
+    }
+
+    const now = Date.now();
+    const start = new Date(settings.start_date).getTime();
+    const end = new Date(settings.end_date).getTime();
+
+    if (!isNaN(start) && now < start) {
+      return {
+        status: 'upcoming',
+        title: 'Masa Pengajuan Akan Datang',
+        description: `Pendaftaran judul skripsi belum dibuka. Pengajuan akan dimulai pada ${startFormatted}.`,
+        dateRangeText,
+        academicYear,
+        isOpen: false,
+      };
+    }
+
+    if (!isNaN(end) && now > end) {
+      return {
+        status: 'closed',
+        title: 'Masa Pengajuan Telah Berakhir',
+        description: `Batas akhir pendaftaran judul skripsi telah berakhir pada ${endFormatted}.`,
+        dateRangeText,
+        academicYear,
+        isOpen: false,
+      };
+    }
+
+    return {
+      status: 'open',
+      title: 'Masa Pengajuan Dibuka',
+      description: `Pendaftaran judul skripsi aktif sampai ${endFormatted}. Silakan ajukan usulan judul Anda.`,
+      dateRangeText,
+      academicYear,
+      isOpen: true,
+    };
   },
 
   /**
    * Checks whether the submission period is open according to settings.
    */
   isPeriodOpen(settings: SystemSettings): { isOpen: boolean; reason?: string } {
-    if (!settings.is_active) {
+    const display = this.getPeriodDisplayStatus(settings);
+    return {
+      isOpen: display.isOpen,
+      reason: display.description,
+    };
+  },
+
+  /**
+   * Compares student requirements (SKS and completed courses in JSON)
+   * against the system requirements (min_sks and required_courses).
+   */
+  evaluateStudentEligibility(
+    settings: SystemSettings,
+    profile?: UserProfile | null
+  ): EligibilityResult {
+    if (!profile) {
       return {
-        isOpen: false,
-        reason: 'Masa pengajuan judul skripsi saat ini sedang ditutup oleh Administrator.',
+        isEligible: true,
+        studentSks: 0,
+        minSks: settings.min_sks,
+        sksSatisfied: true,
+        requiredCourses: settings.required_courses || [],
+        completedCourses: [],
+        missingCourses: [],
+        coursesSatisfied: true,
+        reasons: [],
       };
     }
 
-    const now = new Date().getTime();
-    const start = new Date(settings.start_date).getTime();
-    const end = new Date(settings.end_date).getTime();
-
-    if (!isNaN(start) && now < start) {
-      const startStr = new Date(settings.start_date).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-      return {
-        isOpen: false,
-        reason: `Masa pengajuan belum dibuka. Jadwal mulai: ${startStr}.`,
-      };
+    let parsedRequirements: AcademicRequirements | null = null;
+    if (profile.academic_requirements) {
+      try {
+        parsedRequirements =
+          typeof profile.academic_requirements === 'string'
+            ? JSON.parse(profile.academic_requirements)
+            : profile.academic_requirements;
+      } catch {
+        // ignore parse error
+      }
     }
 
-    if (!isNaN(end) && now > end) {
-      const endStr = new Date(settings.end_date).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      });
-      return {
-        isOpen: false,
-        reason: `Masa pengajuan telah berakhir pada tanggal ${endStr}.`,
-      };
+    // Student SKS strictly from academic_requirements JSON or current_sks
+    const studentSks =
+      typeof parsedRequirements?.sks === 'number'
+        ? parsedRequirements.sks
+        : typeof profile.current_sks === 'number' && profile.current_sks > 0
+        ? profile.current_sks
+        : 0;
+
+    // Completed courses strictly extracted from user's academic_requirements JSON
+    let completedCourses: string[] = [];
+    if (parsedRequirements) {
+      const rawList =
+        parsedRequirements.completed_courses ||
+        (parsedRequirements as any).courses ||
+        (parsedRequirements as any).matkul ||
+        (parsedRequirements as any).mata_kuliah ||
+        [];
+
+      if (Array.isArray(rawList)) {
+        completedCourses = rawList
+          .map((item: any) => {
+            if (typeof item === 'string') return item.trim();
+            if (item && typeof item === 'object') {
+              // Exclude if explicitly failed
+              if (item.passed === false || item.status === 'tidak_lulus' || item.grade === 'E') {
+                return null;
+              }
+              return (item.name || item.course || item.matkul || item.title || '').trim();
+            }
+            return '';
+          })
+          .filter(Boolean) as string[];
+      }
     }
 
-    return { isOpen: true };
+    const requiredCourses: string[] = settings.required_courses || [];
+    const minSks = typeof settings.min_sks === 'number' ? settings.min_sks : 100;
+
+    const sksSatisfied = studentSks >= minSks;
+
+    const completedNormalized = completedCourses.map((c) => c.trim().toLowerCase());
+    const missingCourses = requiredCourses.filter(
+      (req) => !completedNormalized.includes(req.trim().toLowerCase())
+    );
+    const coursesSatisfied = missingCourses.length === 0;
+
+    const reasons: string[] = [];
+    if (!sksSatisfied) {
+      reasons.push(`Total SKS Anda (${studentSks} SKS) kurang dari syarat minimal ${minSks} SKS.`);
+    }
+    if (!coursesSatisfied) {
+      reasons.push(`Belum menyelesaikan mata kuliah prasyarat: ${missingCourses.join(', ')}.`);
+    }
+
+    return {
+      isEligible: sksSatisfied && coursesSatisfied,
+      studentSks,
+      minSks,
+      sksSatisfied,
+      requiredCourses,
+      completedCourses,
+      missingCourses,
+      coursesSatisfied,
+      gpa: parsedRequirements?.gpa,
+      reasons,
+    };
+  },
+
+  /**
+   * Backward compatible check helper.
+   */
+  checkStudentEligibility(
+    settings: SystemSettings,
+    profile?: UserProfile | null
+  ): { eligible: boolean; message?: string } {
+    const evalResult = this.evaluateStudentEligibility(settings, profile);
+    return {
+      eligible: evalResult.isEligible,
+      message: evalResult.reasons.join('\n'),
+    };
   },
 };

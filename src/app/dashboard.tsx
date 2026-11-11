@@ -17,14 +17,20 @@ import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AlertTriangle,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   Clock,
   FileText,
   GraduationCap,
+  Lock,
   PlusCircle,
-  RefreshCcw
+  RefreshCcw,
+  ShieldAlert,
+  XCircle,
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
@@ -145,23 +151,53 @@ export default function DashboardScreen() {
 
   const departmentFullName = getDepartmentFullName(user?.department);
 
+  // Evaluate Period Display Status & Student Academic Eligibility
+  const periodDisplay = settings
+    ? settingsService.getPeriodDisplayStatus(settings)
+    : {
+        status: 'open' as const,
+        title: 'Masa Pengajuan Dibuka',
+        description: 'Pendaftaran judul skripsi aktif.',
+        dateRangeText: '',
+        academicYear: '2025/2026 Ganjil',
+        isOpen: true,
+      };
+
+  const eligibility = settings
+    ? settingsService.evaluateStudentEligibility(settings, user)
+    : {
+        isEligible: true,
+        studentSks: 0,
+        minSks: 100,
+        sksSatisfied: true,
+        requiredCourses: [],
+        completedCourses: [],
+        missingCourses: [],
+        coursesSatisfied: true,
+        reasons: [],
+      };
+
   // Guard: Hide submission button if there is an active / non-rejected submission
-  const activeSubmission = submissions.find((s) => s.status !== 'rejected' && s.status !== 'revision');
-  
+  const activeSubmission = submissions.find(
+    (s) => s.status !== 'rejected' && s.status !== 'revision'
+  );
+
   // Exemption check: student whose previous submission is revision or rejected can ALWAYS submit
   const latestSub = submissions[0];
-  const hasExemption = latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected');
-  const periodStatus = settings ? settingsService.isPeriodOpen(settings) : { isOpen: true };
-  const canSubmitNew = !activeSubmission && (periodStatus.isOpen || hasExemption);
-  const showClosedBanner = !activeSubmission && !periodStatus.isOpen && !hasExemption;
+  const hasExemption =
+    latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected');
+
+  const canSubmitNew =
+    !activeSubmission && eligibility.isEligible && (periodDisplay.isOpen || hasExemption);
 
   return (
     <View style={styles.flex}>
-      {/* Formal Academic Header: Nama, NIM, Nama Lengkap Program Studi */}
+      {/* Formal Academic Header: Nama, NIM, Nama Lengkap Program Studi, Total SKS */}
       <HomeHeader
         userName={user?.name}
         userNim={user?.nim_or_nip}
         userDepartmentName={departmentFullName}
+        userSks={eligibility.studentSks}
         avatarUrl={user?.avatar_url}
         onProfilePress={() => router.push('/profile')}
         onSignOutPress={handleSignOut}
@@ -179,23 +215,76 @@ export default function DashboardScreen() {
           />
         }
       >
-        {/* Closed Period Banner (if submission period closed and no exemption) */}
-        {showClosedBanner && (
-          <Section style={styles.closedPeriodCard}>
-            <View style={styles.closedPeriodRow}>
-              <View style={styles.closedPeriodIconCircle}>
-                <Clock size={24} color="#D97706" strokeWidth={2.2} />
+        {/* TOP INFO CARD: Dynamic based on period status (open, upcoming, closed) */}
+        {periodDisplay.status === 'open' ? (
+          <Section style={styles.topInfoCardOpen}>
+            <View style={styles.topInfoRow}>
+              <View style={styles.topInfoIconBoxOpen}>
+                <Calendar size={22} color="#059669" strokeWidth={2.4} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.closedPeriodTitle}>Masa Pengajuan Ditutup</Text>
-                <Text style={styles.closedPeriodDesc}>
-                  {periodStatus.reason || 'Masa pengajuan judul skripsi belum dibuka atau telah berakhir.'}
-                </Text>
-                {settings?.academic_year && (
-                  <Text style={styles.closedPeriodYear}>
-                    Tahun Akademik: {settings.academic_year}
+              <View style={styles.topInfoTextCol}>
+                <View style={styles.topInfoBadgeRow}>
+                  <View style={styles.topInfoBadgeOpen}>
+                    <Text style={styles.topInfoBadgeTextOpen}>PENDAFTARAN DIBUKA</Text>
+                  </View>
+                  <Text style={styles.topInfoAcademicYear}>{periodDisplay.academicYear}</Text>
+                </View>
+                <Text style={styles.topInfoTitleOpen}>{periodDisplay.title}</Text>
+                <Text style={styles.topInfoDesc}>{periodDisplay.description}</Text>
+                <View style={styles.topInfoScheduleRow}>
+                  <Clock size={12} color="#059669" strokeWidth={2.2} />
+                  <Text style={styles.topInfoScheduleTextOpen}>
+                    Jadwal: {periodDisplay.dateRangeText}
                   </Text>
-                )}
+                </View>
+              </View>
+            </View>
+          </Section>
+        ) : periodDisplay.status === 'upcoming' ? (
+          <Section style={styles.topInfoCardUpcoming}>
+            <View style={styles.topInfoRow}>
+              <View style={styles.topInfoIconBoxUpcoming}>
+                <Clock size={22} color="#2563EB" strokeWidth={2.4} />
+              </View>
+              <View style={styles.topInfoTextCol}>
+                <View style={styles.topInfoBadgeRow}>
+                  <View style={styles.topInfoBadgeUpcoming}>
+                    <Text style={styles.topInfoBadgeTextUpcoming}>AKAN DATANG</Text>
+                  </View>
+                  <Text style={styles.topInfoAcademicYear}>{periodDisplay.academicYear}</Text>
+                </View>
+                <Text style={styles.topInfoTitleUpcoming}>{periodDisplay.title}</Text>
+                <Text style={styles.topInfoDesc}>{periodDisplay.description}</Text>
+                <View style={styles.topInfoScheduleRow}>
+                  <Calendar size={12} color="#2563EB" strokeWidth={2.2} />
+                  <Text style={styles.topInfoScheduleTextUpcoming}>
+                    Dibuka pada: {periodDisplay.dateRangeText}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </Section>
+        ) : (
+          <Section style={styles.topInfoCardClosed}>
+            <View style={styles.topInfoRow}>
+              <View style={styles.topInfoIconBoxClosed}>
+                <AlertTriangle size={22} color="#D97706" strokeWidth={2.4} />
+              </View>
+              <View style={styles.topInfoTextCol}>
+                <View style={styles.topInfoBadgeRow}>
+                  <View style={styles.topInfoBadgeClosed}>
+                    <Text style={styles.topInfoBadgeTextClosed}>PENDAFTARAN DITUTUP</Text>
+                  </View>
+                  <Text style={styles.topInfoAcademicYear}>{periodDisplay.academicYear}</Text>
+                </View>
+                <Text style={styles.topInfoTitleClosed}>{periodDisplay.title}</Text>
+                <Text style={styles.topInfoDesc}>{periodDisplay.description}</Text>
+                <View style={styles.topInfoScheduleRow}>
+                  <Calendar size={12} color="#B45309" strokeWidth={2.2} />
+                  <Text style={styles.topInfoScheduleTextClosed}>
+                    Periode: {periodDisplay.dateRangeText}
+                  </Text>
+                </View>
               </View>
             </View>
           </Section>
@@ -204,33 +293,9 @@ export default function DashboardScreen() {
         {/* Grid Navigation */}
         <GridNav />
 
-        {/* 1. HERO ACTION: Conditional Button OR Detailed Live Status Banner */}
-        {canSubmitNew ? (
-          <TouchableOpacity
-            onPress={() => router.push('/submission/create' as any)}
-            activeOpacity={0.7}
-          >
-            <Section style={styles.heroCard}>
-              <View style={styles.heroCardContent}>
-            <View style={styles.heroRow}>
-              <View style={styles.heroIconCircle}>
-                <PlusCircle size={26} color={Colors.primary} strokeWidth={2.2} />
-              </View>
-              <View style={styles.heroTextCol}>
-                <Text style={styles.heroTitle}>Ajukan Judul Skripsi</Text>
-                <Text style={styles.heroSubtitle}>
-                  Kirimkan 3 opsi judul skripsi untuk direview oleh Dosen Penilai & Kaprodi
-                </Text>
-              </View>
-              <View style={styles.heroChevron}>
-                <ChevronRight size={20} color={Colors.primary} strokeWidth={2.4} />
-              </View>
-            </View>
-            </View>
-          </Section>
-          </TouchableOpacity>
-        ) : activeSubmission ? (
-          /* Live Status Card for Active Submission */
+        {/* 1. HERO ACTION / INELIGIBLE WARNING / DISABLED SECTION / ACTIVE TRACKING */}
+        {activeSubmission ? (
+          /* Case A: Live Status Card for Active Submission */
           <TouchableOpacity
             onPress={() => router.push(`/submission/${activeSubmission.$id}` as any)}
             activeOpacity={0.7}
@@ -305,7 +370,146 @@ export default function DashboardScreen() {
               </View>
             </Section>
           </TouchableOpacity>
-        ) : null}
+        ) : !eligibility.isEligible ? (
+          /* Case B: Clean White Ineligible Warning Info Card */
+          <Section style={styles.ineligibleCard}>
+            <View style={styles.ineligibleHeaderRow}>
+              <View style={styles.ineligibleIconCircle}>
+                <ShieldAlert size={22} color="#DC2626" strokeWidth={2.4} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.ineligibleBadge}>
+                  <Text style={styles.ineligibleBadgeText}>PRASYARAT AKADEMIK</Text>
+                </View>
+                <Text style={styles.ineligibleTitle}>Anda Belum Memenuhi Syarat</Text>
+                <Text style={styles.ineligibleSubtitle}>
+                  Sistem mengecek data akademik Anda dan menemukan kriteria minimal pendaftaran belum terpenuhi:
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.ineligibleChecklistBox}>
+              {/* SKS Check */}
+              <View style={styles.ineligibleItem}>
+                {eligibility.sksSatisfied ? (
+                  <CheckCircle2 size={16} color="#059669" strokeWidth={2.4} />
+                ) : (
+                  <XCircle size={16} color="#DC2626" strokeWidth={2.4} />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ineligibleItemTitle}>
+                    Total SKS Kumulatif ({eligibility.studentSks} / minimal {eligibility.minSks} SKS)
+                  </Text>
+                  <Text style={eligibility.sksSatisfied ? styles.ineligibleItemSuccess : styles.ineligibleItemError}>
+                    {eligibility.sksSatisfied
+                      ? '✓ Terpenuhi (Syarat minimal perolehan SKS terpenuhi)'
+                      : `✗ Belum Terpenuhi (Kurang ${eligibility.minSks - eligibility.studentSks} SKS untuk mengajukan skripsi)`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Prerequisite Courses: Loop over every required course and compare with user completed_courses */}
+              <View style={styles.courseHeaderBox}>
+                <Text style={styles.courseHeaderTitle}>Status Kelulusan Mata Kuliah Prasyarat Wajib:</Text>
+              </View>
+
+              {eligibility.requiredCourses.map((reqCourse, idx) => {
+                const isPassed = eligibility.completedCourses.some(
+                  (c) => c.trim().toLowerCase() === reqCourse.trim().toLowerCase()
+                );
+                return (
+                  <View key={idx} style={styles.ineligibleItem}>
+                    {isPassed ? (
+                      <CheckCircle2 size={16} color="#059669" strokeWidth={2.4} />
+                    ) : (
+                      <XCircle size={16} color="#DC2626" strokeWidth={2.4} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.ineligibleItemTitle}>{reqCourse}</Text>
+                      <Text style={isPassed ? styles.ineligibleItemSuccess : styles.ineligibleItemError}>
+                        {isPassed ? '✓ Terpenuhi (Lulus)' : '✗ Belum Terpenuhi (Mata kuliah belum diselesaikan)'}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+
+              {/* GPA Info if available */}
+              {typeof eligibility.gpa === 'number' && (
+                <View style={styles.ineligibleItem}>
+                  <BookOpen size={16} color="#2563EB" strokeWidth={2.2} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.ineligibleItemTitle}>Indeks Prestasi Kumulatif (IPK)</Text>
+                    <Text style={styles.ineligibleItemNeutral}>
+                      IPK Tercatat: {eligibility.gpa.toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.ineligibleActions}>
+              <TouchableOpacity disabled activeOpacity={1} style={styles.disabledActionButton}>
+                <Lock size={15} color="#94A3B8" strokeWidth={2.2} />
+                <Text style={styles.disabledActionText}>Pengajuan Terkunci (Belum Memenuhi Syarat)</Text>
+              </TouchableOpacity>
+              <Text style={styles.ineligibleNote}>
+                Silakan hubungi Bagian Tata Usaha atau Ketua Program Studi jika terdapat data akademik yang perlu diperbarui.
+              </Text>
+            </View>
+          </Section>
+        ) : !periodDisplay.isOpen && !hasExemption ? (
+          /* Case C: Submission Period Closed (Visually Disabled Submission Section) */
+          <Section style={styles.disabledSubmissionSection}>
+            <View style={styles.disabledSubmissionContent}>
+              <View style={styles.disabledRow}>
+                <View style={styles.disabledIconCircle}>
+                  <Lock size={24} color="#64748B" strokeWidth={2.2} />
+                </View>
+                <View style={styles.heroTextCol}>
+                  <View style={styles.disabledBadge}>
+                    <Text style={styles.disabledBadgeText}>PENDAFTARAN DITUTUP</Text>
+                  </View>
+                  <Text style={styles.disabledHeroTitle}>Ajukan Judul Skripsi</Text>
+                  <Text style={styles.disabledHeroSubtitle}>
+                    {periodDisplay.description ||
+                      'Pendaftaran judul skripsi saat ini sedang ditutup sesuai jadwal kalender akademik.'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.disabledDivider} />
+              <TouchableOpacity disabled activeOpacity={1} style={styles.disabledButtonPill}>
+                <Lock size={14} color="#64748B" strokeWidth={2.2} />
+                <Text style={styles.disabledButtonPillText}>Tombol Pengajuan Sedang Dinonaktifkan</Text>
+              </TouchableOpacity>
+            </View>
+          </Section>
+        ) : (
+          /* Case D: Eligible and Period Open (or has exemption) */
+          <TouchableOpacity
+            onPress={() => router.push('/submission/create' as any)}
+            activeOpacity={0.7}
+          >
+            <Section style={styles.heroCard}>
+              <View style={styles.heroCardContent}>
+                <View style={styles.heroRow}>
+                  <View style={styles.heroIconCircle}>
+                    <PlusCircle size={26} color={Colors.primary} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.heroTextCol}>
+                    <Text style={styles.heroTitle}>Ajukan Judul Skripsi</Text>
+                    <Text style={styles.heroSubtitle}>
+                      Kirimkan 3 opsi judul skripsi untuk direview oleh Dosen Penilai & Kaprodi
+                    </Text>
+                  </View>
+                  <View style={styles.heroChevron}>
+                    <ChevronRight size={20} color={Colors.primary} strokeWidth={2.4} />
+                  </View>
+                </View>
+              </View>
+            </Section>
+          </TouchableOpacity>
+        )}
 
         {/* 2. SECTION HEADER */}
         <View style={styles.sectionHeaderRow}>
@@ -322,16 +526,22 @@ export default function DashboardScreen() {
         {submissions.length === 0 ? (
           <EmptyState
             title="Belum Ada Pengajuan"
-            subtitle="Anda belum memiliki riwayat pengajuan judul. Klik tombol di atas untuk mengajukan 3 usulan judul skripsi."
+            subtitle={
+              canSubmitNew
+                ? 'Anda belum memiliki riwayat pengajuan judul. Klik tombol di atas untuk mengajukan 3 usulan judul skripsi.'
+                : 'Belum ada riwayat pengajuan judul skripsi pada akun Anda.'
+            }
             icon={<FileText size={32} color={Colors.primary} strokeWidth={2} />}
             action={
-              <Button
-                title="Mulai Pengajuan Baru"
-                onPress={() => router.push('/submission/create' as any)}
-                variant="primary"
-                size="sm"
-                style={{ marginTop: 8 }}
-              />
+              canSubmitNew ? (
+                <Button
+                  title="Mulai Pengajuan Baru"
+                  onPress={() => router.push('/submission/create' as any)}
+                  variant="primary"
+                  size="sm"
+                  style={{ marginTop: 8 }}
+                />
+              ) : undefined
             }
           />
         ) : (
@@ -945,7 +1155,380 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
 
-  // Closed Period Banner
+  // ==========================================
+  // TOP INFO CARDS (Open, Upcoming, Closed)
+  // ==========================================
+  topInfoCardOpen: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+  },
+  topInfoCardUpcoming: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+  },
+  topInfoCardClosed: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+  },
+  topInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  topInfoTextCol: {
+    flex: 1,
+  },
+  topInfoBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  topInfoAcademicYear: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: Colors.textTertiary,
+  },
+  topInfoDesc: {
+    fontSize: 12,
+    color: '#475569',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  topInfoScheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+
+  // Open variant specifics
+  topInfoIconBoxOpen: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  topInfoBadgeOpen: {
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  topInfoBadgeTextOpen: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.5,
+  },
+  topInfoTitleOpen: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  topInfoScheduleTextOpen: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#059669',
+  },
+
+  // Upcoming variant specifics
+  topInfoIconBoxUpcoming: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  topInfoBadgeUpcoming: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  topInfoBadgeTextUpcoming: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#1E40AF',
+    letterSpacing: 0.5,
+  },
+  topInfoTitleUpcoming: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#1E40AF',
+  },
+  topInfoScheduleTextUpcoming: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+
+  // Closed variant specifics
+  topInfoIconBoxClosed: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  topInfoBadgeClosed: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  topInfoBadgeTextClosed: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#92400E',
+    letterSpacing: 0.5,
+  },
+  topInfoTitleClosed: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  topInfoScheduleTextClosed: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+
+  // ==========================================
+  // INELIGIBLE WARNING CARD (Clean White Minimalist)
+  // ==========================================
+  ineligibleCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  ineligibleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  ineligibleIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  ineligibleBadge: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  ineligibleBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#DC2626',
+    letterSpacing: 0.5,
+  },
+  ineligibleTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  ineligibleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+  ineligibleChecklistBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
+    marginBottom: 12,
+  },
+  ineligibleItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  ineligibleItemTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  ineligibleItemSuccess: {
+    fontSize: 11.5,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  ineligibleItemError: {
+    fontSize: 11.5,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  ineligibleItemNeutral: {
+    fontSize: 11.5,
+    color: '#2563EB',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  courseHeaderBox: {
+    paddingTop: 4,
+    paddingBottom: 2,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  courseHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  ineligibleActions: {
+    gap: 8,
+  },
+  disabledActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+  },
+  disabledActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  ineligibleNote: {
+    fontSize: 11,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 15,
+  },
+
+  // ==========================================
+  // DISABLED SUBMISSION SECTION (Closed Period)
+  // ==========================================
+  disabledSubmissionSection: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 24,
+    opacity: 0.75,
+  },
+  disabledSubmissionContent: {
+    gap: 10,
+  },
+  disabledRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  disabledIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  disabledBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 3,
+  },
+  disabledBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  disabledHeroTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  disabledHeroSubtitle: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  disabledDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 2,
+  },
+  disabledButtonPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#E2E8F0',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  disabledButtonPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+
+  // Closed Period Banner (legacy fallback if used)
   closedPeriodCard: {
     backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',

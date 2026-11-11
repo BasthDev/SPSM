@@ -36,7 +36,7 @@ import {
   View,
 } from 'react-native';
 
-const STEP_LABELS = ['Judul 1', 'Judul 2', 'Judul 3', 'Dosen', 'Kirim'];
+
 
 type TitleForm = {
   title: string;
@@ -80,11 +80,10 @@ export default function CreateSubmissionScreen() {
   const [preferredAdvisor1, setPreferredAdvisor1] = useState<string>('');
   const [preferredAdvisor2, setPreferredAdvisor2] = useState<string>('');
 
-  const [titles, setTitles] = useState<TitleForm[]>([
-    emptyTitle(),
-    emptyTitle(),
-    emptyTitle(),
-  ]);
+  // Dynamic titles state
+  const [titles, setTitles] = useState<TitleForm[]>([emptyTitle(), emptyTitle(), emptyTitle()]);
+  const titleCount = titles.length;
+  const stepLabels = titles.map((_, i) => 'Judul ' + (i + 1)).concat(['Dosen', 'Kirim']);
   const [resubmitSource, setResubmitSource] = useState<string | null>(null);
 
   useEffect(() => {
@@ -108,6 +107,16 @@ export default function CreateSubmissionScreen() {
         ]);
 
         if (!active) return;
+
+        // Set dynamic titles count
+        const reqCount = sysSettings.required_title_count || 3;
+        setTitles(Array.from({ length: reqCount }, () => emptyTitle()));
+
+        // Check SKS eligibility
+        const elig = settingsService.checkStudentEligibility(sysSettings, profile);
+        if (!elig.eligible && !resubmit) {
+          setPeriodStatus({ isOpen: false, reason: elig.message });
+        }
 
         // Filter lecturers by student's department if available
         const deptLecs = allLecs.filter((l) => {
@@ -178,6 +187,14 @@ export default function CreateSubmissionScreen() {
               'Anda masih memiliki pengajuan judul yang sedang diproses. Ajukan pengajuan baru setelah pengajuan tersebut selesai atau ditolak.',
           });
           setIsSpecialExemption(false);
+        } else if (!elig.eligible && !resubmit) {
+          setPeriodStatus({
+            isOpen: false,
+            reason:
+              elig.message ||
+              'Anda belum memenuhi syarat akademik minimal (SKS atau mata kuliah prasyarat) untuk mengajukan skripsi.',
+          });
+          setIsSpecialExemption(false);
         } else {
           const checkPeriod = settingsService.isPeriodOpen(sysSettings);
           setPeriodStatus(checkPeriod);
@@ -213,11 +230,11 @@ export default function CreateSubmissionScreen() {
   const validateCurrentStep = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (step < 3) {
+    if (step < titleCount) {
       const t = titles[step];
       if (!t.title.trim()) newErrors.title = 'Judul skripsi wajib diisi';
       if (!t.background.trim()) newErrors.background = 'Latar belakang masalah wajib diisi';
-    } else if (step === 3) {
+    } else if (step === titleCount) {
       // Step 3: Calon Dosen Pembimbing
       if (!preferredAdvisor1) {
         newErrors.advisor1 = 'Pilih Calon Dosen Pembimbing Prioritas 1';
@@ -241,7 +258,7 @@ export default function CreateSubmissionScreen() {
     }
 
     if (validateCurrentStep()) {
-      setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
+      setStep((s) => Math.min(s + 1, stepLabels.length - 1));
     }
   };
 
@@ -656,9 +673,9 @@ export default function CreateSubmissionScreen() {
           </View>
         )}
 
-        <Stepper steps={STEP_LABELS} currentStep={step} style={styles.stepper} />
+        <Stepper steps={stepLabels} currentStep={step} style={styles.stepper} />
 
-        {step < 3 ? renderTitleForm(step) : step === 3 ? renderAdvisorSelection() : renderSummary()}
+        {step < titleCount ? renderTitleForm(step) : step === titleCount ? renderAdvisorSelection() : renderSummary()}
 
         {/* Action Buttons */}
         <View style={styles.buttonRow}>
@@ -670,7 +687,7 @@ export default function CreateSubmissionScreen() {
               style={styles.btnHalf}
             />
           )}
-          {step < 4 ? (
+          {step < titleCount + 1 ? (
             <Button
               title="Lanjut"
               onPress={handleNext}

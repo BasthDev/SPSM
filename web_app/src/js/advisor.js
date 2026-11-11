@@ -15,11 +15,18 @@ async function init() {
     currentLecturerId = auth.lecturer?.$id || null;
 
     const [subList, lecList] = await Promise.all([
-      submissionService.getAllSubmissions('approved'),
+      submissionService.getAllSubmissions(),
       lecturerService.getLecturers(),
     ]);
 
-    submissions = subList;
+    // Keep only approved/issued/in-process SK submissions for advisor view
+    submissions = subList.filter(
+      (s) =>
+        s.status === 'approved' ||
+        s.status === 'sk_issued' ||
+        s.status === 'sk_process' ||
+        s.status === 'waiting_akademik'
+    );
     lecturers = lecList;
 
     if (!isAdmin && currentLecturerId) {

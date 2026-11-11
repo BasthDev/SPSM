@@ -362,6 +362,21 @@ export const submissionService = {
               } catch {}
             }
 
+            let suratDoc = null;
+            try {
+              const surRes = await databases.listDocuments(
+                APPWRITE_CONFIG.databaseId,
+                APPWRITE_CONFIG.collections.surat || 'surat',
+                [Query.equal('submission_id', sub.$id), Query.limit(1)]
+              );
+              if (surRes.documents.length > 0) {
+                suratDoc = surRes.documents[0];
+                nomorSurat = suratDoc.nomor_surat;
+                urutanSurat = String(suratDoc.urutan);
+                skGeneratedAt = suratDoc.created_at;
+              }
+            } catch {}
+
             const kaprodiLog = [...(logRes.documents || [])]
               .reverse()
               .find((l) => l.action === 'DISAHKAN_KAPRODI');
@@ -413,6 +428,9 @@ export const submissionService = {
       {
         status: 'waiting_kaprodi',
         advisor_id: combinedAdvisorId,
+        advisor_1_id: advisor1Id ? advisor1Id.trim() : null,
+        advisor_2_id: advisor2Id ? advisor2Id.trim() : null,
+        reviewer_notes: notes || '',
       }
     );
 
@@ -429,7 +447,9 @@ export const submissionService = {
           APPWRITE_CONFIG.databaseId,
           APPWRITE_CONFIG.collections.submissionOptions,
           opt.$id,
-          { is_selected_by_lecturer: opt.$id === selectedOptionId }
+          {
+            is_selected: opt.$id === selectedOptionId,
+          }
         )
       )
     );
@@ -448,53 +468,24 @@ export const submissionService = {
     );
   },
 
-  async kaprodiApprove(submissionId, advisor1Id, advisor2Id, kaprodiName, notes) {
-    const combinedAdvisorId = advisor2Id ? `${advisor1Id.trim()},${advisor2Id.trim()}` : advisor1Id.trim();
-
-    // 1. Status -> approved
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
-      submissionId,
-      {
-        status: 'approved',
-        advisor_id: combinedAdvisorId,
-      }
-    );
-
-    // 2. Increment quotas
-    if (advisor1Id) await lecturerService.syncStudentCount(advisor1Id.trim());
-    if (advisor2Id && advisor2Id.trim() !== advisor1Id.trim()) {
-      await lecturerService.syncStudentCount(advisor2Id.trim());
-    }
-
-    // 3. Generate Nomor Surat: URUTAN/SPSM/PRODI/ANGKATAN/TAHUN
-    const currentYear = new Date().getFullYear();
-    let approvedCount = 0;
+  async ensureSuratGenerated(submissionId) {
     try {
-      const approvedRes = await databases.listDocuments(
+      const col = APPWRITE_CONFIG.collections.surat || 'surat';
+      const existing = await databases.listDocuments(
         APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.thesisSubmissions,
-        [Query.equal('status', 'approved'), Query.limit(100)]
+        col,
+        [Query.equal('submission_id', submissionId), Query.limit(1)]
       );
-      approvedCount = approvedRes.documents.filter((doc) => {
-        try {
-          return new Date(doc.$createdAt).getFullYear() === currentYear;
-        } catch {
-          return true;
-        }
-      }).length;
-    } catch {}
+      if (existing.documents.length > 0) return existing.documents[0];
 
-    // Ambil prodi & angkatan dari profil mahasiswa
-    let prodiCode = 'TI';
-    let angkatan = '23';
-    try {
       const subDoc = await databases.getDocument(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.thesisSubmissions,
         submissionId
       );
+
+      let prodiCode = 'TI';
+      let angkatan = '21';
       if (subDoc.student_id) {
         const userRes = await databases.listDocuments(
           APPWRITE_CONFIG.databaseId,
@@ -507,20 +498,131 @@ export const submissionService = {
           angkatan = extractAngkatan(u.batch_year);
         }
       }
-    } catch {}
 
-    const urutanNum = approvedCount || 1;
-    const { nomor_surat, urutan } = formatNomorSurat(urutanNum, prodiCode, angkatan, currentYear);
+      const year = new Date().getFullYear();
+      const allSurat = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        col,
+        [Query.orderDesc('urutan'), Query.limit(100)]
+      );
+      const currentYearSurat = allSurat.documents.filter((s) => (s.nomor_surat || '').endsWith(String(year)));
+      const nextUrutan = (currentYearSurat[0]?.urutan || 0) + 1;
+      const { nomor_surat } = formatNomorSurat(nextUrutan, prodiCode, angkatan, year);
+      const no_dokumen = `SPSM-${submissionId.toUpperCase().slice(-8)}-${Date.now().toString(16).toUpperCase()}`;
 
-    // 4. Log dengan payload JSON (nomor_surat disimpan di sini karena
-    //    kolom nomor_surat tidak ada di tabel thesis_submissions)
-    const logPayload = {
-      nomor_surat,
-      urutan,
-      text: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.',
-      generated_at: new Date().toISOString(),
-    };
+      const newSurat = await databases.createDocument(
+        APPWRITE_CONFIG.databaseId,
+        col,
+        ID.unique(),
+        {
+          submission_id: submissionId,
+          nomor_surat,
+          urutan: nextUrutan,
+          no_dokumen,
+          created_at: new Date().toISOString(),
+        }
+      );
+      return newSurat;
+    } catch (err) {
+      console.warn('ensureSuratGenerated warning:', err);
+      return null;
+    }
+  },
 
+  async processDekanSignature(submissionId, staffName) {
+    await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.thesisSubmissions,
+      submissionId,
+      { status: 'sk_process' }
+    );
+
+    await databases.createDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.approvalLogs,
+      ID.unique(),
+      {
+        submission_id: submissionId,
+        actor_id: staffName || 'Tata Usaha (Akademik)',
+        action: 'PROSES_TTD_DEKAN',
+        notes: 'Draf SK telah dicetak fisik dan sedang dalam proses tanda tangan Dekan.',
+        created_at: new Date().toISOString(),
+      }
+    );
+  },
+
+  async uploadSignedSk(submissionId, file, staffName) {
+    const uploaded = await storage.createFile(
+      APPWRITE_CONFIG.storageBucketId,
+      ID.unique(),
+      file
+    );
+
+    const col = APPWRITE_CONFIG.collections.surat || 'surat';
+    const suratRes = await databases.listDocuments(
+      APPWRITE_CONFIG.databaseId,
+      col,
+      [Query.equal('submission_id', submissionId), Query.limit(1)]
+    );
+
+    if (suratRes.documents.length > 0) {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.databaseId,
+        col,
+        suratRes.documents[0].$id,
+        { scanned_sk_id: uploaded.$id }
+      );
+    }
+
+    await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.thesisSubmissions,
+      submissionId,
+      { status: 'sk_issued' }
+    );
+
+    await databases.createDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.approvalLogs,
+      ID.unique(),
+      {
+        submission_id: submissionId,
+        actor_id: staffName || 'Tata Usaha (Akademik)',
+        action: 'SK_RESMI_TERBIT',
+        notes: `Scan PDF SK resmi ber-TTD basah Dekan berhasil diunggah (File ID: ${uploaded.$id}). SK resmi diterbitkan.`,
+        created_at: new Date().toISOString(),
+      }
+    );
+
+    return uploaded;
+  },
+
+  async kaprodiApprove(submissionId, advisor1Id, advisor2Id, kaprodiName, notes) {
+    const a1 = (advisor1Id || '').trim();
+    const a2 = (advisor2Id || '').trim();
+    const combinedAdvisorId = a2 ? `${a1},${a2}` : a1;
+
+    // 1. Status -> waiting_akademik (Blueprint v2.2)
+    await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.thesisSubmissions,
+      submissionId,
+      {
+        status: 'waiting_akademik',
+        advisor_id: combinedAdvisorId,
+        advisor_1_id: a1,
+        advisor_2_id: a2,
+      }
+    );
+
+    // 2. Increment quotas
+    if (a1) await lecturerService.syncStudentCount(a1);
+    if (a2 && a2 !== a1) await lecturerService.syncStudentCount(a2);
+
+    // 3. Generate Surat record
+    const surat = await this.ensureSuratGenerated(submissionId);
+
+    // 4. Log
     await databases.createDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.approvalLogs,
@@ -529,10 +631,16 @@ export const submissionService = {
         submission_id: submissionId,
         actor_id: kaprodiName,
         action: 'DISAHKAN_KAPRODI',
-        notes: JSON.stringify(logPayload),
+        notes: JSON.stringify({
+          nomor_surat: surat?.nomor_surat,
+          urutan: surat?.urutan,
+          text: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi (Tahap Pleno). Menunggu administrasi SK.',
+          generated_at: new Date().toISOString(),
+        }),
         created_at: new Date().toISOString(),
       }
     );
+    return surat;
   },
 
   /**
@@ -631,6 +739,9 @@ export const settingsService = {
       start_date: '',
       end_date: '',
       academic_year: '2025/2026 Ganjil',
+      min_sks: 100,
+      required_title_count: 3,
+      required_courses: ['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah'],
     };
     try {
       // 1. Coba collection system_settings khusus
@@ -646,6 +757,9 @@ export const settingsService = {
           start_date: doc.start_date || DEFAULTS.start_date,
           end_date: doc.end_date || DEFAULTS.end_date,
           academic_year: doc.academic_year || DEFAULTS.academic_year,
+          min_sks: typeof doc.min_sks === 'number' ? doc.min_sks : DEFAULTS.min_sks,
+          required_title_count: typeof doc.required_title_count === 'number' ? doc.required_title_count : DEFAULTS.required_title_count,
+          required_courses: Array.isArray(doc.required_courses) ? doc.required_courses : DEFAULTS.required_courses,
         };
       }
     } catch {}
@@ -665,6 +779,9 @@ export const settingsService = {
             start_date: parsed.start_date || DEFAULTS.start_date,
             end_date: parsed.end_date || DEFAULTS.end_date,
             academic_year: parsed.academic_year || DEFAULTS.academic_year,
+            min_sks: typeof parsed.min_sks === 'number' ? parsed.min_sks : DEFAULTS.min_sks,
+            required_title_count: typeof parsed.required_title_count === 'number' ? parsed.required_title_count : DEFAULTS.required_title_count,
+            required_courses: Array.isArray(parsed.required_courses) ? parsed.required_courses : DEFAULTS.required_courses,
           };
         } catch {
           return DEFAULTS;

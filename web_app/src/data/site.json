@@ -21,21 +21,28 @@
       "name": "Penilaian Reviewer",
       "icon": "assignment",
       "href": "reviewer.html",
-      "roles": ["reviewer"]
+      "roles": ["reviewer", "lecturer", "admin"]
     },
     {
       "page": "kaprodi",
       "name": "Pengesahan Kaprodi",
       "icon": "stars",
       "href": "kaprodi.html",
-      "roles": ["kaprodi"]
+      "roles": ["kaprodi", "admin"]
+    },
+    {
+      "page": "akademik",
+      "name": "Administrasi SK (TU)",
+      "icon": "description",
+      "href": "akademik.html",
+      "roles": ["akademik", "admin"]
     },
     {
       "page": "advisor",
       "name": "Dosen Pembimbing",
       "icon": "account-box",
       "href": "advisor.html",
-      "roles": ["lecturer"]
+      "roles": ["lecturer", "admin"]
     },
     {
       "page": "admin",

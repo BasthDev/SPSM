@@ -21,6 +21,9 @@ window.openDossierModal = (sub) => {
     const statusMap = {
       pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
       waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+      waiting_akademik: { label: 'Menunggu SK (TU)', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+      sk_process: { label: 'Proses TTD Dekan', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
+      sk_issued: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
       approved: { label: 'Disahkan (SK Terbit)', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
       revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
       rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },

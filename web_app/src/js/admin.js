@@ -347,7 +347,73 @@ window.editBatchYear = (id) => {
   if (b) window.openBatchModal(b);
 };
 
-// ============ SETTINGS ============
+// ============ SETTINGS & PREREQUISITES SELECTOR ============
+
+const DEFAULT_CURRICULUM_COURSES = [
+  'Metodologi Penelitian',
+  'Kerja Praktik',
+  'Bahasa Inggris Ilmiah',
+  'Seminar Proposal',
+  'Rekayasa Perangkat Lunak',
+  'Algoritma & Struktur Data',
+  'Basis Data Lanjut',
+  'Tata Tulis Karya Ilmiah',
+  'Statistika & Probabilitas',
+  'Etika Profesi',
+];
+
+let availableCourses = [...DEFAULT_CURRICULUM_COURSES];
+let selectedCourses = new Set(['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah']);
+
+function renderCourseSelector() {
+  const container = document.getElementById('course-selector-container');
+  const badge = document.getElementById('selected-courses-badge');
+  if (!container) return;
+
+  if (badge) {
+    badge.innerText = `${selectedCourses.size} Dipilih`;
+  }
+
+  container.innerHTML = availableCourses
+    .map((course) => {
+      const isChecked = selectedCourses.has(course);
+      return `
+      <label class="flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${
+        isChecked
+          ? 'border-primary/40 bg-primary/5 text-default'
+          : 'border-default bg-default text-muted hover:bg-subtle'
+      }">
+        <div class="flex items-center gap-2.5">
+          <input
+            type="checkbox"
+            class="size-3.5 accent-primary course-req-checkbox cursor-pointer"
+            value="${course}"
+            ${isChecked ? 'checked' : ''}
+          />
+          <span class="text-xs ${isChecked ? 'text-primary font-bold' : 'font-medium'}">${course}</span>
+        </div>
+        ${
+          isChecked
+            ? `<span class="text-[9.5px] font-bold py-0.5 px-2 rounded-full bg-primary/10 text-primary">Wajib</span>`
+            : `<span class="text-[9.5px] text-muted">Opsional</span>`
+        }
+      </label>
+    `;
+    })
+    .join('');
+
+  container.querySelectorAll('.course-req-checkbox').forEach((cb) => {
+    cb.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (e.target.checked) {
+        selectedCourses.add(val);
+      } else {
+        selectedCourses.delete(val);
+      }
+      renderCourseSelector();
+    });
+  });
+}
 
 function toDateInput(iso) {
   if (!iso) return '';
@@ -365,15 +431,40 @@ function fillSettingsForm(settings) {
   const yearEl = document.getElementById('setting-academic-year');
   const startEl = document.getElementById('setting-start-date');
   const endEl = document.getElementById('setting-end-date');
+  const minSksEl = document.getElementById('setting-min-sks');
+  const countEl = document.getElementById('setting-required-title-count');
+
   if (activeEl) activeEl.checked = settings.is_active !== false;
   if (yearEl) yearEl.value = settings.academic_year || '';
   if (startEl) startEl.value = toDateInput(settings.start_date);
   if (endEl) endEl.value = toDateInput(settings.end_date);
+  if (minSksEl) minSksEl.value = typeof settings.min_sks === 'number' ? settings.min_sks : 100;
+  if (countEl) countEl.value = typeof settings.required_title_count === 'number' ? settings.required_title_count : 3;
+
+  if (Array.isArray(settings.required_courses) && settings.required_courses.length > 0) {
+    selectedCourses = new Set(settings.required_courses);
+    settings.required_courses.forEach((c) => {
+      if (!availableCourses.includes(c)) {
+        availableCourses.push(c);
+      }
+    });
+  }
+
+  renderCourseSelector();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
   setupDeleteModal();
+
+  // Handle direct hash navigation to tab (e.g. admin.html#settings)
+  if (window.location.hash) {
+    const tab = window.location.hash.replace('#', '');
+    const btn = document.querySelector(`button[onclick*="'${tab}'"]`);
+    if (btn) {
+      window.switchAdminTab(tab, btn);
+    }
+  }
 
   const searchInput = document.getElementById('search-lecturer');
   if (searchInput) {
@@ -512,26 +603,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAddBatch = document.getElementById('btn-add-batch');
   if (btnAddBatch) btnAddBatch.addEventListener('click', () => window.openBatchModal(null));
 
-  // ---- Settings ----
+  // ---- Prerequisite Course Add Handler ----
+  const btnAddCourse = document.getElementById('btn-add-course');
+  const inputNewCourse = document.getElementById('input-new-course');
+
+  function handleAddCustomCourse() {
+    if (!inputNewCourse) return;
+    const val = inputNewCourse.value.trim();
+    if (!val) return;
+    if (!availableCourses.includes(val)) {
+      availableCourses.push(val);
+    }
+    selectedCourses.add(val);
+    inputNewCourse.value = '';
+    renderCourseSelector();
+    showToast(`Mata kuliah "${val}" ditambahkan ke syarat wajib.`);
+  }
+
+  if (btnAddCourse) btnAddCourse.addEventListener('click', handleAddCustomCourse);
+  if (inputNewCourse) {
+    inputNewCourse.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAddCustomCourse();
+      }
+    });
+  }
+
+  // ---- Settings Save Handler ----
   const saveSettingsBtn = document.getElementById('btn-save-settings');
   if (saveSettingsBtn) {
     saveSettingsBtn.addEventListener('click', async () => {
+      const coursesArr = Array.from(selectedCourses);
+      const minSksVal = parseInt(document.getElementById('setting-min-sks')?.value, 10);
+      const titleCountVal = parseInt(
+        document.getElementById('setting-required-title-count')?.value,
+        10
+      );
+
       const payload = {
         is_active: document.getElementById('setting-is-active')?.checked !== false,
         academic_year: document.getElementById('setting-academic-year')?.value.trim() || '',
         start_date: document.getElementById('setting-start-date')?.value || '',
         end_date: document.getElementById('setting-end-date')?.value || '',
+        min_sks: isNaN(minSksVal) ? 100 : minSksVal,
+        required_title_count: isNaN(titleCountVal) ? 3 : titleCountVal,
+        required_courses: coursesArr.length > 0 ? coursesArr : ['Metodologi Penelitian'],
       };
       saveSettingsBtn.disabled = true;
       saveSettingsBtn.innerText = 'Menyimpan...';
       try {
         await settingsService.updateSettings(payload);
-        showToast('Pengaturan masa pengajuan berhasil disimpan!');
+        showToast('Konfigurasi sistem & prasyarat matkul berhasil disimpan!');
       } catch (err) {
         showToast(`Gagal menyimpan pengaturan: ${err.message}`, true);
       } finally {
         saveSettingsBtn.disabled = false;
-        saveSettingsBtn.innerText = 'Simpan Pengaturan';
+        saveSettingsBtn.innerText = 'Simpan Konfigurasi Sistem';
       }
     });
   }

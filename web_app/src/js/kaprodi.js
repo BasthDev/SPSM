@@ -42,7 +42,13 @@ function showToast(message, isError = false) {
 
 function updateMetrics() {
   const waiting = submissions.filter((s) => s.status === 'waiting_kaprodi').length;
-  const approved = submissions.filter((s) => s.status === 'approved').length;
+  const approved = submissions.filter(
+    (s) =>
+      s.status === 'approved' ||
+      s.status === 'waiting_akademik' ||
+      s.status === 'sk_process' ||
+      s.status === 'sk_issued'
+  ).length;
 
   document.getElementById('kaprodi-waiting-count').innerText = waiting;
   document.getElementById('kaprodi-total-count').innerText = submissions.length;
@@ -59,7 +65,18 @@ function renderTable() {
   const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
   const filtered = submissions.filter((s) => {
-    if (currentFilter !== 'all' && s.status !== currentFilter) return false;
+    if (currentFilter !== 'all') {
+      if (currentFilter === 'approved') {
+        const isApproved =
+          s.status === 'approved' ||
+          s.status === 'waiting_akademik' ||
+          s.status === 'sk_process' ||
+          s.status === 'sk_issued';
+        if (!isApproved) return false;
+      } else if (s.status !== currentFilter) {
+        return false;
+      }
+    }
     if (!q) return true;
     const name = s.student?.name?.toLowerCase() || '';
     const nim = s.student?.nim_or_nip?.toLowerCase() || '';
@@ -80,6 +97,9 @@ function renderTable() {
   const statusBadges = {
     pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
     waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+    waiting_akademik: { label: 'Menunggu SK (TU)', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+    sk_process: { label: 'Proses TTD Dekan', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
+    sk_issued: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
     approved: { label: 'Disahkan', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
     revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
     rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },

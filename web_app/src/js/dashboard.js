@@ -14,7 +14,7 @@ async function loadDashboard() {
     const total = submissions.length;
     const pending = submissions.filter((s) => s.status === 'pending_lecturer').length;
     const waiting = submissions.filter((s) => s.status === 'waiting_kaprodi').length;
-    const approved = submissions.filter((s) => s.status === 'approved').length;
+    const approved = submissions.filter((s) => s.status === 'approved' || s.status === 'sk_issued').length;
 
     // Set stat cards
     const totalEl = document.getElementById('stat-total-submissions');
@@ -52,7 +52,7 @@ function renderTable() {
     const studentName = sub.student?.name?.toLowerCase() || '';
     const studentNim = sub.student?.nim_or_nip?.toLowerCase() || '';
     const title =
-      sub.options?.find((o) => o.is_selected_by_lecturer)?.title?.toLowerCase() ||
+      sub.options?.find((o) => o.is_selected || o.is_selected_by_lecturer)?.title?.toLowerCase() ||
       sub.options?.[0]?.title?.toLowerCase() ||
       '';
 
@@ -77,7 +77,10 @@ function renderTable() {
 
   const statusBadges = {
     pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
-    waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+    waiting_kaprodi: { label: 'Pleno Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+    waiting_akademik: { label: 'Menunggu SK (TU)', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+    sk_process: { label: 'Proses TTD Dekan', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
+    sk_issued: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
     approved: { label: 'Disahkan', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
     revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
     rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },
