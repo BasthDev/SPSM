@@ -132,6 +132,18 @@ export const submissionService = {
       }
 
       // 3. Record student submission action in approval_logs
+      //    Format JSON {pref1, pref1_name, pref2, pref2_name} agar konsisten
+      //    dengan parser di mobile & web_app (action: PENGAJUAN_MAHASISWA)
+      let pref1Name = '';
+      let pref2Name = '';
+      if (preferredAdvisor1Id) {
+        const l1 = await this.getLecturer(preferredAdvisor1Id);
+        pref1Name = l1?.name || '';
+      }
+      if (preferredAdvisor2Id) {
+        const l2 = await this.getLecturer(preferredAdvisor2Id);
+        pref2Name = l2?.name || '';
+      }
       await databases.createDocument({
         databaseId: DATABASE_ID,
         collectionId: COLLECTION_APPROVAL_LOGS,
@@ -139,8 +151,14 @@ export const submissionService = {
         data: {
           submission_id: submission.$id,
           actor_id: studentId,
-          action: 'SUBMIT_MAHASISWA',
-          notes: `Mahasiswa mengajukan ${optionsData.length} usulan judul skripsi`,
+          action: 'PENGAJUAN_MAHASISWA',
+          notes: JSON.stringify({
+            text: `Mahasiswa mengajukan ${optionsData.length} usulan judul skripsi`,
+            pref1: preferredAdvisor1Id || null,
+            pref1_name: pref1Name || null,
+            pref2: preferredAdvisor2Id || null,
+            pref2_name: pref2Name || null,
+          }),
           created_at: new Date().toISOString(),
         },
       });
@@ -450,6 +468,92 @@ export const submissionService = {
             sub.urutan_surat = String(surat.urutan);
             sub.sk_generated_at = surat.created_at;
           }
+
+          // Hydrate student's preferred advisors — prefer dedicated columns,
+          // fallback ke log PENGAJUAN_MAHASISWA / SUBMIT_MAHASISWA (data lama)
+          const pref1Id = (sub as any).preferred_advisor_1_id || (sub as any).preferredAdvisor1_id;
+          const pref2Id = (sub as any).preferred_advisor_2_id || (sub as any).preferredAdvisor2_id;
+          const studentLog = logs.find(
+            (l) =>
+              l.action === 'PENGAJUAN_MAHASISWA' ||
+              l.action === 'SUBMIT_MAHASISWA' ||
+              l.action === 'REVISI_MAHASISWA'
+          );
+          if (studentLog && studentLog.notes) {
+            try {
+              const parsed = JSON.parse(studentLog.notes);
+              if (!pref1Id && parsed.pref1) {
+                (sub as any).preferred_advisor_1_id = parsed.pref1;
+              }
+              if (!pref2Id && parsed.pref2) {
+                (sub as any).preferred_advisor_2_id = parsed.pref2;
+              }
+            } catch {
+              // notes bukan JSON — abaikan
+            }
+          }
+          const finalPref1 = pref1Id || (sub as any).preferred_advisor_1_id;
+          const finalPref2 = pref2Id || (sub as any).preferred_advisor_2_id;
+          if (finalPref1) {
+            sub.preferredAdvisor1 = await this.getLecturer(finalPref1);
+          }
+          if (finalPref2) {
+            sub.preferredAdvisor2 = await this.getLecturer(finalPref2);
+          }
+
+          // Hydrate Kaprodi approval info dari log DISAHKAN_KAPRODI
+          const kaprodiLog = logs.find(
+            (l) =>
+              l.action === 'DISAHKAN_KAPRODI' ||
+              l.action === 'kaprodi_approve' ||
+              l.action?.toUpperCase().includes('KAPRODI')
+          );
+          if (kaprodiLog) {
+            sub.kaprodiApprovalDate = kaprodiLog.created_at;
+            sub.kaprodiName = kaprodiLog.actor_id;
+            sub.kaprodiNotes = kaprodiLog.notes;
+
+            if (kaprodiLog.notes && kaprodiLog.notes.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(kaprodiLog.notes);
+                if (!sub.nomor_surat && parsed.nomor_surat) {
+                  sub.nomor_surat = parsed.nomor_surat;
+                  sub.urutan_surat = parsed.urutan || null;
+                  sub.sk_generated_at = parsed.generated_at || kaprodiLog.created_at;
+                }
+                if (parsed.text) sub.kaprodiNotes = parsed.text;
+              } catch {
+                // abaikan
+              }
+            }
+          }
+
+          // Reviewer notes
+          const reviewerLog = logs.find(
+            (l) =>
+              l.action === 'VERIFIKASI_DOSEN_PENILAI' ||
+              l.action === 'select_title_and_advisor'
+          );
+          if (reviewerLog) {
+            sub.reviewerNotes = reviewerLog.notes;
+          }
+
+          // Parse catatan revisi/penolakan per judul ("Judul 1: ...")
+          const decisionLog = logs.find(
+            (l) => l.action === 'MINTA_REVISI' || l.action === 'DITOLAK'
+          );
+          if (decisionLog && decisionLog.notes) {
+            options.forEach((opt) => {
+              const regex = new RegExp(
+                `Judul\\s*#?${opt.option_number}\\s*:\\s*([^\\n]+)`,
+                'i'
+              );
+              const m = decisionLog.notes!.match(regex);
+              if (m && m[1]) {
+                opt.revision_note = m[1].trim();
+              }
+            });
+          }
         } catch (err) {
           console.warn('Hydration error:', err);
         }
@@ -487,16 +591,53 @@ export const submissionService = {
    */
   async getComparableTitles(): Promise<{ title: string; submission_id: string }[]> {
     try {
-      const res = await databases.listDocuments({
-        databaseId: DATABASE_ID,
-        collectionId: COLLECTION_OPTIONS,
-        queries: [Query.limit(100)],
-      });
-      return res.documents.map((d: any) => ({
-        title: d.title,
-        submission_id: d.submission_id,
-      }));
-    } catch {
+      // 1. Fetch semua submissions -> map id ke status
+      const submissions: { $id: string; status: string }[] = [];
+      let cursor: string | undefined;
+      while (true) {
+        const queries = [Query.orderDesc('submitted_at'), Query.limit(100)];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const res = await databases.listDocuments({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_SUBMISSIONS,
+          queries,
+        });
+        submissions.push(...(res.documents as any[]));
+        if (res.documents.length < 100) break;
+        cursor = res.documents[res.documents.length - 1].$id;
+      }
+
+      const statusMap = new Map(submissions.map((s) => [s.$id, s.status]));
+
+      // 2. Fetch semua options -> exclude rejected/revision, dedupe judul
+      const titles: { title: string; submission_id: string }[] = [];
+      const seen = new Set<string>();
+      cursor = undefined;
+      while (true) {
+        const queries = [Query.orderAsc('option_number'), Query.limit(100)];
+        if (cursor) queries.push(Query.cursorAfter(cursor));
+        const res = await databases.listDocuments({
+          databaseId: DATABASE_ID,
+          collectionId: COLLECTION_OPTIONS,
+          queries,
+        });
+        for (const doc of res.documents as any[]) {
+          const status = statusMap.get(doc.submission_id);
+          if (status === 'rejected' || status === 'revision') continue;
+          const title = (doc.title || '').trim();
+          if (!title) continue;
+          const key = title.toLowerCase().replace(/\s+/g, ' ');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          titles.push({ title, submission_id: doc.submission_id });
+        }
+        if (res.documents.length < 100) break;
+        cursor = res.documents[res.documents.length - 1].$id;
+      }
+
+      return titles;
+    } catch (error: any) {
+      console.error('Failed to fetch comparable titles:', error);
       return [];
     }
   },

@@ -280,8 +280,13 @@ export default function DashboardScreen() {
                 <View style={styles.headerMetaItem}>
                   <Text style={styles.headerMetaLabel}>Status</Text>
                   <Text style={styles.headerMetaValueHL}>
-                    {activeSubmission.status === 'approved'
-                      ? 'Disahkan Kaprodi'
+                    {activeSubmission.status === 'approved' ||
+                    activeSubmission.status === 'sk_issued'
+                      ? 'SK Resmi Terbit'
+                      : activeSubmission.status === 'sk_process'
+                      ? 'Proses TTD Dekan'
+                      : activeSubmission.status === 'waiting_akademik'
+                      ? 'Menunggu Administrasi TU'
                       : activeSubmission.status === 'waiting_kaprodi'
                       ? 'Menunggu Kaprodi'
                       : activeSubmission.status === 'revision'
