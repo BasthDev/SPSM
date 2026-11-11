@@ -23,7 +23,8 @@ import {
   Clock,
   FileText,
   GraduationCap,
-  PlusCircle
+  PlusCircle,
+  RefreshCcw
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
@@ -515,6 +516,22 @@ export default function DashboardScreen() {
                         )}
                       </View>
                     </>
+                  )}
+
+                  {/* Resubmit shortcut untuk pengajuan yang ditolak / perlu revisi */}
+                  {(sub.status === 'revision' || sub.status === 'rejected') && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push(`/submission/create?resubmit=${sub.$id}` as any)
+                      }
+                      activeOpacity={0.7}
+                      style={styles.resubmitButton}
+                    >
+                      <RefreshCcw size={14} color="#FFFFFF" strokeWidth={2.4} />
+                      <Text style={styles.resubmitButtonText}>
+                        Ajukan Ulang dengan Data Sama
+                      </Text>
+                    </TouchableOpacity>
                   )}
 
                   {/* Card Action Link */}
@@ -1048,6 +1065,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: Colors.primary,
+  },
+
+  resubmitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  resubmitButtonText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 
   // Revision/Rejection Option Styles

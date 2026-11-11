@@ -1,40 +1,40 @@
-import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
+  AppHeader,
+  Button,
+  Input,
+  LoadingScreen,
+  Section,
+  Select,
+  Stepper,
+} from '@/components';
+import type { LecturerItem, OptionFormData } from '@/models/types';
+import { academicService } from '@/services/academicService';
+import { authService } from '@/services/authService';
+import { checkTitleSimilarity, type TitleMatch } from '@/services/geminiService';
+import { settingsService } from '@/services/settingsService';
+import { submissionService } from '@/services/submissionService';
+import { Colors } from '@/theme/theme';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  AlertTriangle,
+  BookMarked,
+  CheckCircle2,
+  FileCheck2,
+  GraduationCap,
+  Info,
+  Lightbulb,
+  TableProperties,
+} from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import {
-  AppHeader,
-  Section,
-  Input,
-  Button,
-  Stepper,
-  Select,
-  LoadingScreen,
-} from '@/components';
-import { authService } from '@/services/authService';
-import { submissionService } from '@/services/submissionService';
-import { academicService } from '@/services/academicService';
-import { settingsService } from '@/services/settingsService';
-import { checkTitleSimilarity, type TitleMatch } from '@/services/geminiService';
-import type { OptionFormData, LecturerItem } from '@/models/types';
-import { Colors } from '@/theme/theme';
-import {
-  Lightbulb,
-  FileCheck2,
-  BookMarked,
-  TableProperties,
-  GraduationCap,
-  AlertTriangle,
-  Info,
-  CheckCircle2,
-} from 'lucide-react-native';
 
 const STEP_LABELS = ['Judul 1', 'Judul 2', 'Judul 3', 'Dosen', 'Kirim'];
 
@@ -63,6 +63,7 @@ const emptyTitle = (): TitleForm => ({
 
 export default function CreateSubmissionScreen() {
   const router = useRouter();
+  const { resubmit } = useLocalSearchParams<{ resubmit?: string }>();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -84,6 +85,7 @@ export default function CreateSubmissionScreen() {
     emptyTitle(),
     emptyTitle(),
   ]);
+  const [resubmitSource, setResubmitSource] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -115,7 +117,49 @@ export default function CreateSubmissionScreen() {
             l.is_active
           );
         });
-        setLecturers(deptLecs.length > 0 ? deptLecs : allLecs);
+        const availableLecs = deptLecs.length > 0 ? deptLecs : allLecs;
+        setLecturers(availableLecs);
+
+        // Prefill dari pengajuan sebelumnya (mode ajukan ulang)
+        if (resubmit && active) {
+          try {
+            const prev = await submissionService.getSubmissionWithDetails(resubmit);
+            if (
+              prev &&
+              prev.student_id === acct.$id &&
+              (prev.status === 'revision' || prev.status === 'rejected')
+            ) {
+              const sortedOpts = [...(prev.options || [])].sort(
+                (a, b) => a.option_number - b.option_number
+              );
+              const prefilled = [emptyTitle(), emptyTitle(), emptyTitle()];
+              sortedOpts.slice(0, 3).forEach((opt, i) => {
+                prefilled[i] = {
+                  title: opt.title || '',
+                  background: opt.background || '',
+                  journalTitle: opt.journal_title || '',
+                  journalAuthor: opt.journal_author || '',
+                  journalYear: opt.journal_year || '',
+                  relevanceVariable: opt.relevance_variable || '',
+                  relevanceMethodology: opt.relevance_methodology || '',
+                  relevanceNote: opt.relevance_note || '',
+                };
+              });
+              setTitles(prefilled);
+
+              // Prefill calon pembimbing jika dosen masih terdaftar
+              const lecIds = new Set(availableLecs.map((l) => l.$id));
+              const p1 = prev.preferredAdvisor1?.$id;
+              const p2 = prev.preferredAdvisor2?.$id;
+              if (p1 && lecIds.has(p1)) setPreferredAdvisor1(p1);
+              if (p2 && lecIds.has(p2)) setPreferredAdvisor2(p2);
+
+              setResubmitSource(prev.$id);
+            }
+          } catch (prefillErr) {
+            console.warn('Gagal memuat data pengajuan sebelumnya:', prefillErr);
+          }
+        }
 
         // Check if student has previous revision or rejected submission
         const latestSub = pastSubs[0];
@@ -136,6 +180,7 @@ export default function CreateSubmissionScreen() {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   if (initialLoading) {
@@ -278,7 +323,7 @@ export default function CreateSubmissionScreen() {
         preferredAdvisor2
       );
 
-      Alert.alert('Berhasil! 🎉', 'Pengajuan proposal 3 opsi judul skripsi berhasil dikirim.', [
+      Alert.alert('Berhasil!', 'Pengajuan proposal 3 opsi judul skripsi berhasil dikirim.', [
         { text: 'Buka Dashboard', onPress: () => router.replace('/dashboard') },
       ]);
     } catch (e: any) {
@@ -582,6 +627,21 @@ export default function CreateSubmissionScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* Banner mode pengajuan ulang */}
+        {resubmitSource && (
+          <View style={styles.exemptionBanner}>
+            <CheckCircle2 size={18} color="#059669" strokeWidth={2.2} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.exemptionBannerTitle}>Mode Pengajuan Ulang</Text>
+              <Text style={styles.exemptionBannerSub}>
+                Data dari pengajuan sebelumnya (judul, latar belakang, jurnal, dan calon
+                pembimbing) sudah terisi otomatis. Silakan perbaiki sesuai catatan
+                penilaian.
+              </Text>
+            </View>
+          </View>
+        )}
 
         <Stepper steps={STEP_LABELS} currentStep={step} style={styles.stepper} />
 

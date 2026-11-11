@@ -109,10 +109,10 @@ function renderLecturersTable() {
               class="form-select w-full text-xs font-semibold h-8 ps-2.5 pe-8 bg-default border border-default rounded-lg text-default hover:border-primary focus:border-primary cursor-pointer shadow-2xs transition"
               onchange="changeLecturerRole('${lec.$id}', this.value)"
             >
-              <option value="lecturer" ${lec.role === 'lecturer' ? 'selected' : ''}>📘 Dosen Pembimbing</option>
-              <option value="reviewer" ${lec.role === 'reviewer' ? 'selected' : ''}>🔍 Dosen Penilai</option>
-              <option value="kaprodi" ${lec.role === 'kaprodi' ? 'selected' : ''}>⭐ Ketua Prodi</option>
-              <option value="admin" ${lec.role === 'admin' ? 'selected' : ''}>🛡️ Administrator</option>
+              <option value="lecturer" ${lec.role === 'lecturer' ? 'selected' : ''}>Dosen Pembimbing</option>
+              <option value="reviewer" ${lec.role === 'reviewer' ? 'selected' : ''}>Dosen Penilai</option>
+              <option value="kaprodi" ${lec.role === 'kaprodi' ? 'selected' : ''}>Ketua Prodi</option>
+              <option value="admin" ${lec.role === 'admin' ? 'selected' : ''}>Administrator</option>
             </select>
           </div>
         </td>

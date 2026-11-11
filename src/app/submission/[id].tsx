@@ -696,6 +696,17 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                 'Usulan judul ini telah ditolak. Anda dapat membuat pengajuan baru melalui halaman Dashboard.'}
             </Text>
           </View>
+
+          {(submission.status === 'revision' || submission.status === 'rejected') && (
+            <Button
+              title="Ajukan Ulang dengan Data Sama"
+              onPress={() =>
+                router.push(`/submission/create?resubmit=${submission.$id}` as any)
+              }
+              variant="primary"
+              style={{ marginTop: 14 }}
+            />
+          )}
         </Section>
 
         {/* 3. DETAIL DOSEN PEMBIMBING */}

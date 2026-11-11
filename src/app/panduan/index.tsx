@@ -117,11 +117,19 @@ export default function PanduanScreen() {
     },
     {
       question: 'Apa yang harus dilakukan jika diminta revisi?',
-      answer: 'Periksa catatan revisi dari Dosen Penilai di halaman detail pengajuan, perbaiki judul yang diminta, lalu klik "Ajukan Ulang" untuk mengirimkan revisi.',
+      answer: 'Periksa catatan revisi per judul dari Dosen Penilai di halaman detail, lalu tekan "Ajukan Ulang dengan Data Sama" — seluruh data (judul, latar belakang, jurnal, tabel relevansi, calon pembimbing) otomatis terisi dan tinggal diperbaiki sesuai catatan.',
     },
     {
-      question: 'Bisakah saya mengajukan judul baru setelah ditolak?',
-      answer: 'Ya, Anda dapat membuat pengajuan baru dengan judul yang berbeda. Pastikan judul baru tidak melanggar kebijakan akademik.',
+      question: 'Bagaimana cara mengajukan ulang setelah ditolak?',
+      answer: 'Tekan tombol "Ajukan Ulang dengan Data Sama" pada kartu pengajuan di dashboard atau di halaman detail. Form akan terisi otomatis dari data sebelumnya — Anda tinggal perbaiki lalu kirim ulang. Status revisi/ditolak memberi hak akses pengajuan kapan saja meski masa pengajuan ditutup.',
+    },
+    {
+      question: 'Apa itu cek kemiripan judul otomatis?',
+      answer: 'Saat submit, sistem membandingkan judul Anda dengan semua pengajuan aktif menggunakan kecocokan teks dan kecerdasan buatan (AI). Judul yang sangat mirip/sudah ada akan membatalkan pengajuan; yang mirip sebagian hanya menampilkan peringatan.',
+    },
+    {
+      question: 'Di mana saya upload file skripsi yang sudah jadi?',
+      answer: 'Bukan di halaman Skripsi Ku — upload dilakukan dari halaman detail pengajuan yang berstatus Disetujui. Setelah upload, file otomatis muncul di Skripsi Ku dan Repository.',
     },
     {
       question: 'Bagaimana cara mengunduh SK resmi?',
@@ -202,8 +210,9 @@ export default function PanduanScreen() {
                 dan menerima informasi pengesahan dari Dosen Penilai dan Kaprodi secara real-time.
               </Text>
               <Text style={styles.sectionContent}>
-                Fitur utama meliputi: pengajuan judul, tracking status, notifikasi,
-                unduh dokumen SK, upload & baca file skripsi (Skripsi Ku), dan repository file.
+                Fitur utama meliputi: pengajuan judul dengan cek kemiripan otomatis,
+                tracking status, pilihan calon pembimbing, notifikasi,
+                unduh dokumen SK, upload & baca file skripsi, dan repository file.
               </Text>
             </AccordionItem>
 
@@ -322,9 +331,10 @@ export default function PanduanScreen() {
                     <Text style={styles.stepNumberText}>4</Text>
                   </View>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Susun 3 Opsi Judul</Text>
+                    <Text style={styles.stepTitle}>Susun 3 Opsi Judul + Tabel Relevansi</Text>
                     <Text style={styles.stepDesc}>
-                      Tulis 3 usulan judul skripsi beserta latar belakang, rumusan masalah, dan jurnal referensi.
+                      Tulis 3 usulan judul beserta latar belakang, jurnal acuan (judul, penulis,
+                      tahun terbit), dan tabel relevansi penelitian (variabel, metodologi, kesesuaian).
                     </Text>
                   </View>
                 </View>
@@ -333,11 +343,63 @@ export default function PanduanScreen() {
                     <Text style={styles.stepNumberText}>5</Text>
                   </View>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Submit Pengajuan</Text>
+                    <Text style={styles.stepTitle}>Pilih 2 Calon Dosen Pembimbing</Text>
                     <Text style={styles.stepDesc}>
-                      Periksa kembali semua data dan klik submit. Anda akan menerima nomor dokumen.
+                      Pilih dosen prioritas 1 dan 2 sebagai referensi awal bagi Reviewer
+                      dan Kaprodi dalam menetapkan pembimbing.
                     </Text>
                   </View>
+                </View>
+                <View style={styles.stepItem}>
+                  <View style={styles.stepNumber}>
+                    <Text style={styles.stepNumberText}>6</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Submit Pengajuan</Text>
+                    <Text style={styles.stepDesc}>
+                      Sistem otomatis memeriksa kemiripan judul Anda dengan pengajuan lain.
+                      Jika ada judul yang sangat mirip, pengajuan akan dibatalkan; jika mirip
+                      sebagian, Anda bisa memilih untuk tetap mengajukan atau memperbaiki.
+                      Setelah lolos, Anda akan menerima nomor dokumen.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </AccordionItem>
+
+            {/* Cek Kemiripan Judul */}
+            <AccordionItem
+              title="Cek Kemiripan Judul Otomatis"
+              subtitle="Sistem mencegah judul duplikat & mirip"
+              icon={<AlertTriangle size={22} color="#7C3AED" strokeWidth={2} />}
+              iconBgColor="#F5F3FF"
+            >
+              <Text style={styles.sectionContent}>
+                Saat Anda menekan Kirim Pengajuan, sistem memeriksa 3 judul Anda terhadap
+                seluruh pengajuan yang masih aktif di kampus — secara teks (judul identik
+                atau hampir sama) dan menggunakan kecerdasan buatan untuk menilai kemiripan topik.
+              </Text>
+              <View style={styles.tipList}>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Sangat mirip / sudah ada:</Text> pengajuan dibatalkan
+                    dan ditampilkan judul yang menjadi kemiripan — perbaiki lalu ajukan kembali
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Mirip sebagian:</Text> muncul peringatan kuning —
+                    Anda bisa &ldquo;Tetap Ajukan&rdquo; atau &ldquo;Kembali & Perbaiki&rdquo;
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Judul pada pengajuan yang sudah ditolak/diminta revisi tidak ikut dicek,
+                    jadi Anda aman mengajukan ulang judul yang sama
+                  </Text>
                 </View>
               </View>
             </AccordionItem>
@@ -419,31 +481,28 @@ export default function PanduanScreen() {
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Periksa catatan revisi dari Dosen Penilai di halaman detail pengajuan
+                    Periksa catatan revisi per judul dari Dosen Penilai di halaman detail pengajuan
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Perbaiki judul yang diminta revisi sesuai catatan
+                    Tekan tombol <Text style={styles.boldText}>&ldquo;Ajukan Ulang dengan Data Sama&rdquo;</Text> —
+                    judul, latar belakang, jurnal, tabel relevansi, dan calon pembimbing
+                    otomatis terisi dari pengajuan sebelumnya
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Update latar belakang dan rumusan masalah jika diperlukan
+                    Perbaiki bagian yang diminta revisi, lalu lanjutkan hingga kirim ulang
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Klik &ldquo;Ajukan Ulang&rdquo; untuk mengirimkan revisi
-                  </Text>
-                </View>
-                <View style={styles.tipItem}>
-                  <Text style={styles.tipBullet}>•</Text>
-                  <Text style={styles.tipText}>
-                    Tunggu review ulang dari Dosen Penilai
+                    Anda bisa mengajukan kapan saja — status revisi/ditolak memberikan hak akses khusus
+                    meskipun masa pengajuan sedang ditutup
                   </Text>
                 </View>
               </View>
@@ -460,25 +519,66 @@ export default function PanduanScreen() {
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Periksa alasan penolakan di halaman detail pengajuan
+                    Periksa alasan penolakan per judul di halaman detail pengajuan
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Buat pengajuan baru dengan judul yang lebih sesuai
+                    Tekan <Text style={styles.boldText}>&ldquo;Ajukan Ulang dengan Data Sama&rdquo;</Text> untuk
+                    memulai dari data lama, atau mulai baru dari tombol Pengajuan Judul
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
-                    Pastikan judul tidak melanggar kebijakan akademik
+                    Buat judul yang lebih spesifik dan sesuai kebijakan akademik
                   </Text>
                 </View>
                 <View style={styles.tipItem}>
                   <Text style={styles.tipBullet}>•</Text>
                   <Text style={styles.tipText}>
                     Konsultasikan dengan Dosen Pembimbing jika diperlukan
+                  </Text>
+                </View>
+              </View>
+            </AccordionItem>
+
+            {/* Upload Skripsi Setelah Disetujui */}
+            <AccordionItem
+              title="Upload File Skripsi Setelah Disetujui"
+              subtitle="Naskah akhir dari halaman detail pengajuan"
+              icon={<FileText size={22} color="#059669" strokeWidth={2} />}
+              iconBgColor="#ECFDF5"
+            >
+              <Text style={styles.sectionContent}>
+                Setelah pengajuan judul Anda disahkan (status Disetujui), halaman detail
+                pengajuan menampilkan form upload file skripsi — bukan di halaman Skripsi Ku.
+              </Text>
+              <View style={styles.tipList}>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Buka detail pengajuan yang berstatus Disetujui → scroll ke bagian Upload File Skripsi
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Pilih file PDF naskah akhir Anda — format lain akan ditolak
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    File otomatis terhubung ke pengajuan Anda dan muncul di halaman Skripsi Ku
+                    serta Repository
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    Anda bisa melihat, membuka, atau mengganti file kapan saja dari halaman detail
                   </Text>
                 </View>
               </View>
@@ -803,5 +903,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 18,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: Colors.text,
   },
 });
