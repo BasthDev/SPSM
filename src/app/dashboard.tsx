@@ -518,18 +518,25 @@ export default function DashboardScreen() {
                     </>
                   )}
 
-                  {/* Resubmit shortcut untuk pengajuan yang ditolak / perlu revisi */}
+                  {/* Resubmit shortcut — disabled jika ada pengajuan aktif lain */}
                   {(sub.status === 'revision' || sub.status === 'rejected') && (
                     <TouchableOpacity
                       onPress={() =>
+                        !activeSubmission &&
                         router.push(`/submission/create?resubmit=${sub.$id}` as any)
                       }
                       activeOpacity={0.7}
-                      style={styles.resubmitButton}
+                      disabled={Boolean(activeSubmission)}
+                      style={[
+                        styles.resubmitButton,
+                        activeSubmission && styles.resubmitButtonDisabled,
+                      ]}
                     >
                       <RefreshCcw size={14} color="#FFFFFF" strokeWidth={2.4} />
                       <Text style={styles.resubmitButtonText}>
-                        Ajukan Ulang dengan Data Sama
+                        {activeSubmission
+                          ? 'Pengajuan Aktif Berjalan'
+                          : 'Ajukan Ulang dengan Data Sama'}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -1076,6 +1083,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     marginTop: 10,
+  },
+  resubmitButtonDisabled: {
+    backgroundColor: '#94A3B8',
   },
   resubmitButtonText: {
     fontSize: 12.5,

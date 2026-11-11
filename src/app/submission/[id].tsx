@@ -6,7 +6,6 @@ import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ID } from 'react-native-appwrite';
 import {
   AlertTriangle,
   Award,
@@ -38,6 +37,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ID } from 'react-native-appwrite';
 
 export default function SubmissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -47,6 +47,7 @@ export default function SubmissionDetailScreen() {
   const [showSkModal, setShowSkModal] = useState(false);
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
   const [uploadingSkripsi, setUploadingSkripsi] = useState(false);
+  const [hasActiveSubmission, setHasActiveSubmission] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -59,6 +60,18 @@ export default function SubmissionDetailScreen() {
         const sub = await submissionService.getSubmissionWithDetails(id);
         if (!active) return;
         setSubmission(sub);
+
+        // Cek apakah mahasiswa punya pengajuan aktif lain (pending/waiting/approved)
+        try {
+          const acct = await account.get();
+          const allSubs = await submissionService.getStudentSubmissions(acct.$id);
+          const otherActive = allSubs.some(
+            (s) => s.$id !== id && s.status !== 'revision' && s.status !== 'rejected'
+          );
+          if (active) setHasActiveSubmission(otherActive);
+        } catch {
+          // abaikan — tombol resubmit tetap bisa dipakai
+        }
       } catch (e) {
         console.error('Failed to load submission details', e);
       } finally {
@@ -698,14 +711,27 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
           </View>
 
           {(submission.status === 'revision' || submission.status === 'rejected') && (
-            <Button
-              title="Ajukan Ulang dengan Data Sama"
-              onPress={() =>
-                router.push(`/submission/create?resubmit=${submission.$id}` as any)
-              }
-              variant="primary"
-              style={{ marginTop: 14 }}
-            />
+            <View style={{ marginTop: 14 }}>
+              <Button
+                title={
+                  hasActiveSubmission
+                    ? 'Pengajuan Aktif Berjalan'
+                    : 'Ajukan Ulang dengan Data Sama'
+                }
+                onPress={() =>
+                  !hasActiveSubmission &&
+                  router.push(`/submission/create?resubmit=${submission.$id}` as any)
+                }
+                variant="primary"
+                disabled={hasActiveSubmission}
+              />
+              {hasActiveSubmission && (
+                <Text style={styles.resubmitDisabledNote}>
+                  Anda sudah memiliki pengajuan yang sedang diproses. Ajukan ulang
+                  dapat dilakukan setelah pengajuan tersebut ditolak.
+                </Text>
+              )}
+            </View>
           )}
         </Section>
 
@@ -2253,5 +2279,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: Colors.textSecondary,
+  },
+  resubmitDisabledNote: {
+    fontSize: 11.5,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 16,
   },
 });

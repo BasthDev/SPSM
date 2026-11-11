@@ -167,8 +167,21 @@ export default function CreateSubmissionScreen() {
           latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected');
         setIsSpecialExemption(Boolean(hasExemption));
 
-        const checkPeriod = settingsService.isPeriodOpen(sysSettings);
-        setPeriodStatus(checkPeriod);
+        // Blokir jika masih ada pengajuan aktif (pending/waiting/approved)
+        const hasActive = pastSubs.some(
+          (s) => s.status !== 'revision' && s.status !== 'rejected'
+        );
+        if (hasActive) {
+          setPeriodStatus({
+            isOpen: false,
+            reason:
+              'Anda masih memiliki pengajuan judul yang sedang diproses. Ajukan pengajuan baru setelah pengajuan tersebut selesai atau ditolak.',
+          });
+          setIsSpecialExemption(false);
+        } else {
+          const checkPeriod = settingsService.isPeriodOpen(sysSettings);
+          setPeriodStatus(checkPeriod);
+        }
       } catch (err) {
         console.error('Failed to initialize submission form', err);
       } finally {
