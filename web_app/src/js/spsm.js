@@ -535,6 +535,24 @@ export const submissionService = {
     );
   },
 
+  /**
+   * Catatan bisa berbentuk string biasa atau object {opt1, opt2, opt3, general}.
+   * Format output mengikuti web lama: "Catatan Revisi per Judul:\nJudul 1: ..."
+   * agar mobile app bisa parse revision_note per opsi.
+   */
+  _buildStructuredNotes(kind, notes) {
+    if (typeof notes === 'string') return notes;
+    if (!notes || typeof notes !== 'object') return '';
+    const label = kind === 'revisi' ? 'Catatan Revisi per Judul' : 'Catatan Penolakan per Judul';
+    const fallback = kind === 'revisi' ? 'Perlu perbaikan rumusan masalah.' : 'Tidak memenuhi kualifikasi penelitian.';
+    let text = `${label}:\n`;
+    text += `Judul 1: ${notes.opt1 || fallback}\n`;
+    text += `Judul 2: ${notes.opt2 || fallback}\n`;
+    text += `Judul 3: ${notes.opt3 || fallback}`;
+    if (notes.general) text += `\n\nCatatan Tambahan: ${notes.general}`;
+    return text;
+  },
+
   async requestRevision(submissionId, actorName, notes) {
     await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
@@ -551,19 +569,45 @@ export const submissionService = {
         submission_id: submissionId,
         actor_id: actorName,
         action: 'MINTA_REVISI',
-        notes: notes || 'Proposal memerlukan perbaikan dari mahasiswa.',
+        notes: this._buildStructuredNotes('revisi', notes) || 'Proposal memerlukan perbaikan dari mahasiswa.',
         created_at: new Date().toISOString(),
       }
     );
   },
 
-  async rejectSubmission(submissionId, actorName, notes) {
+  async rejectSubmission(submissionId, actorName, notes, advisorId) {
+    // Unmark semua opsi terpilih
+    try {
+      const optRes = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.submissionOptions,
+        [Query.equal('submission_id', submissionId)]
+      );
+      for (const opt of optRes.documents) {
+        if (opt.is_selected_by_lecturer) {
+          await databases.updateDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collections.submissionOptions,
+            opt.$id,
+            { is_selected_by_lecturer: false }
+          );
+        }
+      }
+    } catch {}
+
     await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.thesisSubmissions,
       submissionId,
       { status: 'rejected' }
     );
+
+    if (advisorId) {
+      const parts = advisorId.split(',').map((s) => s.trim()).filter(Boolean);
+      for (const adv of parts) {
+        await lecturerService.syncStudentCount(adv);
+      }
+    }
 
     await databases.createDocument(
       APPWRITE_CONFIG.databaseId,
@@ -573,10 +617,162 @@ export const submissionService = {
         submission_id: submissionId,
         actor_id: actorName,
         action: 'DITOLAK',
-        notes: notes || 'Pengajuan judul ditolak.',
+        notes: this._buildStructuredNotes('tolak', notes) || 'Pengajuan judul ditolak.',
         created_at: new Date().toISOString(),
       }
     );
+  },
+};
+
+export const settingsService = {
+  async getSettings() {
+    const DEFAULTS = {
+      is_active: true,
+      start_date: '',
+      end_date: '',
+      academic_year: '2025/2026 Ganjil',
+    };
+    try {
+      // 1. Coba collection system_settings khusus
+      const res = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        'system_settings',
+        [Query.limit(1)]
+      );
+      if (res.documents.length > 0) {
+        const doc = res.documents[0];
+        return {
+          is_active: Boolean(doc.is_active),
+          start_date: doc.start_date || DEFAULTS.start_date,
+          end_date: doc.end_date || DEFAULTS.end_date,
+          academic_year: doc.academic_year || DEFAULTS.academic_year,
+        };
+      }
+    } catch {}
+
+    // 2. Fallback: dokumen SETTINGS_SYS di collection departments
+    try {
+      const res = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.departments,
+        [Query.equal('code', 'SETTINGS_SYS'), Query.limit(1)]
+      );
+      if (res.documents.length > 0) {
+        try {
+          const parsed = JSON.parse(res.documents[0].name);
+          return {
+            is_active: Boolean(parsed.is_active),
+            start_date: parsed.start_date || DEFAULTS.start_date,
+            end_date: parsed.end_date || DEFAULTS.end_date,
+            academic_year: parsed.academic_year || DEFAULTS.academic_year,
+          };
+        } catch {
+          return DEFAULTS;
+        }
+      }
+      // Buat dokumen default jika belum ada
+      await databases.createDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.departments,
+        ID.unique(),
+        {
+          name: JSON.stringify(DEFAULTS),
+          code: 'SETTINGS_SYS',
+          faculty: 'SYSTEM',
+          is_active: true,
+        }
+      );
+      return DEFAULTS;
+    } catch (err) {
+      console.warn('getSettings failed, using defaults:', err);
+      return DEFAULTS;
+    }
+  },
+
+  async updateSettings(settings) {
+    // 1. Update system_settings jika collection ada
+    try {
+      const res = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        'system_settings',
+        [Query.limit(1)]
+      );
+      if (res.documents.length > 0) {
+        await databases.updateDocument(
+          APPWRITE_CONFIG.databaseId,
+          'system_settings',
+          res.documents[0].$id,
+          settings
+        );
+      }
+    } catch {}
+
+    // 2. Simpan ke dokumen SETTINGS_SYS di departments (sumber utama mobile app)
+    const res = await databases.listDocuments(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.departments,
+      [Query.equal('code', 'SETTINGS_SYS'), Query.limit(1)]
+    );
+    if (res.documents.length > 0) {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.departments,
+        res.documents[0].$id,
+        {
+          name: JSON.stringify(settings),
+          is_active: Boolean(settings.is_active),
+        }
+      );
+    } else {
+      await databases.createDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.departments,
+        ID.unique(),
+        {
+          name: JSON.stringify(settings),
+          code: 'SETTINGS_SYS',
+          faculty: 'SYSTEM',
+          is_active: Boolean(settings.is_active),
+        }
+      );
+    }
+    return settings;
+  },
+};
+
+export const repoService = {
+  async listAllFiles() {
+    const files = [];
+    let cursor;
+    for (let page = 0; page < 20; page++) {
+      const queries = [Query.limit(50), Query.orderDesc('$createdAt')];
+      if (cursor) queries.push(Query.cursorAfter(cursor));
+      const res = await storage.listFiles(APPWRITE_CONFIG.storageBucketId, queries);
+      const docs = res.files || [];
+      if (docs.length === 0) break;
+      files.push(...docs);
+      if (docs.length < 50) break;
+      cursor = docs[docs.length - 1].$id;
+    }
+    return files;
+  },
+
+  getFileViewUrl(fileId) {
+    if (!fileId) return '#';
+    try {
+      return storage.getFileView(APPWRITE_CONFIG.storageBucketId, fileId).toString();
+    } catch {
+      return '#';
+    }
+  },
+
+  getFileDownloadUrl(fileId) {
+    if (!fileId) return '#';
+    try {
+      return storage.getFileDownload(APPWRITE_CONFIG.storageBucketId, fileId).toString();
+    } catch {
+      return '#';
+    }
   },
 };
 
@@ -612,5 +808,57 @@ export const masterDataService = {
     } catch {
       return [];
     }
+  },
+
+  async createDepartment(data) {
+    return await databases.createDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.departments,
+      ID.unique(),
+      data
+    );
+  },
+
+  async updateDepartment(id, data) {
+    return await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.departments,
+      id,
+      data
+    );
+  },
+
+  async deleteDepartment(id) {
+    return await databases.deleteDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.departments,
+      id
+    );
+  },
+
+  async createBatchYear(data) {
+    return await databases.createDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.batchYears,
+      ID.unique(),
+      data
+    );
+  },
+
+  async updateBatchYear(id, data) {
+    return await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.batchYears,
+      id,
+      data
+    );
+  },
+
+  async deleteBatchYear(id) {
+    return await databases.deleteDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.batchYears,
+      id
+    );
   },
 };

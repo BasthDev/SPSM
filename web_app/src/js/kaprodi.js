@@ -268,4 +268,110 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Minta Revisi / Tolak via modal catatan per-judul
+  const btnRevision = document.getElementById('btn-kaprodi-revision');
+  if (btnRevision) {
+    btnRevision.addEventListener('click', () => openDecisionModal('revisi'));
+  }
+  const btnReject = document.getElementById('btn-kaprodi-reject');
+  if (btnReject) {
+    btnReject.addEventListener('click', () => openDecisionModal('tolak'));
+  }
+
+  const btnConfirmDecision = document.getElementById('btn-confirm-decision');
+  if (btnConfirmDecision) {
+    btnConfirmDecision.addEventListener('click', async () => {
+      if (!selectedSubmission || !pendingDecisionType) return;
+
+      const notes = collectDecisionNotes();
+      const hasAnyNote = notes.opt1 || notes.opt2 || notes.opt3 || notes.general;
+      if (!hasAnyNote) {
+        alert('Isi minimal satu catatan evaluasi!');
+        return;
+      }
+
+      btnConfirmDecision.disabled = true;
+      btnConfirmDecision.innerText = 'Mengirim...';
+      try {
+        const advisorId = selectedSubmission.advisor_id || '';
+        if (pendingDecisionType === 'revisi') {
+          await submissionService.requestRevision(selectedSubmission.$id, currentKaprodiName, notes);
+          showToast('Status berhasil diubah menjadi Perlu Revisi.');
+        } else {
+          await submissionService.rejectSubmission(selectedSubmission.$id, currentKaprodiName, notes, advisorId);
+          showToast('Pengajuan resmi ditolak.');
+        }
+        closeDecisionModal();
+        closeKaprodiModal();
+        init();
+      } catch (err) {
+        showToast(`Gagal: ${err.message}`, true);
+      } finally {
+        btnConfirmDecision.disabled = false;
+        btnConfirmDecision.innerText = 'Kirim Keputusan';
+      }
+    });
+  }
 });
+
+// ============ Decision Modal (catatan per opsi judul) ============
+
+let pendingDecisionType = null; // 'revisi' | 'tolak'
+
+function openDecisionModal(type) {
+  if (!selectedSubmission) return;
+  pendingDecisionType = type;
+
+  const isRevision = type === 'revisi';
+  document.getElementById('decision-modal-title').innerText = isRevision
+    ? 'Catatan Permintaan Revisi per Judul'
+    : 'Catatan Penolakan per Judul';
+  document.getElementById('decision-modal-subhead').innerText =
+    `${selectedSubmission.student?.name || 'Mahasiswa'} • ${selectedSubmission.options?.length || 0} opsi judul`;
+
+  const container = document.getElementById('decision-options-container');
+  const options = [...(selectedSubmission.options || [])].sort(
+    (a, b) => (a.option_number || 0) - (b.option_number || 0)
+  );
+
+  container.innerHTML = options
+    .map(
+      (opt, i) => `
+    <div class="p-3 rounded-xl border border-default bg-subtle space-y-1.5">
+      <div class="text-xs font-bold text-default">Opsi ${opt.option_number ?? i + 1}</div>
+      <div class="text-[11px] text-muted line-clamp-2">${opt.title || '-'}</div>
+      <textarea
+        id="decision-note-${i}"
+        rows="2"
+        class="form-control text-xs w-full p-2 border-default rounded-lg bg-default"
+        placeholder="${isRevision ? 'Apa yang perlu diperbaiki untuk judul ini?' : 'Alasan penolakan untuk judul ini...'}"
+      ></textarea>
+    </div>`
+    )
+    .join('');
+
+  document.getElementById('decision-general-notes').value = '';
+  const confirmBtn = document.getElementById('btn-confirm-decision');
+  confirmBtn.style.backgroundColor = isRevision ? '' : '#DC2626';
+  confirmBtn.innerText = isRevision ? 'Kirim Permintaan Revisi' : 'Kirim Penolakan';
+  document.getElementById('decision-modal').classList.remove('hidden');
+}
+
+window.closeDecisionModal = () => {
+  document.getElementById('decision-modal')?.classList.add('hidden');
+  pendingDecisionType = null;
+};
+
+function collectDecisionNotes() {
+  const fields = [...document.querySelectorAll('[id^="decision-note-"]')];
+  const sorted = fields
+    .map((el) => ({ idx: parseInt(el.id.split('-').pop(), 10), val: el.value.trim() }))
+    .sort((a, b) => a.idx - b.idx);
+  return {
+    opt1: sorted[0]?.val || '',
+    opt2: sorted[1]?.val || '',
+    opt3: sorted[2]?.val || '',
+    general: document.getElementById('decision-general-notes')?.value.trim() || '',
+  };
+}

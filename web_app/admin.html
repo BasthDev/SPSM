@@ -73,8 +73,9 @@
   {{! TAB 2: PRODI & ANGKATAN }}
   <div id="admintab-masterdata" class="admin-tab-section hidden grid grid-cols-1 md:grid-cols-2 gap-6">
     <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
-      <div class="p-4 border-b border-default bg-subtle">
+      <div class="p-4 border-b border-default bg-subtle flex items-center justify-between">
         <h3 class="text-xs font-bold text-default uppercase tracking-wider">Daftar Program Studi</h3>
+        <button type="button" id="btn-add-dept" class="btn btn-primary text-[11px] font-bold py-1 px-2.5 rounded-lg">+ Tambah Prodi</button>
       </div>
       <div class="p-4 overflow-x-auto">
         <table class="table w-full text-xs">
@@ -83,18 +84,20 @@
               <th class="py-2">Kode</th>
               <th class="py-2">Nama Program Studi</th>
               <th class="py-2">Fakultas</th>
+              <th class="py-2 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody id="dept-table-body" class="divide-y divide-default">
-            <tr><td colspan="3" class="py-4 text-center text-muted">Memuat prodi...</td></tr>
+            <tr><td colspan="4" class="py-4 text-center text-muted">Memuat prodi...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
     <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
-      <div class="p-4 border-b border-default bg-subtle">
+      <div class="p-4 border-b border-default bg-subtle flex items-center justify-between">
         <h3 class="text-xs font-bold text-default uppercase tracking-wider">Daftar Tahun Angkatan</h3>
+        <button type="button" id="btn-add-batch" class="btn btn-primary text-[11px] font-bold py-1 px-2.5 rounded-lg">+ Tambah Angkatan</button>
       </div>
       <div class="p-4 overflow-x-auto">
         <table class="table w-full text-xs">
@@ -102,10 +105,11 @@
             <tr class="border-b border-default text-muted text-[11px]">
               <th class="py-2">Tahun</th>
               <th class="py-2">Label Angkatan</th>
+              <th class="py-2 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody id="batch-table-body" class="divide-y divide-default">
-            <tr><td colspan="2" class="py-4 text-center text-muted">Memuat angkatan...</td></tr>
+            <tr><td colspan="3" class="py-4 text-center text-muted">Memuat angkatan...</td></tr>
           </tbody>
         </table>
       </div>
@@ -121,9 +125,16 @@
       </div>
 
       <div class="space-y-3 pt-2">
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-default bg-subtle cursor-pointer">
+          <input type="checkbox" id="setting-is-active" class="size-4 accent-primary" />
+          <div>
+            <div class="text-xs font-bold text-default">Masa Pengajuan Aktif</div>
+            <div class="text-[11px] text-muted">Matikan untuk menutup sementara semua pengajuan baru dari mahasiswa</div>
+          </div>
+        </label>
         <div>
           <label class="block text-xs font-bold text-default mb-1">Tahun Ajaran / Semester</label>
-          <input type="text" id="setting-academic-year" value="2025/2026 Ganjil" class="form-control text-xs w-full h-9 border-default rounded-lg" />
+          <input type="text" id="setting-academic-year" class="form-control text-xs w-full h-9 border-default rounded-lg" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -141,6 +152,87 @@
         <button type="button" id="btn-save-settings" class="btn btn-primary text-xs font-bold py-2 px-4">
           Simpan Pengaturan
         </button>
+      </div>
+    </div>
+  </div>
+
+  {{! Modal Tambah / Edit Prodi }}
+  <div id="dept-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="card w-full max-w-md bg-default shadow-2xl border border-default rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 bg-primary text-white border-b border-default">
+        <h3 class="text-sm font-bold text-white" id="dept-modal-title">Tambah Program Studi</h3>
+        <button type="button" class="btn btn-icon size-8 text-white/80 hover:text-white bg-white/10 rounded-lg cursor-pointer" onclick="closeDeptModal()">✕</button>
+      </div>
+      <form id="dept-form" class="p-6 space-y-3.5">
+        <input type="hidden" id="form-dept-id" />
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Kode Prodi *</label>
+          <input type="text" id="form-dept-code" class="form-control text-xs w-full h-9 border-default rounded-lg font-mono uppercase" placeholder="TI, BD, SI..." required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Nama Program Studi *</label>
+          <input type="text" id="form-dept-name" class="form-control text-xs w-full h-9 border-default rounded-lg" placeholder="Teknik Informatika" required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Fakultas</label>
+          <input type="text" id="form-dept-faculty" class="form-control text-xs w-full h-9 border-default rounded-lg" placeholder="Fakultas Teknik" />
+        </div>
+        <label class="flex items-center gap-2 text-xs font-semibold text-default">
+          <input type="checkbox" id="form-dept-active" class="size-4 accent-primary" checked /> Aktif
+        </label>
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-default">
+          <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeDeptModal()">Batal</button>
+          <button type="submit" class="btn btn-primary text-xs font-bold py-2 px-4">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{! Modal Tambah / Edit Angkatan }}
+  <div id="batch-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="card w-full max-w-md bg-default shadow-2xl border border-default rounded-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 bg-primary text-white border-b border-default">
+        <h3 class="text-sm font-bold text-white" id="batch-modal-title">Tambah Angkatan</h3>
+        <button type="button" class="btn btn-icon size-8 text-white/80 hover:text-white bg-white/10 rounded-lg cursor-pointer" onclick="closeBatchModal()">✕</button>
+      </div>
+      <form id="batch-form" class="p-6 space-y-3.5">
+        <input type="hidden" id="form-batch-id" />
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Tahun *</label>
+          <input type="number" id="form-batch-year" class="form-control text-xs w-full h-9 border-default rounded-lg" placeholder="2026" required />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Label Tampilan</label>
+          <input type="text" id="form-batch-label" class="form-control text-xs w-full h-9 border-default rounded-lg" placeholder="Angkatan 2026 (Gen 23)" />
+        </div>
+        <label class="flex items-center gap-2 text-xs font-semibold text-default">
+          <input type="checkbox" id="form-batch-active" class="size-4 accent-primary" checked /> Aktif
+        </label>
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-default">
+          <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeBatchModal()">Batal</button>
+          <button type="submit" class="btn btn-primary text-xs font-bold py-2 px-4">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{! Modal Hapus dengan Verifikasi Ketik Nama }}
+  <div id="delete-modal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="card w-full max-w-md bg-default shadow-2xl border border-default rounded-2xl overflow-hidden">
+      <div class="px-6 py-4 bg-rose-600 text-white border-b border-default">
+        <h3 class="text-sm font-bold text-white">Konfirmasi Hapus Data</h3>
+      </div>
+      <div class="p-6 space-y-3">
+        <p class="text-xs text-muted" id="delete-modal-desc">Data yang dihapus tidak dapat dipulihkan.</p>
+        <div>
+          <label class="block text-xs font-bold text-default mb-1">Ketik <span id="delete-modal-expected" class="font-mono text-rose-600"></span> untuk konfirmasi</label>
+          <input type="text" id="delete-modal-input" class="form-control text-xs w-full h-9 border-default rounded-lg" autocomplete="off" />
+        </div>
+        <div id="delete-modal-error" class="hidden text-[11px] font-semibold text-rose-600"></div>
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeDeleteModal()">Batal</button>
+          <button type="button" id="btn-confirm-delete" class="btn btn-primary text-xs font-bold py-2 px-4 bg-rose-600 hover:bg-rose-700" disabled>Hapus Permanen</button>
+        </div>
       </div>
     </div>
   </div>

@@ -114,6 +114,11 @@ window.openDossierModal = (sub) => {
             </div>`
                 : ''
             }
+            ${opt.journal_title || opt.journal_author || opt.journal_year ? `
+            <div class="text-[11px] text-muted">
+              <span class="font-semibold">Jurnal Acuan:</span>
+              ${opt.journal_title || '-'}${opt.journal_author ? ` — ${opt.journal_author}` : ''}${opt.journal_year ? ` (${opt.journal_year})` : ''}
+            </div>` : ''}
           </div>`;
         })
         .join('');

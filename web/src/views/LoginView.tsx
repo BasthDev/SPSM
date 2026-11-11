@@ -1,16 +1,13 @@
-import React, { useState } from 'react';
-import { authService } from '../services/authService';
 import {
+  AlertCircle,
+  ArrowRight,
   GraduationCap,
-  ShieldCheck,
   Lock,
   Mail,
-  ArrowRight,
-  AlertCircle,
-  CheckCircle,
-  HelpCircle,
-  Building2,
+  ShieldCheck
 } from 'lucide-react';
+import React, { useState } from 'react';
+import { authService } from '../services/authService';
 
 interface Props {
   onLoginSuccess: () => void;

@@ -50,6 +50,13 @@
       "icon": "trending-up",
       "href": "reports.html",
       "roles": ["admin", "kaprodi"]
+    },
+    {
+      "page": "repo",
+      "name": "Repository",
+      "icon": "folder",
+      "href": "repo.html",
+      "roles": ["admin", "reviewer", "kaprodi", "lecturer"]
     }
   ],
   "stats": [

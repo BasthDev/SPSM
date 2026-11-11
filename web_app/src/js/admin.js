@@ -1,15 +1,19 @@
-import { lecturerService, masterDataService, authService } from './spsm.js';
+import { lecturerService, masterDataService, settingsService } from './spsm.js';
 
 let lecturers = [];
 let departments = [];
 let batchYears = [];
 
+// State modal hapus generik
+let pendingDelete = null; // { type: 'lecturer'|'department'|'batch', id, expected }
+
 async function init() {
   try {
-    const [lecList, deptList, batchList] = await Promise.all([
+    const [lecList, deptList, batchList, settings] = await Promise.all([
       lecturerService.getLecturers(),
       masterDataService.getDepartments(),
       masterDataService.getBatchYears(),
+      settingsService.getSettings(),
     ]);
 
     lecturers = lecList;
@@ -19,6 +23,7 @@ async function init() {
     renderLecturersTable();
     renderDepartments();
     renderBatchYears();
+    fillSettingsForm(settings);
   } catch (err) {
     console.error('Admin init failed:', err);
   }
@@ -55,6 +60,8 @@ window.switchAdminTab = (tabName, btn) => {
   }
 };
 
+// ============ LECTURERS ============
+
 function renderLecturersTable() {
   const tbody = document.getElementById('lecturers-table-body');
   const countBadge = document.getElementById('lecturer-total-badge');
@@ -72,7 +79,6 @@ function renderLecturersTable() {
   });
 
   if (countBadge) countBadge.innerText = `Total: ${filtered.length} dosen`;
-
   if (!tbody) return;
 
   if (filtered.length === 0) {
@@ -123,14 +129,14 @@ function renderLecturersTable() {
           <button
             type="button"
             class="btn btn-outline-neutral text-xs py-1 px-2.5 rounded-lg"
-            onclick="editLecturer(${idx})"
+            onclick="editLecturer('${lec.$id}')"
           >
             Edit
           </button>
           <button
             type="button"
             class="btn btn-outline-neutral text-xs py-1 px-2 text-rose-600 hover:bg-rose-50 rounded-lg"
-            onclick="deleteLecturer('${lec.$id}', '${lec.name}')"
+            onclick="requestDelete('lecturer', '${lec.$id}', '${(lec.name || '').replace(/'/g, "\\'")}')"
           >
             Hapus
           </button>
@@ -138,8 +144,6 @@ function renderLecturersTable() {
       </tr>`;
     })
     .join('');
-
-  window.activeLecturerList = filtered;
 }
 
 window.changeLecturerRole = async (lecturerId, newRole) => {
@@ -151,8 +155,8 @@ window.changeLecturerRole = async (lecturerId, newRole) => {
   }
 };
 
-window.editLecturer = (idx) => {
-  const lec = window.activeLecturerList ? window.activeLecturerList[idx] : null;
+window.editLecturer = (id) => {
+  const lec = lecturers.find((l) => l.$id === id);
   if (!lec) return;
 
   document.getElementById('lecturer-modal-title').innerText = 'Edit Data Dosen';
@@ -172,16 +176,69 @@ window.closeLecturerModal = () => {
   document.getElementById('lecturer-modal').classList.add('hidden');
 };
 
-window.deleteLecturer = async (id, name) => {
-  if (!confirm(`Apakah Anda yakin ingin menghapus dosen "${name}"?`)) return;
-  try {
-    await lecturerService.deleteLecturer(id);
-    showToast(`Dosen "${name}" berhasil dihapus.`);
-    init();
-  } catch (err) {
-    showToast(`Gagal menghapus: ${err.message}`, true);
-  }
+// ============ DELETE VERIFICATION ============
+
+window.requestDelete = (type, id, displayName) => {
+  const labels = {
+    lecturer: 'data dosen',
+    department: 'program studi',
+    batch: 'data angkatan',
+  };
+  pendingDelete = { type, id, expected: displayName };
+
+  document.getElementById('delete-modal-desc').innerText =
+    `Anda akan menghapus ${labels[type] || 'data'} "${displayName}". Tindakan ini tidak dapat dibatalkan.`;
+  document.getElementById('delete-modal-expected').innerText = displayName;
+  document.getElementById('delete-modal-input').value = '';
+  document.getElementById('delete-modal-error').classList.add('hidden');
+  document.getElementById('btn-confirm-delete').disabled = true;
+  document.getElementById('delete-modal').classList.remove('hidden');
 };
+
+window.closeDeleteModal = () => {
+  document.getElementById('delete-modal').classList.add('hidden');
+  pendingDelete = null;
+};
+
+function setupDeleteModal() {
+  const input = document.getElementById('delete-modal-input');
+  const btn = document.getElementById('btn-confirm-delete');
+  if (!input || !btn) return;
+
+  input.addEventListener('input', () => {
+    const ok = pendingDelete && input.value.trim() === pendingDelete.expected;
+    btn.disabled = !ok;
+    btn.classList.toggle('opacity-50', !ok);
+    btn.classList.toggle('cursor-not-allowed', !ok);
+  });
+
+  btn.addEventListener('click', async () => {
+    if (!pendingDelete) return;
+    if (input.value.trim() !== pendingDelete.expected) {
+      const errEl = document.getElementById('delete-modal-error');
+      errEl.innerText = 'Teks konfirmasi tidak cocok.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    btn.disabled = true;
+    btn.innerText = 'Menghapus...';
+    try {
+      const { type, id } = pendingDelete;
+      if (type === 'lecturer') await lecturerService.deleteLecturer(id);
+      else if (type === 'department') await masterDataService.deleteDepartment(id);
+      else if (type === 'batch') await masterDataService.deleteBatchYear(id);
+      showToast('Data berhasil dihapus.');
+      closeDeleteModal();
+      init();
+    } catch (err) {
+      showToast(`Gagal menghapus: ${err.message}`, true);
+      btn.disabled = false;
+      btn.innerText = 'Hapus Permanen';
+    }
+  });
+}
+
+// ============ DEPARTMENTS ============
 
 function getValidDepartments() {
   return departments.filter(
@@ -202,24 +259,25 @@ function renderDepartments() {
 
   if (validDepts.length === 0) {
     tbody.innerHTML = `
-      <tr><td class="py-2.5 font-bold font-mono">TI</td><td>Teknik Informatika</td><td class="text-muted">Teknik</td></tr>
-      <tr><td class="py-2.5 font-bold font-mono">BD</td><td>Bisnis Digital</td><td class="text-muted">Ekonomi & Bisnis</td></tr>
-      <tr><td class="py-2.5 font-bold font-mono">SI</td><td>Sistem Informasi</td><td class="text-muted">Teknik</td></tr>`;
-    return;
+      <tr><td colspan="4" class="py-4 text-center text-muted italic">Belum ada data prodi.</td></tr>`;
+  } else {
+    tbody.innerHTML = validDepts
+      .map(
+        (d) => `
+      <tr class="hover:bg-subtle/50 transition-colors">
+        <td class="py-2.5 font-bold font-mono text-primary">${d.code}</td>
+        <td class="py-2.5 font-medium text-default">${d.name}</td>
+        <td class="py-2.5 text-muted">${d.faculty || '-'}</td>
+        <td class="py-2.5 text-center whitespace-nowrap space-x-1">
+          <button type="button" class="btn btn-outline-neutral text-[11px] py-0.5 px-2 rounded" onclick="editDepartment('${d.$id}')">Edit</button>
+          <button type="button" class="btn btn-outline-neutral text-[11px] py-0.5 px-2 rounded text-rose-600 hover:bg-rose-50" onclick="requestDelete('department', '${d.$id}', '${(d.code || '').replace(/'/g, "\\'")}')">Hapus</button>
+        </td>
+      </tr>`
+      )
+      .join('');
   }
 
-  tbody.innerHTML = validDepts
-    .map(
-      (d) => `
-    <tr class="hover:bg-subtle/50 transition-colors">
-      <td class="py-2.5 font-bold font-mono text-primary">${d.code}</td>
-      <td class="py-2.5 font-medium text-default">${d.name}</td>
-      <td class="py-2.5 text-muted">${d.faculty || '-'}</td>
-    </tr>`
-    )
-    .join('');
-
-  // Sync with lecturer modal department select
+  // Sync dengan select prodi di modal dosen
   const deptSelect = document.getElementById('form-lecturer-dept');
   if (deptSelect && validDepts.length > 0) {
     const curVal = deptSelect.value;
@@ -230,31 +288,92 @@ function renderDepartments() {
   }
 }
 
+window.openDeptModal = (dept) => {
+  document.getElementById('dept-modal-title').innerText = dept ? 'Edit Program Studi' : 'Tambah Program Studi';
+  document.getElementById('form-dept-id').value = dept ? dept.$id : '';
+  document.getElementById('form-dept-code').value = dept ? dept.code : '';
+  document.getElementById('form-dept-name').value = dept ? dept.name : '';
+  document.getElementById('form-dept-faculty').value = dept ? (dept.faculty || '') : '';
+  document.getElementById('form-dept-active').checked = dept ? dept.is_active !== false : true;
+  document.getElementById('dept-modal').classList.remove('hidden');
+};
+
+window.closeDeptModal = () => document.getElementById('dept-modal').classList.add('hidden');
+
+window.editDepartment = (id) => {
+  const d = getValidDepartments().find((x) => x.$id === id);
+  if (d) window.openDeptModal(d);
+};
+
+// ============ BATCH YEARS ============
+
 function renderBatchYears() {
   const tbody = document.getElementById('batch-table-body');
   if (!tbody) return;
 
   if (batchYears.length === 0) {
-    tbody.innerHTML = `
-      <tr><td class="py-2.5 font-bold font-mono">2026</td><td>Angkatan 2026 (Gen 23)</td></tr>
-      <tr><td class="py-2.5 font-bold font-mono">2025</td><td>Angkatan 2025 (Gen 22)</td></tr>
-      <tr><td class="py-2.5 font-bold font-mono">2024</td><td>Angkatan 2024 (Gen 21)</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-muted italic">Belum ada data angkatan.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = batchYears
     .map(
       (b) => `
-    <tr>
+    <tr class="hover:bg-subtle/50 transition-colors">
       <td class="py-2.5 font-bold font-mono">${b.year}</td>
       <td class="py-2.5">${b.label || `Angkatan ${b.year}`}</td>
+      <td class="py-2.5 text-center whitespace-nowrap space-x-1">
+        <button type="button" class="btn btn-outline-neutral text-[11px] py-0.5 px-2 rounded" onclick="editBatchYear('${b.$id}')">Edit</button>
+        <button type="button" class="btn btn-outline-neutral text-[11px] py-0.5 px-2 rounded text-rose-600 hover:bg-rose-50" onclick="requestDelete('batch', '${b.$id}', '${String(b.year).replace(/'/g, "\\'")}')">Hapus</button>
+      </td>
     </tr>`
     )
     .join('');
 }
 
+window.openBatchModal = (b) => {
+  document.getElementById('batch-modal-title').innerText = b ? 'Edit Angkatan' : 'Tambah Angkatan';
+  document.getElementById('form-batch-id').value = b ? b.$id : '';
+  document.getElementById('form-batch-year').value = b ? b.year : '';
+  document.getElementById('form-batch-label').value = b ? (b.label || '') : '';
+  document.getElementById('form-batch-active').checked = b ? b.is_active !== false : true;
+  document.getElementById('batch-modal').classList.remove('hidden');
+};
+
+window.closeBatchModal = () => document.getElementById('batch-modal').classList.add('hidden');
+
+window.editBatchYear = (id) => {
+  const b = batchYears.find((x) => x.$id === id);
+  if (b) window.openBatchModal(b);
+};
+
+// ============ SETTINGS ============
+
+function toDateInput(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return '';
+  }
+}
+
+function fillSettingsForm(settings) {
+  const activeEl = document.getElementById('setting-is-active');
+  const yearEl = document.getElementById('setting-academic-year');
+  const startEl = document.getElementById('setting-start-date');
+  const endEl = document.getElementById('setting-end-date');
+  if (activeEl) activeEl.checked = settings.is_active !== false;
+  if (yearEl) yearEl.value = settings.academic_year || '';
+  if (startEl) startEl.value = toDateInput(settings.start_date);
+  if (endEl) endEl.value = toDateInput(settings.end_date);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   init();
+  setupDeleteModal();
 
   const searchInput = document.getElementById('search-lecturer');
   if (searchInput) {
@@ -335,10 +454,85 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ---- Dept form ----
+  const deptForm = document.getElementById('dept-form');
+  if (deptForm) {
+    deptForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('form-dept-id').value;
+      const code = document.getElementById('form-dept-code').value.trim().toUpperCase();
+      const name = document.getElementById('form-dept-name').value.trim();
+      const faculty = document.getElementById('form-dept-faculty').value.trim();
+      const is_active = document.getElementById('form-dept-active').checked;
+      try {
+        if (id) {
+          await masterDataService.updateDepartment(id, { code, name, faculty, is_active });
+          showToast('Program studi diperbarui.');
+        } else {
+          await masterDataService.createDepartment({ code, name, faculty, is_active });
+          showToast('Program studi ditambahkan.');
+        }
+        closeDeptModal();
+        init();
+      } catch (err) {
+        showToast(`Gagal menyimpan prodi: ${err.message}`, true);
+      }
+    });
+  }
+
+  const btnAddDept = document.getElementById('btn-add-dept');
+  if (btnAddDept) btnAddDept.addEventListener('click', () => window.openDeptModal(null));
+
+  // ---- Batch form ----
+  const batchForm = document.getElementById('batch-form');
+  if (batchForm) {
+    batchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('form-batch-id').value;
+      const year = parseInt(document.getElementById('form-batch-year').value, 10);
+      const label = document.getElementById('form-batch-label').value.trim();
+      const is_active = document.getElementById('form-batch-active').checked;
+      if (!year) return;
+      try {
+        if (id) {
+          await masterDataService.updateBatchYear(id, { year, label, is_active });
+          showToast('Angkatan diperbarui.');
+        } else {
+          await masterDataService.createBatchYear({ year, label, is_active });
+          showToast('Angkatan ditambahkan.');
+        }
+        closeBatchModal();
+        init();
+      } catch (err) {
+        showToast(`Gagal menyimpan angkatan: ${err.message}`, true);
+      }
+    });
+  }
+
+  const btnAddBatch = document.getElementById('btn-add-batch');
+  if (btnAddBatch) btnAddBatch.addEventListener('click', () => window.openBatchModal(null));
+
+  // ---- Settings ----
   const saveSettingsBtn = document.getElementById('btn-save-settings');
   if (saveSettingsBtn) {
-    saveSettingsBtn.addEventListener('click', () => {
-      showToast('Pengaturan masa pendaftaran berhasil disimpan.');
+    saveSettingsBtn.addEventListener('click', async () => {
+      const payload = {
+        is_active: document.getElementById('setting-is-active')?.checked !== false,
+        academic_year: document.getElementById('setting-academic-year')?.value.trim() || '',
+        start_date: document.getElementById('setting-start-date')?.value || '',
+        end_date: document.getElementById('setting-end-date')?.value || '',
+      };
+      saveSettingsBtn.disabled = true;
+      saveSettingsBtn.innerText = 'Menyimpan...';
+      try {
+        await settingsService.updateSettings(payload);
+        showToast('Pengaturan masa pengajuan berhasil disimpan!');
+      } catch (err) {
+        showToast(`Gagal menyimpan pengaturan: ${err.message}`, true);
+      } finally {
+        saveSettingsBtn.disabled = false;
+        saveSettingsBtn.innerText = 'Simpan Pengaturan';
+      }
     });
   }
 });

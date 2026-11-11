@@ -1,0 +1,41 @@
+{{#> layout page="repo" title="Repository File Skripsi" script="repo"}}
+  <div class="mb-7 flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h2 class="text-2xl lg:text-3xl font-black text-default tracking-tight">Repository File Skripsi</h2>
+      <p class="text-xs text-muted mt-1">Seluruh naskah skripsi yang diupload mahasiswa melalui aplikasi</p>
+    </div>
+  </div>
+
+  <div class="card border border-default shadow-sm bg-default rounded-xl overflow-hidden">
+    <div class="p-4 border-b border-default bg-subtle flex flex-wrap items-center justify-between gap-3">
+      <div class="relative">
+        <input
+          type="search"
+          id="repo-search"
+          placeholder="Cari berdasarkan nama file..."
+          class="form-control text-xs h-8 ps-8 pe-3 w-64 border-default rounded-lg"
+        />
+        <div class="absolute inset-y-0 start-2.5 flex items-center pointer-events-none text-muted">
+          {{> icons/search size=13}}
+        </div>
+      </div>
+      <span class="text-xs text-muted" id="repo-count">Memuat...</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table w-full text-start text-xs border-collapse">
+        <thead class="bg-subtle border-b border-default text-muted font-bold uppercase tracking-wider text-[11px]">
+          <tr>
+            <th class="py-3 px-4">Nama File</th>
+            <th class="py-3 px-4">Ukuran</th>
+            <th class="py-3 px-4">Tanggal Upload</th>
+            <th class="py-3 px-4 text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="repo-table-body" class="divide-y divide-default">
+          <tr><td colspan="4" class="py-8 text-center text-muted">Memuat file...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+{{/layout}}

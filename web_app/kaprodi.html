@@ -136,16 +136,27 @@
         </div>
       </div>
 
-      <div class="px-6 py-4 bg-subtle border-t border-default flex items-center justify-between">
-        <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeKaprodiModal()">
-          Batal
-        </button>
-        <button type="button" id="btn-kaprodi-approve" class="btn btn-primary bg-emerald-700 hover:bg-emerald-800 border-none text-white text-xs font-bold py-2.5 px-5">
-          Sahkan & Terbitkan SK
-        </button>
+      <div class="px-6 py-4 bg-subtle border-t border-default flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <button type="button" id="btn-kaprodi-revision" class="btn btn-outline-neutral border-orange-300 text-orange-800 hover:bg-orange-50 text-xs font-bold py-2 px-3">
+            Minta Revisi
+          </button>
+          <button type="button" id="btn-kaprodi-reject" class="btn btn-outline-neutral border-rose-300 text-rose-800 hover:bg-rose-50 text-xs font-bold py-2 px-3">
+            Tolak Usulan
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="btn btn-outline-neutral text-xs py-2 px-3" onclick="closeKaprodiModal()">
+            Batal
+          </button>
+          <button type="button" id="btn-kaprodi-approve" class="btn btn-primary bg-emerald-700 hover:bg-emerald-800 border-none text-white text-xs font-bold py-2.5 px-5">
+            Sahkan & Terbitkan SK
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
   {{> dossier-modal}}
+  {{> decision-modal}}
 {{/layout}}
