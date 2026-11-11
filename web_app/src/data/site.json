@@ -54,7 +54,7 @@
     {
       "page": "repo",
       "name": "Repository",
-      "icon": "folder",
+      "icon": "description",
       "href": "repo.html",
       "roles": ["admin", "reviewer", "kaprodi", "lecturer"]
     }
