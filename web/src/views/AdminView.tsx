@@ -3,6 +3,7 @@ import { lecturerService } from '../services/lecturerService';
 import { masterDataService } from '../services/masterDataService';
 import { settingsService } from '../services/settingsService';
 import { submissionService } from '../services/submissionService';
+import { RepoBrowser } from '../components/RepoBrowser';
 import type { Lecturer, Department, BatchYear, SystemSettings, ThesisSubmission } from '../types';
 import {
   BarChart3,
@@ -27,10 +28,11 @@ import {
   Award,
   Layers,
   Lock,
+  FolderOpen,
 } from 'lucide-react';
 
 export const AdminView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'lecturers' | 'departments' | 'batch_years' | 'settings' | 'reports'>('lecturers');
+  const [activeTab, setActiveTab] = useState<'lecturers' | 'departments' | 'batch_years' | 'settings' | 'reports' | 'repository'>('lecturers');
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
   const [reportSearch, setReportSearch] = useState<string>('');
   const [reportDeptFilter, setReportDeptFilter] = useState<string>('all');
@@ -116,14 +118,19 @@ export const AdminView: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [lRes, dRes, bRes] = await Promise.all([
+      const [lRes, dRes, bRes, sRes] = await Promise.all([
         lecturerService.getLecturers(),
         masterDataService.getDepartments(),
         masterDataService.getBatchYears(),
+        submissionService.getAllSubmissions(),
       ]);
       setLecturers(lRes);
       setDepartments(dRes);
       setBatchYears(bRes);
+      setSubmissions(sRes);
+      setTotalVerifiedSubmissions(
+        submissionService.calculateTotalVerified(sRes)
+      );
       if (dRes.length > 0 && !lecturerForm.department_id) {
         setLecturerForm((prev) => ({ ...prev, department_id: dRes[0].code }));
       }
@@ -486,6 +493,20 @@ export const AdminView: React.FC = () => {
           >
             <Calendar size={16} />
             <span>Letting / Angkatan ({batchYears.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className={`tab-pill-btn ${activeTab === 'reports' ? 'active' : ''}`}
+          >
+            <BarChart3 size={16} />
+            <span>Laporan Kinerja</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('repository')}
+            className={`tab-pill-btn ${activeTab === 'repository' ? 'active' : ''}`}
+          >
+            <FolderOpen size={16} />
+            <span>Repository</span>
           </button>
         </div>
       </div>
@@ -867,6 +888,152 @@ export const AdminView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* TAB 4: LAPORAN KINERJA DOSEN */}
+      {activeTab === 'reports' && (
+        <div className="tab-content">
+          <div className="section-header">
+            <div>
+              <h2 className="page-title">Laporan Kinerja Dosen Pembimbing</h2>
+              <p className="page-desc">
+                Rekapitulasi mahasiswa yang dibimbing dan tingkat pemakaian kuota tiap dosen.
+              </p>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="filter-bar" style={{ marginBottom: 16 }}>
+            <div className="filter-group">
+              <Search size={15} className="text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari nama / NIP dosen..."
+                value={reportSearch}
+                onChange={(e) => setReportSearch(e.target.value)}
+                className="filter-select"
+                style={{ minWidth: 220 }}
+              />
+            </div>
+            <div className="filter-group">
+              <select
+                value={reportDeptFilter}
+                onChange={(e) => setReportDeptFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">Semua Program Studi</option>
+                {departments.map((d) => (
+                  <option key={d.$id} value={d.code}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="card table-card">
+            <div className="table-wrapper">
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Dosen</th>
+                    <th>Prodi</th>
+                    <th>Peran</th>
+                    <th className="text-center">Mhs Dibimbing (Approved)</th>
+                    <th className="text-center">Total Antrian</th>
+                    <th>Kuota</th>
+                    <th>Utilisasi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const roleLabel: Record<string, string> = {
+                      lecturer: 'Dosen Pembimbing',
+                      reviewer: 'Dosen Penilai',
+                      kaprodi: 'Kaprodi',
+                      admin: 'Admin',
+                    };
+                    const approvedSubs = submissions.filter((s) => s.status === 'approved');
+                    const activeSubs = submissions.filter(
+                      (s) => s.status === 'approved' || s.status === 'waiting_kaprodi'
+                    );
+                    const countFor = (subs: ThesisSubmission[], lecId: string) =>
+                      subs.filter((s) =>
+                        (s.advisor_id || '')
+                          .split(',')
+                          .map((x) => x.trim())
+                          .includes(lecId)
+                      ).length;
+
+                    const rows = lecturers.filter((l) => {
+                      const q = reportSearch.trim().toLowerCase();
+                      const matchSearch =
+                        !q ||
+                        l.name.toLowerCase().includes(q) ||
+                        (l.nip || '').toLowerCase().includes(q);
+                      const matchDept =
+                        reportDeptFilter === 'all' || l.department_id === reportDeptFilter;
+                      return matchSearch && matchDept;
+                    });
+
+                    if (rows.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={7} className="text-center py-6 text-muted">
+                            Tidak ada dosen yang cocok dengan filter.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return rows.map((l) => {
+                      const guided = countFor(approvedSubs, l.$id);
+                      const inPipeline = countFor(activeSubs, l.$id);
+                      const quota = l.quota || 10;
+                      const used = l.current_students || guided;
+                      const pct = Math.min(100, Math.round((used / quota) * 100));
+                      return (
+                        <tr key={l.$id}>
+                          <td>
+                            <div className="font-semibold text-slate-800">{l.name}</div>
+                            <div className="text-xs text-muted font-mono">NIP: {l.nip}</div>
+                          </td>
+                          <td className="text-xs text-slate-600">{l.department_id}</td>
+                          <td>
+                            <span className="dept-badge">{roleLabel[l.role] || l.role}</span>
+                          </td>
+                          <td className="text-center font-bold text-emerald-700">{guided}</td>
+                          <td className="text-center text-slate-600">{inPipeline}</td>
+                          <td className="text-xs text-slate-600 font-mono">
+                            {used} / {quota}
+                          </td>
+                          <td style={{ minWidth: 140 }}>
+                            <div className="quota-bar-wrapper">
+                              <div className="quota-bar-bg">
+                                <div
+                                  className="quota-bar-fill"
+                                  style={{
+                                    width: `${pct}%`,
+                                    backgroundColor:
+                                      pct >= 90 ? '#DC2626' : pct >= 70 ? '#D97706' : '#0A4C8F',
+                                  }}
+                                />
+                              </div>
+                              <span className="quota-info">{pct}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: REPOSITORY FILE */}
+      {activeTab === 'repository' && <RepoBrowser />}
 
       {/* MODAL 1: Tambah / Edit Dosen */}
       {isLecturerModalOpen && (

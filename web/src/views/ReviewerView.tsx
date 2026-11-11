@@ -491,13 +491,16 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                         </div>
                       )}
 
-                      {opt.journal_title ? (
+                      {(opt.journal_title || opt.journal_author || opt.journal_year) ? (
                         <div className="option-section mt-2">
                           <span className="option-label">Jurnal Acuan:</span>
                           <p className="option-journal">
-                            <strong>{opt.journal_title}</strong>
+                            <strong>{opt.journal_title || '-'}</strong>
                             <br />
-                            <span className="text-muted">Penulis: {opt.journal_author}</span>
+                            <span className="text-muted">
+                              Penulis: {opt.journal_author || '-'}
+                              {opt.journal_year ? ` • Tahun: ${opt.journal_year}` : ''}
+                            </span>
                           </p>
                         </div>
                       ) : null}

@@ -3,7 +3,7 @@ import { submissionService } from '../services/submissionService';
 import { lecturerService } from '../services/lecturerService';
 import { StatusBadge } from '../components/StatusBadge';
 import { SubmissionDetailModal } from '../components/SubmissionDetailModal';
-import type { ThesisSubmission, Lecturer } from '../types';
+import type { ThesisSubmission, Lecturer, ApprovalLog } from '../types';
 import {
   Award,
   CheckCircle,
@@ -23,6 +23,29 @@ import {
 interface Props {
   kaprodiName: string;
 }
+
+const LOG_ACTION_LABELS: Record<string, string> = {
+  PENGAJUAN_MAHASISWA: 'Pengajuan Mahasiswa',
+  VERIFIKASI_DOSEN_PENILAI: 'Verifikasi Dosen Penilai',
+  DISAHKAN_KAPRODI: 'Pengesahan Kaprodi',
+  MINTA_REVISI: 'Minta Revisi',
+  DITOLAK: 'Ditolak',
+  UPLOAD_SKRSIPSI: 'Upload File Skripsi',
+};
+
+const formatLogNotes = (log: ApprovalLog): string | undefined => {
+  if (log.action === 'UPLOAD_SKRSIPSI' && log.notes) {
+    try {
+      const p = JSON.parse(log.notes);
+      if (p.file_name) {
+        return `File: ${p.file_name}${p.size ? ` (${(p.size / 1024 / 1024).toFixed(2)} MB)` : ''}`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return log.notes;
+};
 
 export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
@@ -519,8 +542,12 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                           {new Date(log.created_at).toLocaleString('id-ID')}
                         </span>
                       </div>
-                      <div className="log-action-badge">{log.action}</div>
-                      {log.notes && <p className="log-notes text-xs">{log.notes}</p>}
+                      <div className="log-action-badge">
+                        {LOG_ACTION_LABELS[log.action] || log.action}
+                      </div>
+                      {formatLogNotes(log) && (
+                        <p className="log-notes text-xs">{formatLogNotes(log)}</p>
+                      )}
                     </div>
                   ))}
                 </div>

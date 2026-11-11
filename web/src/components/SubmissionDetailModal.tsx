@@ -26,6 +26,29 @@ interface Props {
 export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) => {
   if (!submission) return null;
 
+  // File skripsi yang diupload mahasiswa (dari log UPLOAD_SKRSIPSI)
+  const skripsiLog = [...(submission.logs || [])]
+    .reverse()
+    .find((l) => l.action === 'UPLOAD_SKRSIPSI');
+  let uploadedThesis: { file_id: string; file_name?: string; size?: number } | null = null;
+  if (skripsiLog?.notes) {
+    try {
+      const parsed = JSON.parse(skripsiLog.notes);
+      if (parsed.file_id) {
+        uploadedThesis = {
+          file_id: parsed.file_id,
+          file_name: parsed.file_name,
+          size: parsed.size,
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+  const thesisFileUrl = uploadedThesis
+    ? submissionService.getFileViewUrl(uploadedThesis.file_id)
+    : null;
+
   const formatDate = (isoString?: string) => {
     if (!isoString) return '-';
     try {
@@ -253,12 +276,13 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
                         </div>
                       )}
 
-                      {(opt.journal_title || opt.journal_author) && (
+                      {(opt.journal_title || opt.journal_author || opt.journal_year) && (
                         <div className="dossier-journal-ref">
                           <span className="dossier-label">Jurnal Acuan Utama:</span>
                           <p className="font-medium text-slate-700">
                             {opt.journal_title || '-'}
                             {opt.journal_author ? ` — oleh ${opt.journal_author}` : ''}
+                            {opt.journal_year ? ` (${opt.journal_year})` : ''}
                           </p>
                         </div>
                       )}
@@ -281,6 +305,37 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
               )}
             </div>
           </div>
+
+          {/* File Skripsi yang Diupload Mahasiswa */}
+          {uploadedThesis && thesisFileUrl && thesisFileUrl !== '#' && (
+            <div className="formal-section-card">
+              <div className="formal-section-title">
+                <FileText size={16} color="#0A4C8F" />
+                <span>File Skripsi Mahasiswa</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-800 text-sm truncate">
+                    {uploadedThesis.file_name || 'File Skripsi'}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Diupload {formatDate(skripsiLog?.created_at)}
+                    {uploadedThesis.size ? ` • ${(uploadedThesis.size / 1024 / 1024).toFixed(2)} MB` : ''}
+                  </div>
+                </div>
+                <a
+                  href={thesisFileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-pdf-link shrink-0"
+                >
+                  <FileText size={13} />
+                  <span>Lihat File</span>
+                  <ExternalLink size={11} />
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Dosen Pembimbing & Quota Status (Pembimbing 1 & Pembimbing 2) */}
           {submission.advisor && (

@@ -51,7 +51,8 @@ export function formatNomorSurat(
 }
 
 /**
- * Helper to parse embedded relevance table data from background text.
+ * Resolve relevance fields: prefer dedicated columns, fall back to
+ * legacy `<!-- RELEVANCE_DATA -->` tag embedded in background text.
  */
 function parseOptionRelevance(opt: SubmissionOption): SubmissionOption {
   if (opt.background && opt.background.includes('<!-- RELEVANCE_DATA:')) {
@@ -59,9 +60,9 @@ function parseOptionRelevance(opt: SubmissionOption): SubmissionOption {
     if (match) {
       try {
         const parsed = JSON.parse(match[1]);
-        opt.relevance_variable = parsed.v || '';
-        opt.relevance_methodology = parsed.m || '';
-        opt.relevance_note = parsed.r || '';
+        opt.relevance_variable = opt.relevance_variable || parsed.v || '';
+        opt.relevance_methodology = opt.relevance_methodology || parsed.m || '';
+        opt.relevance_note = opt.relevance_note || parsed.r || '';
         opt.background = opt.background.replace(/<!-- RELEVANCE_DATA:[\s\S]*?-->/g, '').trim();
       } catch {
         // ignore

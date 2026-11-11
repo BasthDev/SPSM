@@ -17,6 +17,7 @@ export interface UserProfile {
   department: string;
   batch_year: string;
   avatar_url?: string;
+  has_uploaded_thesis?: boolean;
   created_at?: string;
 }
 
@@ -57,9 +58,10 @@ export interface SubmissionOption {
   background: string;
   journal_title: string;
   journal_author: string;
+  journal_year?: string;
   journal_file_id?: string;
   is_selected_by_lecturer: boolean;
-  // Relevance Table parsed fields
+  // Relevance Table fields (dedicated columns; legacy docs may embed in background)
   relevance_variable?: string;
   relevance_methodology?: string;
   relevance_note?: string;
