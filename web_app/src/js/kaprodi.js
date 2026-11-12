@@ -1,6 +1,6 @@
 import { submissionService, lecturerService, authService } from './spsm.js';
 
-let submissions = [];
+let submissions = null;
 let lecturers = [];
 let currentFilter = 'waiting_kaprodi';
 let selectedSubmission = null;
@@ -61,7 +61,13 @@ function updateMetrics() {
 
 function renderTable() {
   const tbody = document.getElementById('kaprodi-table-body');
-  const searchInput = document.getElementById('kaprodi-search');
+if (submissions === null) {
+    tbody.innerHTML = Array.from({ length: 5 }, () =>
+      '<tr><td colspan="6" class="py-2 px-4"><div class="h-9 bg-slate-100 rounded-lg animate-pulse"></div></td></tr>'
+    ).join('');
+    return;
+  }
+    const searchInput = document.getElementById('kaprodi-search');
   const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
   const filtered = submissions.filter((s) => {

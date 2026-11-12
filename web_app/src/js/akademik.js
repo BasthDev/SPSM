@@ -1,6 +1,6 @@
 import { submissionService, authService } from './spsm.js';
 
-let submissions = [];
+let submissions = null;
 let currentFilter = 'waiting_akademik';
 let currentUserName = 'Staf Tata Usaha';
 
@@ -62,7 +62,13 @@ function updateMetrics() {
 
 function renderTable() {
   const tbody = document.getElementById('akademik-table-body');
-  const searchInput = document.getElementById('akademik-search');
+if (submissions === null) {
+    tbody.innerHTML = Array.from({ length: 5 }, () =>
+      '<tr><td colspan="6" class="py-2 px-4"><div class="h-9 bg-slate-100 rounded-lg animate-pulse"></div></td></tr>'
+    ).join('');
+    return;
+  }
+    const searchInput = document.getElementById('akademik-search');
   const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
   const filtered = submissions.filter((s) => {

@@ -1,6 +1,6 @@
 import { submissionService, lecturerService, authService, formatDateShort } from './spsm.js';
 
-let submissions = [];
+let submissions = null;
 let lecturers = [];
 let currentLecturerId = null;
 let isAdmin = false;
@@ -67,6 +67,11 @@ function setupAdminAdvisorPicker() {
 }
 
 function updateMetricsAndTable() {
+  const tbody = document.getElementById('advisor-table-body');
+  if (submissions === null && tbody) {
+    tbody.innerHTML = Array.from({ length: 5 }, () => '<tr><td colspan="6" class="py-2 px-4"><div class="h-9 bg-slate-100 rounded-lg animate-pulse"></div></td></tr>').join('');
+    return;
+  }
   const targetId = !isAdmin && currentLecturerId ? currentLecturerId : selectedAdvisorId;
 
   const lecData = lecturers.find((l) => l.$id === targetId);

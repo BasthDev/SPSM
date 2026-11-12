@@ -1,7 +1,7 @@
 import { lecturerService, submissionService, formatDateShort } from './spsm.js';
 
-let lecturers = [];
-let submissions = [];
+let lecturers = null;
+let submissions = null;
 let activeSubmissionsList = [];
 
 async function init() {
@@ -39,6 +39,10 @@ window.switchReportTab = (tabName, btn) => {
 
 function renderLecturersReport() {
   const tbody = document.getElementById('report-table-body');
+  if (lecturers === null) {
+    tbody.innerHTML = Array.from({ length: 6 }, () => '<tr><td colspan="8" class="py-2 px-4"><div class="h-9 bg-slate-100 rounded-lg animate-pulse"></div></td></tr>').join('');
+    return;
+  }
   const deptSelect = document.getElementById('report-dept-filter');
   const counterEl = document.getElementById('report-counter');
 
@@ -208,6 +212,7 @@ function renderFinishedStudentsReport() {
   const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
   // Filter only approved / finished thesis submissions
+  if (submissions === null) return;
   const finishedSubs = submissions.filter((sub) => {
     const isApproved = sub.status === 'approved' || Boolean(sub.nomor_surat);
     if (!isApproved) return false;

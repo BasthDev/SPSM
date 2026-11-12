@@ -1,6 +1,6 @@
 import { submissionService, formatDateShort } from './spsm.js';
 
-let allSubmissions = [];
+let allSubmissions = null;
 
 async function loadDashboard() {
   const tableBody = document.getElementById('submissions-table-body');
@@ -38,7 +38,13 @@ async function loadDashboard() {
 
 function renderTable() {
   const tableBody = document.getElementById('submissions-table-body');
-  const counterEl = document.getElementById('record-counter');
+if (allSubmissions === null) {
+    tableBody.innerHTML = Array.from({ length: 5 }, () =>
+      '<tr><td colspan="6" class="py-2 px-4"><div class="h-9 bg-slate-100 rounded-lg animate-pulse"></div></td></tr>'
+    ).join('');
+    return;
+  }
+    const counterEl = document.getElementById('record-counter');
   const searchInput = document.getElementById('search-input');
   const filterSelect = document.getElementById('filter-status');
 
