@@ -6,8 +6,7 @@ export function redirectSystemPath({
   initial: boolean;
 }): string {
   try {
-    const url = new URL(path, 'spsm://app');
-    if (url.pathname === '/auth/success' || url.pathname === '/auth/failure') {
+    if (path.includes('auth/success') || path.includes('auth/failure')) {
       return '/login';
     }
     return path;
