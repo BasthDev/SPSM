@@ -1,4 +1,4 @@
-import { submissionService, authService } from './spsm.js';
+import { submissionService, authService, statusNorm } from './spsm.js';
 
 let submissions = null;
 let currentFilter = 'waiting_akademik';
@@ -73,9 +73,10 @@ if (submissions === null) {
 
   const filtered = submissions.filter((s) => {
     if (currentFilter !== 'all') {
+      const norm = statusNorm(s.status);
       if (currentFilter === 'sk_issued') {
-        if (s.status !== 'sk_issued' && s.status !== 'approved') return false;
-      } else if (s.status !== currentFilter) {
+        if (norm !== 'sk_issued') return false;
+      } else if (norm !== currentFilter) {
         return false;
       }
     }
@@ -98,6 +99,10 @@ if (submissions === null) {
   }
 
   const statusBadges = {
+    drafting: {
+      label: 'Draft',
+      cls: 'bg-slate-100 text-slate-800 border-slate-300',
+    },
     waiting_akademik: {
       label: 'Menunggu Administrasi TU',
       cls: 'bg-indigo-100 text-indigo-900 border-indigo-300',
@@ -129,7 +134,7 @@ if (submissions === null) {
       const student = sub.student;
       const chosenOpt =
         sub.options?.find((o) => o.is_selected || o.is_selected_by_lecturer) || sub.options?.[0];
-      const statusBadge = statusBadges[sub.status] || {
+      const statusBadge = statusBadges[statusNorm(sub.status)] || statusBadges[sub.status] || {
         label: String(sub.status || '').replace(/_/g, ' '),
         cls: 'bg-slate-100 text-slate-800',
       };
@@ -170,7 +175,7 @@ if (submissions === null) {
             </button>
 
             ${
-              sub.status === 'waiting_akademik'
+              statusNorm(sub.status) === 'waiting_akademik'
                 ? `
               <button
                 type="button"
@@ -184,7 +189,7 @@ if (submissions === null) {
             }
 
             ${
-              sub.status === 'sk_process'
+              statusNorm(sub.status) === 'sk_process'
                 ? `
               <button
                 type="button"
@@ -198,13 +203,13 @@ if (submissions === null) {
             }
 
             ${
-              sub.status === 'sk_issued' || sub.status === 'approved'
+              statusNorm(sub.status) === 'sk_issued'
                 ? `
               ${
                 sub.surat?.scanned_sk_id
                   ? `
                 <a
-                  href="${submissionService.getFileViewUrl(sub.surat.scanned_sk_id)}"
+                  href="${submissionService.getFileViewUrl(sub.surat.scanned_sk_id, 'sk')}"
                   target="_blank"
                   class="btn btn-outline-success text-xs font-bold py-1 px-2.5 rounded-lg"
                 >

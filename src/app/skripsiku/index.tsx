@@ -10,9 +10,8 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Query } from 'react-native-appwrite';
-import { account, storage } from '@/services/appwrite';
-import { BUCKET_JOURNALS } from '@/models/types';
+import { apiClient } from '@/services/apiClient';
+import { authService } from '@/services/authService';
 
 type UploadedFile = {
   id: string;
@@ -37,36 +36,19 @@ export default function SkripsiKuScreen() {
   const loadFiles = useCallback(async (uid: string) => {
     try {
       const prefix = ownerPrefix(uid);
-
-      // Storage has no fulltext index on name, so paginate and filter client-side
-      const allFiles: any[] = [];
-      let cursor: string | undefined;
-      while (true) {
-        const queries = [
-          Query.orderDesc('$createdAt'),
-          Query.limit(100),
-        ];
-        if (cursor) queries.push(Query.cursorAfter(cursor));
-        const response = await storage.listFiles({
-          bucketId: BUCKET_JOURNALS,
-          queries,
-        });
-        allFiles.push(...response.files);
-        if (response.files.length < 100) break;
-        cursor = response.files[response.files.length - 1].$id;
-      }
+      const allFiles = await apiClient.files.list('journals');
 
       const uploadedFiles: UploadedFile[] = allFiles
-        .filter((file) => file.name.startsWith(prefix))
-        .map((file) => ({
-          id: file.$id,
+        .filter((file: any) => file.name.startsWith(prefix))
+        .map((file: any) => ({
+          id: file.fileId || file.id,
           name: stripOwnerPrefix(file.name) || file.name,
-          uri: storage.getFileDownloadURL(BUCKET_JOURNALS, file.$id).toString(),
-          size: file.sizeOriginal || 0,
-          type: file.mimeType || 'application/octet-stream',
-          uploadedAt: file.$createdAt,
-          appwriteId: file.$id,
-          viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, file.$id).toString(),
+          uri: file.downloadUrl || '',
+          size: file.sizeOriginal || file.size || 0,
+          type: file.mimeType || file.type || 'application/octet-stream',
+          uploadedAt: file.createdAt || new Date().toISOString(),
+          appwriteId: file.fileId || file.id,
+          viewUrl: file.viewUrl || '',
         }));
 
       setFiles(uploadedFiles);
@@ -78,11 +60,11 @@ export default function SkripsiKuScreen() {
     }
   }, []);
 
-  // Load current user, then load only their files from Appwrite storage
+  // Load current user, then load only their files from API storage
   useEffect(() => {
     (async () => {
       try {
-        const current = await account.get();
+        const current = await authService.getCurrentAccount();
         setUserId(current.$id);
         await loadFiles(current.$id);
       } catch (error) {
@@ -103,11 +85,7 @@ export default function SkripsiKuScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete from Appwrite storage
-              await storage.deleteFile({
-                bucketId: BUCKET_JOURNALS,
-                fileId: fileId,
-              });
+              await apiClient.files.delete('journals', fileId);
               setFiles((prev) => prev.filter((f) => f.id !== fileId));
               Alert.alert('Berhasil', 'File berhasil dihapus');
             } catch (error: any) {
@@ -120,9 +98,12 @@ export default function SkripsiKuScreen() {
     );
   };
 
-  const handleViewFile = (file: UploadedFile) => {
-    // Use Appwrite view URL if available, otherwise use local URI
-    const fileUri = file.viewUrl || file.uri;
+  const handleViewFile = async (file: UploadedFile) => {
+    // Resolve the direct storage URL (view endpoint 302-redirects to the real file)
+    const fileUri =
+      (await apiClient.files.getViewUrl('journals', file.id)) ||
+      file.viewUrl ||
+      file.uri;
     router.push({
       pathname: '/skripsiku/read',
       params: {

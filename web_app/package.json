@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@hummingbirdui/hummingbird": "^1.4.1",
-    "appwrite": "^29.2.0",
     "echarts": "^6.1.0",
     "spsm-ku": "file:.."
   },

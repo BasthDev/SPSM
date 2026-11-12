@@ -1,18 +1,51 @@
-import { lecturerService, submissionService, formatDateShort } from './spsm.js';
+import { lecturerService, submissionService, masterDataService, formatDateShort, statusNorm } from './spsm.js';
 
 let lecturers = null;
 let submissions = null;
 let activeSubmissionsList = [];
+let reportDepartments = [];
+
+// Cocokkan nilai filter prodi terhadap id/code/nama department
+function deptMatches(selectedDept, ...candidates) {
+  if (selectedDept === 'all') return true;
+  const dept = reportDepartments.find((d) => (d.$id || d.id) === selectedDept || d.code === selectedDept);
+  const keys = [selectedDept, dept?.code, dept?.name, dept?.$id, dept?.id].filter(Boolean).map((k) => String(k).toUpperCase());
+  return candidates.some((c) => {
+    const v = String(c || '').toUpperCase();
+    return v && keys.some((k) => v === k || v.includes(k));
+  });
+}
+
+function populateDeptFilters(depts) {
+  reportDepartments = depts || [];
+  ['report-dept-filter', 'report-student-dept-filter'].forEach((id) => {
+    const sel = document.getElementById(id);
+    if (!sel || reportDepartments.length === 0) return;
+    const cur = sel.value;
+    sel.innerHTML =
+      `<option value="all">Semua Program Studi</option>` +
+      reportDepartments
+        .map((d) => {
+          const val = d.$id || d.id;
+          const label = d.code ? `${d.name || d.code} (${d.code})` : d.name || d.code || val;
+          return `<option value="${val}">${label}</option>`;
+        })
+        .join('');
+    if (cur && cur !== 'all') sel.value = cur;
+  });
+}
 
 async function init() {
   try {
-    const [lecList, subList] = await Promise.all([
+    const [lecList, subList, deptList] = await Promise.all([
       lecturerService.getLecturers(),
       submissionService.getSubmissions(),
+      masterDataService.getDepartments().catch(() => []),
     ]);
 
     lecturers = lecList;
     submissions = subList;
+    populateDeptFilters(deptList);
 
     renderLecturersReport();
     renderFinishedStudentsReport();
@@ -49,7 +82,7 @@ function renderLecturersReport() {
   const selectedDept = deptSelect ? deptSelect.value : 'all';
 
   const filtered = lecturers.filter((l) => {
-    if (selectedDept !== 'all' && (l.department_id || 'TI') !== selectedDept) return false;
+    if (!deptMatches(selectedDept, l.department_id, l.departmentId, l.department, l.department_code)) return false;
     return true;
   });
 
@@ -83,9 +116,9 @@ function renderLecturersReport() {
 
       // Count if assigned as advisor in approved/waiting submission
       if (sub.advisor?.$id === lecId || sub.advisor2?.$id === lecId) {
-        if (sub.status === 'approved' || sub.status === 'waiting_kaprodi') {
+        if (statusNorm(sub.status) === 'sk_issued' || sub.status === 'waiting_kaprodi') {
           // If not already counted in logs
-          if (accepted === 0 && sub.status === 'approved') accepted++;
+          if (accepted === 0 && statusNorm(sub.status) === 'sk_issued') accepted++;
         }
       }
     });
@@ -214,11 +247,11 @@ function renderFinishedStudentsReport() {
   // Filter only approved / finished thesis submissions
   if (submissions === null) return;
   const finishedSubs = submissions.filter((sub) => {
-    const isApproved = sub.status === 'approved' || Boolean(sub.nomor_surat);
+    const isApproved = statusNorm(sub.status) === 'sk_issued' || Boolean(sub.nomor_surat);
     if (!isApproved) return false;
 
     const dept = sub.student?.department || 'TI';
-    if (selectedDept !== 'all' && !dept.toUpperCase().includes(selectedDept)) return false;
+    if (!deptMatches(selectedDept, dept)) return false;
 
     if (q) {
       const sName = (sub.student?.name || '').toLowerCase();

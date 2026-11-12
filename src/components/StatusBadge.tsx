@@ -66,6 +66,19 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; d
     text: '#FFFFFF',
     dot: '#FFFFFF',
   },
+  // Legacy aliases (normalized server-side, kept for safety)
+  approved_lecturer: {
+    label: 'Pleno Kaprodi',
+    bg: '#2563EB',
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
+  },
+  pending_kaprodi: {
+    label: 'Pleno Kaprodi',
+    bg: '#2563EB',
+    text: '#FFFFFF',
+    dot: '#FFFFFF',
+  },
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', style }) => {

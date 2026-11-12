@@ -40,7 +40,7 @@ D:\SPSM-KU
 | Endpoint | `https://sgp.cloud.appwrite.io/v1` |
 | Project ID | `6af1b3b200056ab6bc1d` |
 | Database ID | `spsm_db` |
-| Storage bucket | `journal_files` (dipakai untuk JURNAL dan SK — sama) |
+| Storage bucket | `journal_files` (dipakai untuk JURNAL dan SK — sama; plan Appwrite hanya mengizinkan 1 bucket). File SK discan diberi prefix `skscan_`, file referensi jurnal per-opsi diberi prefix `refopt_` — keduanya difilter keluar dari listing `journals`. API bucket logis `sk`/`journals` dipetakan server-side. |
 
 Client sudah diinisialisasi di:
 - Mobile: `src/services/appwrite.ts` → export `account`, `databases`, `storage`

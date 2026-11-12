@@ -1,3 +1,4 @@
+import { ConnectionBanner } from '@/components';
 import { Stack } from 'expo-router';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ LogBox.ignoreLogs([
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      <ConnectionBanner />
       <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />

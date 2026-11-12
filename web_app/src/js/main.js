@@ -1,5 +1,6 @@
 import '@hummingbirdui/hummingbird';
-import { authService, submissionService, formatDateShort } from './spsm.js';
+import { apiClient } from './apiClient.js';
+import { authService, submissionService, formatDateShort, statusNorm } from './spsm.js';
 
 let currentUserState = null;
 
@@ -15,10 +16,13 @@ window.openDossierModal = (sub) => {
   const docId = `SPSM-${(sub.$id || '').toUpperCase().slice(-20)}`;
   document.getElementById('modal-doc-id').innerText = `NO. DOKUMEN: ${docId}`;
 
+  const normStatus = statusNorm(sub.status) || sub.status;
+
   // Status Badge
   const badge = document.getElementById('modal-status-badge');
   if (badge) {
     const statusMap = {
+      drafting: { label: 'Draft', cls: 'bg-slate-100 text-slate-800 border-slate-300' },
       pending_lecturer: { label: 'Menunggu Review', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
       waiting_kaprodi: { label: 'Pleno Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
       waiting_akademik: { label: 'Menunggu Administrasi TU', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
@@ -28,7 +32,7 @@ window.openDossierModal = (sub) => {
       revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
       rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },
     };
-    const current = statusMap[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
+    const current = statusMap[normStatus] || statusMap[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
     badge.innerText = current.label;
     badge.className = `badge text-xs px-3 py-1 font-bold border ${current.cls}`;
   }
@@ -133,7 +137,7 @@ window.openDossierModal = (sub) => {
   // Files Tab
   const skBox = document.getElementById('modal-sk-box');
   if (skBox) {
-    if (sub.status === 'approved' && sub.nomor_surat) {
+    if ((sub.status === 'approved' || sub.status === 'sk_issued' || normStatus === 'sk_issued') && sub.nomor_surat) {
       skBox.classList.remove('hidden');
       document.getElementById('modal-sk-number').innerText = `NOMOR: ${sub.nomor_surat}`;
     } else {
@@ -181,6 +185,7 @@ window.openDossierModal = (sub) => {
             REVISI: { label: '⚠️ Permintaan Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-200' },
             DITOLAK: { label: '❌ Pengajuan Ditolak', cls: 'bg-rose-100 text-rose-900 border-rose-200' },
             UPLOAD_SKRSIPSI: { label: '📁 Upload Naskah Skripsi', cls: 'bg-indigo-100 text-indigo-900 border-indigo-200' },
+            REVISI_PENGAJUAN: { label: '✏️ Revisi Pengajuan', cls: 'bg-orange-100 text-orange-900 border-orange-200' },
           };
 
           const actionCfg = actionMap[l.action] || {
@@ -278,7 +283,7 @@ window.openDossierModal = (sub) => {
                 ${actionCfg.label}
               </span>
               <div class="flex items-center gap-2 text-[11px] text-muted font-mono">
-                <span>${l.actor_id || 'Sistem SPSM'}</span>
+                <span>${l.actor_name || l.actor_id || 'Sistem SPSM'}</span>
                 <span>•</span>
                 <span>${dateFormatted}</span>
               </div>
@@ -318,6 +323,27 @@ window.switchDossierTab = (tabName, btn) => {
 // Check session on load
 document.addEventListener('DOMContentLoaded', async () => {
   const isSignInPage = window.location.pathname.endsWith('signin.html') || window.location.pathname.endsWith('signin');
+
+  // === OAuth callback handler (Google sign-in via backend) ===
+  // Backend melempar userId & secret ke URL setelah OAuth Google berhasil.
+  // Tukar dengan token sesi SEBELUM cek auth apa pun.
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthUserId = urlParams.get('userId');
+    const oauthSecret = urlParams.get('secret');
+    if (oauthUserId && oauthSecret) {
+      await apiClient.auth.exchangeOAuthSession(oauthUserId, oauthSecret);
+      // Bersihkan URL agar tidak ada parameter sensitif & tidak ter-exchange ulang saat refresh
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Bila callback mendarat di halaman signin, arahkan ke dashboard utama
+      if (isSignInPage) {
+        window.location.replace('index.html');
+        return;
+      }
+    }
+  } catch (oauthErr) {
+    console.warn('OAuth session exchange failed:', oauthErr);
+  }
 
   try {
     const authState = await authService.getCurrentUser();

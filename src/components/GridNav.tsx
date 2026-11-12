@@ -37,7 +37,7 @@ export const GridNav: React.FC<GridNavProps> = ({ style }) => {
       id: 'profil',
       label: 'Profil',
       icon: User,
-      route: '/profil',
+      route: '/profile',
       color: '#7C3AED',
       bgColor: '#F5F3FF',
     },

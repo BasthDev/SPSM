@@ -1,17 +1,3 @@
-/** Appwrite collection / bucket IDs */
-export const DATABASE_ID = 'spsm_db';
-export const COLLECTION_SYSTEM_SETTINGS = 'system_settings';
-export const COLLECTION_USERS = 'users';
-export const COLLECTION_SUBMISSIONS = 'thesis_submissions';
-export const COLLECTION_OPTIONS = 'submission_options';
-export const COLLECTION_SURAT = 'surat';
-export const COLLECTION_APPROVAL_LOGS = 'approval_logs';
-export const COLLECTION_DEPARTMENTS = 'departments';
-export const COLLECTION_BATCH_YEARS = 'batch_years';
-export const COLLECTION_LECTURERS = 'lecturers';
-export const BUCKET_JOURNALS = 'journal_files';
-export const BUCKET_SK = 'journal_files'; // Same bucket configured to hold all files
-
 /** User roles */
 export type UserRole = 'student' | 'lecturer' | 'reviewer' | 'kaprodi' | 'akademik' | 'admin';
 
@@ -25,7 +11,24 @@ export type SubmissionStatus =
   | 'sk_issued'
   | 'revision'
   | 'rejected'
-  | 'approved'; // Backward compatibility
+  | 'approved'; // Backward compatibility (≈ sk_issued)
+
+/** Legacy status aliases normalized server-side */
+export type LegacySubmissionStatus = 'approved_lecturer' | 'pending_kaprodi';
+
+/** Statuses that block a student from submitting a new proposal */
+export const ACTIVE_SUBMISSION_STATUSES: string[] = [
+  'pending_lecturer',
+  'waiting_kaprodi',
+  'waiting_akademik',
+  'sk_process',
+  'sk_issued',
+  'approved',
+];
+
+export function isActiveSubmissionStatus(status?: string | null): boolean {
+  return !!status && ACTIVE_SUBMISSION_STATUSES.includes(status);
+}
 
 /** Department / Program Studi */
 export interface DepartmentItem {
@@ -44,19 +47,26 @@ export interface BatchYearItem {
   is_active: boolean;
 }
 
-/** Lecturer / Dosen */
+/** Lecturer / Dosen (LecturerDto from API) */
 export interface LecturerItem {
   $id: string;
+  id?: string;
   user_id?: string;
+  userId?: string;
   nip: string;
   name: string;
   email: string;
-  department_id: string;
+  phone?: string;
+  department?: string;
+  department_id?: string;
+  departmentId?: string;
   expertise?: string;
-  quota: number;
-  current_students: number;
-  role: 'lecturer' | 'reviewer' | 'kaprodi' | 'akademik' | 'admin';
-  is_active: boolean;
+  quota?: number;
+  current_students?: number;
+  currentStudents?: number;
+  role?: UserRole;
+  is_active?: boolean;
+  isActive?: boolean;
 }
 
 /** Student Academic Requirements (Prasyarat Akademik) */
@@ -75,6 +85,7 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   nim_or_nip: string;
+  nim?: string;
   department: string;
   batch_year: number;
   current_sks?: number;
@@ -84,16 +95,21 @@ export interface UserProfile {
   created_at?: string;
 }
 
-/** Surat Management Model (Blueprint v2.2) */
+/** Surat Management Model */
 export interface SuratItem {
   $id: string;
-  submission_id: string;
+  submission_id?: string;
   nomor_surat: string;
-  urutan: number;
-  no_dokumen: string;
+  nomorSurat?: string;
+  urutan: number | string;
+  no_dokumen?: string;
+  noDokumen?: string;
   template_sk_id?: string | null;
+  templateSkId?: string | null;
   scanned_sk_id?: string | null;
-  created_at: string;
+  scannedSkId?: string | null;
+  created_at?: string;
+  createdAt?: string;
 }
 
 /** Thesis submission header */
@@ -111,8 +127,11 @@ export interface ThesisSubmission {
   student?: UserProfile | null;
   advisor?: LecturerItem | null; // Pembimbing 1 (Utama)
   advisor2?: LecturerItem | null; // Pembimbing 2 (Pendamping)
+  advisor1?: LecturerItem | null; // alias of advisor
   preferredAdvisor1?: LecturerItem | null;
   preferredAdvisor2?: LecturerItem | null;
+  preferred_advisor_1_id?: string | null;
+  preferred_advisor_2_id?: string | null;
   options?: SubmissionOption[];
   logs?: ApprovalLog[];
   selectedOption?: SubmissionOption | null;
@@ -191,7 +210,6 @@ export interface OnboardingFormData {
   department: string;
   batchYear: string;
   currentSks?: string;
-  whatsapp?: string;
   avatarUrl?: string | null;
 }
 

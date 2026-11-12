@@ -1,8 +1,9 @@
 import { AppHeader, Avatar, Button, LoadingScreen, Section, StatusBadge } from '@/components';
-import { BUCKET_JOURNALS, COLLECTION_APPROVAL_LOGS, DATABASE_ID, type ThesisSubmission } from '@/models/types';
-import { account, databases, storage } from '@/services/appwrite';
+import { type ThesisSubmission } from '@/models/types';
+import { isActiveSubmissionStatus } from '@/models/types';
 import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
+import { apiClient } from '@/services/apiClient';
 import { Colors } from '@/theme/theme';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,8 +39,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ID } from 'react-native-appwrite';
-
 export default function SubmissionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -64,10 +63,10 @@ export default function SubmissionDetailScreen() {
 
         // Cek apakah mahasiswa punya pengajuan aktif lain (pending/waiting/approved)
         try {
-          const acct = await account.get();
+          const acct = await authService.getCurrentAccount();
           const allSubs = await submissionService.getStudentSubmissions(acct.$id);
           const otherActive = allSubs.some(
-            (s) => s.$id !== id && s.status !== 'revision' && s.status !== 'rejected'
+            (s) => s.$id !== id && isActiveSubmissionStatus(s.status)
           );
           if (active) setHasActiveSubmission(otherActive);
         } catch {
@@ -138,7 +137,10 @@ export default function SubmissionDetailScreen() {
     : null;
 
   const kaprodiLog = submission.logs?.find(
-    (log) => log.action === 'PENGESAHAN_KAPRODI' || log.action === 'APPROVAL_KAPRODI'
+    (log) =>
+      log.action === 'DISAHKAN_KAPRODI' ||
+      log.action === 'PENGESAHAN_KAPRODI' ||
+      log.action === 'APPROVAL_KAPRODI'
   );
   const formattedKaprodiDate = kaprodiLog
     ? new Date(kaprodiLog.created_at).toLocaleDateString('id-ID', {
@@ -194,12 +196,10 @@ export default function SubmissionDetailScreen() {
   const isSkReady = Boolean(
     submission.status === 'sk_issued' ||
       submission.status === 'approved' ||
+      submission.surat?.scannedSkId ||
       submission.surat?.scanned_sk_id ||
-      (submission.nomor_surat &&
-        submission.status !== 'pending_lecturer' &&
-        submission.status !== 'waiting_kaprodi' &&
-        submission.status !== 'revision' &&
-        submission.status !== 'rejected')
+      submission.surat?.nomor_surat ||
+      submission.nomor_surat
   );
 
   const selectedOption =
@@ -214,25 +214,27 @@ export default function SubmissionDetailScreen() {
     }));
   };
 
-  const handleOpenPdf = (fileId?: string | null) => {
+  const handleOpenPdf = async (fileId?: string | null) => {
     if (!fileId) return;
-    const url = submissionService.getFileViewUrl(fileId);
+    const url = await submissionService.getFileViewUrl(fileId);
     if (url) {
       Linking.openURL(url).catch((err) => console.warn('Cannot open URL', err));
     }
   };
 
-  const handleDownloadSk = () => {
+  const handleDownloadSk = async () => {
     if (!submission) return;
-    if (submission.surat?.scanned_sk_id) {
-      const url = submissionService.getFileViewUrl(submission.surat.scanned_sk_id);
+    const scannedSkId = submission.surat?.scannedSkId || submission.surat?.scanned_sk_id;
+    if (scannedSkId) {
+      const url = await submissionService.getFileViewUrlForBucket('sk', scannedSkId);
       if (url) {
         Linking.openURL(url).catch((err) => console.warn('Cannot open scanned SK URL', err));
         return;
       }
     }
-    if (submission.surat?.template_sk_id) {
-      const url = submissionService.getFileViewUrl(submission.surat.template_sk_id);
+    const templateSkId = submission.surat?.templateSkId || submission.surat?.template_sk_id;
+    if (templateSkId) {
+      const url = await submissionService.getFileViewUrlForBucket('sk', templateSkId);
       if (url) {
         Linking.openURL(url).catch((err) => console.warn('Cannot open template SK URL', err));
         return;
@@ -328,44 +330,25 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
         return;
       }
 
-      const current = await account.get();
+      const current = await authService.getCurrentAccount();
       setUploadingSkripsi(true);
 
       const storedName = `owner_${current.$id}__${asset.name}`;
-      const uploaded = await storage.createFile({
-        bucketId: BUCKET_JOURNALS,
-        fileId: ID.unique(),
-        file: {
-          uri: asset.uri,
-          name: storedName,
-          type: asset.mimeType || 'application/pdf',
-          size: asset.size || 0,
-        },
-        permissions: [
-          'read("any")',
-          `update("user:${current.$id}")`,
-          `delete("user:${current.$id}")`,
-        ],
-      });
+      const uploaded = await apiClient.files.upload('journals', asset, storedName);
 
       // Catat upload ke approval log agar terhubung dengan submission ini
-      await databases.createDocument({
-        databaseId: DATABASE_ID,
-        collectionId: COLLECTION_APPROVAL_LOGS,
-        documentId: ID.unique(),
-        data: {
-          submission_id: submission.$id,
-          actor_id: 'Mahasiswa (Pemohon)',
-          action: 'UPLOAD_SKRSIPSI',
-          notes: JSON.stringify({
-            text: `File skripsi diupload: ${asset.name}`,
-            file_id: uploaded.$id,
-            file_name: asset.name,
-            size: asset.size || 0,
-          }),
-          created_at: new Date().toISOString(),
-        },
-      });
+      await apiClient.submissions.updateStatus(
+        submission.$id,
+        submission.status,
+        'Mahasiswa (Pemohon)',
+        'UPLOAD_SKRSIPSI',
+        JSON.stringify({
+          text: `File skripsi diupload: ${asset.name}`,
+          file_id: uploaded.fileId,
+          file_name: asset.name,
+          size: asset.size || 0,
+        })
+      );
 
       // Tandai mahasiswa sudah upload skripsi
       await authService.markThesisUploaded(current.$id);
@@ -380,9 +363,9 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
     }
   };
 
-  const handleViewUploadedSkripsi = () => {
+  const handleViewUploadedSkripsi = async () => {
     if (!uploadedSkripsi) return;
-    const viewUrl = storage.getFileViewURL(BUCKET_JOURNALS, uploadedSkripsi.file_id).toString();
+    const viewUrl = await apiClient.files.getViewUrl('journals', uploadedSkripsi.file_id);
     router.push({
       pathname: '/skripsiku/read',
       params: {
@@ -436,21 +419,21 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
   };
 
   const statusLabel =
-    submission.status === 'approved'
-      ? 'SK Disahkan Resmi'
-      : submission.status === 'sk_issued'
+    submission.status === 'sk_issued' || submission.status === 'approved'
       ? 'SK Resmi Terbit'
       : submission.status === 'sk_process'
       ? 'Proses TTD Dekan'
       : submission.status === 'waiting_akademik'
       ? 'Menunggu Administrasi TU'
       : submission.status === 'waiting_kaprodi'
-      ? 'Pleno Penetapan Kaprodi'
+      ? 'Pleno Kaprodi'
       : submission.status === 'revision'
       ? 'Perlu Revisi'
       : submission.status === 'rejected'
       ? 'Ditolak'
-      : 'Tahap Penilaian Reviewer';
+      : submission.status === 'drafting'
+      ? 'Draf'
+      : 'Menunggu Review';
 
   return (
     <View style={styles.flex}>
@@ -510,7 +493,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               >
                 <Download size={16} color="#FFFFFF" strokeWidth={2.4} />
                 <Text style={styles.headerSkDownloadBtnText}>
-                  {submission.surat?.scanned_sk_id
+                  {submission.surat?.scannedSkId || submission.surat?.scanned_sk_id
                     ? 'Unduh SK Resmi Dekan (PDF)'
                     : 'Unduh Lembar SK Pembimbing'}
                 </Text>
@@ -559,7 +542,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               >
                 <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
                 <Text style={styles.skDownloadBtnText}>
-                  {submission.surat?.scanned_sk_id
+                  {submission.surat?.scannedSkId || submission.surat?.scanned_sk_id
                     ? 'Unduh File Scan SK Basah (PDF)'
                     : 'Unduh / Cetak Dokumen SK'}
                 </Text>
@@ -1277,13 +1260,19 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                       {log.action === 'VERIFIKASI_DOSEN_PENILAI'
                         ? 'Verifikasi & Pemilihan Dosen Pembimbing'
                         : log.action === 'DISAHKAN_KAPRODI'
-                        ? 'Pengesahan Resmi oleh Kaprodi'
+                        ? 'Disahkan Kaprodi'
                         : log.action === 'MINTA_REVISI'
                         ? 'Permintaan Revisi Judul'
+                        : log.action === 'DITOLAK'
+                        ? 'Ditolak'
+                        : log.action === 'REVISI_PENGAJUAN'
+                        ? 'Revisi Pengajuan'
                         : log.action === 'PENGAJUAN_MAHASISWA'
-                        ? 'Usulan Pengajuan oleh Mahasiswa'
+                        ? 'Pengajuan Mahasiswa'
                         : log.action === 'UPLOAD_SKRSIPSI'
-                        ? 'Upload File Skripsi'
+                        ? 'Upload SK / File Skripsi'
+                        : log.action === 'PENGESAHAN_KAPRODI' || log.action === 'APPROVAL_KAPRODI'
+                        ? 'Disahkan Kaprodi'
                         : log.action}
                     </Text>
 

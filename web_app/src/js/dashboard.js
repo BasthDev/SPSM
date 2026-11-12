@@ -1,4 +1,4 @@
-import { submissionService, formatDateShort } from './spsm.js';
+import { submissionService, formatDateShort, statusNorm } from './spsm.js';
 
 let allSubmissions = null;
 
@@ -52,7 +52,7 @@ if (allSubmissions === null) {
   const filterStatus = filterSelect ? filterSelect.value : 'all';
 
   const filtered = allSubmissions.filter((sub) => {
-    if (filterStatus !== 'all' && sub.status !== filterStatus) return false;
+    if (filterStatus !== 'all' && statusNorm(sub.status) !== statusNorm(filterStatus)) return false;
     if (!q) return true;
 
     const studentName = sub.student?.name?.toLowerCase() || '';
@@ -82,6 +82,7 @@ if (allSubmissions === null) {
   }
 
   const statusBadges = {
+    drafting: { label: 'Draft', cls: 'bg-slate-100 text-slate-800 border-slate-300' },
     pending_lecturer: { label: 'Menunggu Review', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
     waiting_kaprodi: { label: 'Pleno Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
     waiting_akademik: { label: 'Menunggu Administrasi TU', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
@@ -96,7 +97,7 @@ if (allSubmissions === null) {
     .map((sub, idx) => {
       const student = sub.student;
       const chosenOpt = sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
-      const statusBadge = statusBadges[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
+      const statusBadge = statusBadges[statusNorm(sub.status)] || statusBadges[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
 
       return `
       <tr class="hover:bg-subtle/80 transition-colors">
@@ -117,7 +118,7 @@ if (allSubmissions === null) {
             ${statusBadge.label}
           </span>
           ${
-            sub.status === 'approved' && sub.nomor_surat
+            statusNorm(sub.status) === 'sk_issued' && sub.nomor_surat
               ? `<div class="font-mono text-[10px] font-bold text-emerald-700 mt-1">${sub.nomor_surat}</div>`
               : ''
           }

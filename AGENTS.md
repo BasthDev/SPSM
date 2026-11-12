@@ -39,3 +39,14 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Backend & API Architecture Rules
+
+- **No Direct Database Calls**: Mobile app (`src/`) dan Web app (`web_app/`, `web/`) TIDAK diperbolehkan mengimpor atau memanggil SDK database (Appwrite, Supabase, Postgres) secara langsung.
+- **Universal API Layer**: Semua komunikasi data harus melalui `apiClient` yang terhubung ke Backend API Server (`server/`).
+- **Layering Standard**:
+  - `controllers/`: HTTP parsing, status code, format response standar.
+  - `validators/`: Validasi payload dan validasi AI (Gemini similarity checker) sebelum pemrosesan bisnis.
+  - `services/`: Alur logika bisnis dan orkestrasi.
+  - `database/`: Universal Database Adapter (`IDatabaseAdapter`). Migrasi database hanya boleh memodifikasi adapter ini tanpa mengubah UI maupun layer lainnya.
+

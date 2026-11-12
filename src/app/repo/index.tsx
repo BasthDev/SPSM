@@ -4,9 +4,7 @@ import { useRouter } from 'expo-router';
 import { AppHeader } from '@/components';
 import { Colors } from '@/theme/theme';
 import { Eye, FileText, Search, X } from 'lucide-react-native';
-import { Query } from 'react-native-appwrite';
-import { storage } from '@/services/appwrite';
-import { BUCKET_JOURNALS } from '@/models/types';
+import { apiClient } from '@/services/apiClient';
 
 type RepoFile = {
   id: string;
@@ -35,24 +33,20 @@ export default function RepoScreen() {
     let ignore = false;
     const fetchFiles = async () => {
       try {
-        const response = await storage.listFiles({
-          bucketId: BUCKET_JOURNALS,
-          queries: [
-            Query.orderDesc('$createdAt'),
-            Query.limit(100),
-          ],
-        });
+        const response = await apiClient.files.list('journals');
 
         if (!ignore) {
           setFiles(
-            response.files.map((file) => ({
-              id: file.$id,
-              name: stripOwnerPrefix(file.name) || file.name,
-              size: file.sizeOriginal || 0,
-              type: file.mimeType || 'application/octet-stream',
-              uploadedAt: file.$createdAt,
-              viewUrl: storage.getFileViewURL(BUCKET_JOURNALS, file.$id).toString(),
-            }))
+            response
+              .filter((file: any) => !(file.name || '').startsWith('refopt_'))
+              .map((file: any) => ({
+                id: file.fileId || file.id,
+                name: stripOwnerPrefix(file.name) || file.name,
+                size: file.sizeOriginal || file.size || 0,
+                type: file.mimeType || file.type || 'application/octet-stream',
+                uploadedAt: file.createdAt || new Date().toISOString(),
+                viewUrl: file.viewUrl || '',
+              }))
           );
         }
       } catch (error) {
@@ -69,13 +63,15 @@ export default function RepoScreen() {
     };
   }, []);
 
-  const handleViewFile = (file: RepoFile) => {
+  const handleViewFile = async (file: RepoFile) => {
+    const viewUrl =
+      (await apiClient.files.getViewUrl('journals', file.id)) || file.viewUrl;
     router.push({
       pathname: '/skripsiku/read',
       params: {
         id: file.id,
         name: file.name,
-        uri: file.viewUrl,
+        uri: viewUrl,
         size: file.size.toString(),
         type: file.type,
       },

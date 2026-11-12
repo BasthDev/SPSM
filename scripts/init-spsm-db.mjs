@@ -265,6 +265,7 @@ async function setupCollections() {
   await createStringAttribute('submission_options', 'journal_file_id', 255, false);
   await createStringAttribute('submission_options', 'lecturer_notes', 2000, false);
   await createBooleanAttribute('submission_options', 'is_selected', false, false);
+  await createBooleanAttribute('submission_options', 'is_selected_by_lecturer', false, false);
   await waitForAttributes('submission_options');
   await createIndex('submission_options', 'idx_opt_submission_id', 'key', ['submission_id']);
 
@@ -331,19 +332,17 @@ async function setupCollections() {
 }
 
 // 4. Setup Storage Buckets
-async function setupStorage() {
-  console.log(`\n--- [4/5] Setting up Storage Bucket ---`);
-  const bucketId = 'journal_files';
+async function ensureBucket(bucketId, name) {
   const allowedExts = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
 
-  process.stdout.write(`Bucket '${bucketId}' (SPSM Documents & Journals)... `);
+  process.stdout.write(`Bucket '${bucketId}' (${name})... `);
   const check = await api(`/storage/buckets/${bucketId}`);
   if (check.ok) {
     // Update allowed file extensions to ensure all needed types are allowed
     await api(`/storage/buckets/${bucketId}`, {
       method: 'PUT',
       body: JSON.stringify({
-        name: 'SPSM Documents & Journals',
+        name,
         permissions: DEFAULT_PERMISSIONS,
         fileSecurity: false,
         enabled: true,
@@ -359,7 +358,7 @@ async function setupStorage() {
     method: 'POST',
     body: JSON.stringify({
       bucketId,
-      name: 'SPSM Documents & Journals',
+      name,
       permissions: DEFAULT_PERMISSIONS,
       fileSecurity: false,
       enabled: true,
@@ -373,6 +372,14 @@ async function setupStorage() {
   } else {
     console.log(`✗ Error (${res.status}): ${res.data.message}`);
   }
+}
+
+async function setupStorage() {
+  console.log(`\n--- [4/5] Setting up Storage Buckets ---`);
+  // journal_files: reference journals + repository thesis PDFs + SK scans.
+  // NOTE: Appwrite free/starter plans allow only ONE bucket, so SK scans share
+  // journal_files and are distinguished by the 'skscan_' filename prefix.
+  await ensureBucket('journal_files', 'SPSM Documents & Journals');
 }
 
 // 5. Seed Baseline & Realistic Test Data

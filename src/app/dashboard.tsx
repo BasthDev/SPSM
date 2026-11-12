@@ -12,7 +12,7 @@ import {
   StatusBadge
 } from '@/components';
 import type { DepartmentItem, ThesisSubmission, UserProfile } from '@/models/types';
-import { FALLBACK_DEPARTMENTS } from '@/models/types';
+import { FALLBACK_DEPARTMENTS, isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
 import { settingsService, type SystemSettings } from '@/services/settingsService';
@@ -174,9 +174,7 @@ export default function DashboardScreen() {
       };
 
   // Guard: Hide submission button if there is an active / non-rejected submission
-  const activeSubmission = submissions.find(
-    (s) => s.status !== 'rejected' && s.status !== 'revision'
-  );
+  const activeSubmission = submissions.find((s) => isActiveSubmissionStatus(s.status));
 
   // Exemption check: student whose previous submission is revision or rejected can ALWAYS submit
   const latestSub = submissions[0];
@@ -280,20 +278,22 @@ export default function DashboardScreen() {
                 <View style={styles.headerMetaItem}>
                   <Text style={styles.headerMetaLabel}>Status</Text>
                   <Text style={styles.headerMetaValueHL}>
-                    {activeSubmission.status === 'approved' ||
-                    activeSubmission.status === 'sk_issued'
+                    {activeSubmission.status === 'sk_issued' ||
+                    activeSubmission.status === 'approved'
                       ? 'SK Resmi Terbit'
                       : activeSubmission.status === 'sk_process'
                       ? 'Proses TTD Dekan'
                       : activeSubmission.status === 'waiting_akademik'
                       ? 'Menunggu Administrasi TU'
                       : activeSubmission.status === 'waiting_kaprodi'
-                      ? 'Menunggu Kaprodi'
+                      ? 'Pleno Kaprodi'
                       : activeSubmission.status === 'revision'
                       ? 'Perlu Revisi'
                       : activeSubmission.status === 'rejected'
                       ? 'Ditolak'
-                      : 'Tahap Penilaian Reviewer'}
+                      : activeSubmission.status === 'drafting'
+                      ? 'Draf'
+                      : 'Menunggu Review'}
                   </Text>
                 </View>
               </View>
@@ -423,7 +423,7 @@ export default function DashboardScreen() {
                         </Text>
                       </View>
                     )}
-                    {sub.status === 'approved' && sub.nomor_surat && (
+                    {(sub.status === 'sk_issued' || sub.status === 'approved') && sub.nomor_surat && (
                       <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>No. SK:</Text>
                         <Text style={[styles.infoValue, styles.infoValueSuccess, styles.infoValueMono]}>
@@ -1167,35 +1167,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#059669',
   },
-  // cardThesisTitle: {
-  //   fontSize: 14,
-  //   fontWeight: '700',
-  //   color: Colors.text,
-  //   lineHeight: 19,
-  //   marginBottom: 10,
-  // },
-  // cardDivider: {
-  //   height: 1,
-  //   backgroundColor: '#F1F5F9',
-  //   marginBottom: 10,
-  // },
-  // cardInfoRow: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   justifyContent: 'space-between',
-  //   marginBottom: 10,
-  // },
-  // infoItem: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   gap: 6,
-  //   maxWidth: '55%',
-  // },
-  // infoText: {
-  //   fontSize: 11.5,
-  //   color: Colors.textTertiary,
-  // },
-
   // 3 Titles in Active Dashboard Card
   dashboardThreeTitlesBox: {
     backgroundColor: '#FFFFFF',
@@ -1257,59 +1228,4 @@ const styles = StyleSheet.create({
     color: '#065F46',
   },
 
-  // 3 Titles in Riwayat List Card
-  // listCardMultiBox: {
-  //   backgroundColor: '#F8FAFC',
-  //   borderRadius: 10,
-  //   padding: 10,
-  //   marginBottom: 10,
-  //   borderWidth: 1,
-  //   borderColor: '#E2E8F0',
-  //   gap: 6,
-  // },
-  // listCardMultiLabel: {
-  //   fontSize: 10,
-  //   fontWeight: '700',
-  //   color: Colors.textTertiary,
-  //   textTransform: 'uppercase',
-  //   letterSpacing: 0.5,
-  //   marginBottom: 2,
-  // },
-  // listCardOptRow: {
-  //   flexDirection: 'row',
-  //   alignItems: 'flex-start',
-  //   gap: 6,
-  // },
-  // listCardOptBadge: {
-  //   backgroundColor: '#EFF6FF',
-  //   paddingHorizontal: 5,
-  //   paddingVertical: 2,
-  //   borderRadius: 4,
-  //   marginTop: 1,
-  // },
-  // listCardOptBadgeText: {
-  //   fontSize: 9.5,
-  //   fontWeight: '800',
-  //   color: Colors.primary,
-  // },
-  // listCardOptText: {
-  //   flex: 1,
-  //   fontSize: 12,
-  //   fontWeight: '600',
-  //   color: Colors.text,
-  //   lineHeight: 16,
-  // },
-  // listCardSkRow: {
-  //   flexDirection: 'row',
-  //   alignItems: 'center',
-  //   gap: 4,
-  //   marginTop: -4,
-  //   marginBottom: 8,
-  // },
-  // listCardSkText: {
-  //   fontSize: 11,
-  //   fontWeight: '700',
-  //   fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  //   color: '#059669',
-  // },
 });

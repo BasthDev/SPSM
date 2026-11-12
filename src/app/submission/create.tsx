@@ -8,6 +8,7 @@ import {
   Stepper,
 } from '@/components';
 import type { LecturerItem, OptionFormData } from '@/models/types';
+import { isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
 import { checkTitleSimilarity, type TitleMatch } from '@/services/geminiService';
@@ -99,10 +100,11 @@ export default function CreateSubmissionScreen() {
 
         if (!active) return;
 
-        // Fetch settings, lecturers, and past submissions in parallel
-        const [sysSettings, allLecs, pastSubs] = await Promise.all([
+        // Fetch settings, lecturers, departments, and past submissions in parallel
+        const [sysSettings, allLecs, depts, pastSubs] = await Promise.all([
           settingsService.getSettings(),
           academicService.getLecturers(),
+          academicService.getDepartments(),
           submissionService.getStudentSubmissions(acct.$id),
         ]);
 
@@ -119,12 +121,15 @@ export default function CreateSubmissionScreen() {
         }
 
         // Filter lecturers by student's department if available
+        const matchedDept = depts.find(
+          (d) =>
+            d.code?.toLowerCase() === profile.department?.toLowerCase() ||
+            d.name?.toLowerCase() === profile.department?.toLowerCase()
+        );
         const deptLecs = allLecs.filter((l) => {
-          if (!profile.department) return true;
-          return (
-            l.department_id?.toLowerCase() === profile.department?.toLowerCase() ||
-            l.is_active
-          );
+          if (!matchedDept) return true;
+          const lecDept = l.departmentId || l.department_id || l.department;
+          return lecDept === matchedDept.$id || lecDept === matchedDept.code;
         });
         const availableLecs = deptLecs.length > 0 ? deptLecs : allLecs;
         setLecturers(availableLecs);
@@ -176,10 +181,8 @@ export default function CreateSubmissionScreen() {
           latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected');
         setIsSpecialExemption(Boolean(hasExemption));
 
-        // Blokir jika masih ada pengajuan aktif (pending/waiting/approved)
-        const hasActive = pastSubs.some(
-          (s) => s.status !== 'revision' && s.status !== 'rejected'
-        );
+        // Blokir jika masih ada pengajuan aktif (pending/waiting/sk/approved)
+        const hasActive = pastSubs.some((s) => isActiveSubmissionStatus(s.status));
         if (hasActive) {
           setPeriodStatus({
             isOpen: false,
@@ -344,6 +347,14 @@ export default function CreateSubmissionScreen() {
       } catch (checkErr) {
         // Jangan blokir pengajuan jika pengecekan gagal
         console.warn('Similarity check skipped:', checkErr);
+      }
+
+      if (resubmitSource) {
+        await submissionService.resubmitRevision(resubmitSource, acct.$id, optionsData);
+        Alert.alert('Berhasil!', 'Revisi pengajuan judul skripsi berhasil dikirim.', [
+          { text: 'Buka Dashboard', onPress: () => router.replace('/dashboard') },
+        ]);
+        return;
       }
 
       await submissionService.createSubmission(

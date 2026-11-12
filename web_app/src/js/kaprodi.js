@@ -1,10 +1,11 @@
-import { submissionService, lecturerService, authService } from './spsm.js';
+import { submissionService, lecturerService, authService, statusNorm } from './spsm.js';
 
 let submissions = null;
 let lecturers = [];
 let currentFilter = 'waiting_kaprodi';
 let selectedSubmission = null;
 let currentKaprodiName = 'Ketua Program Studi';
+let lastFiltered = []; // referensi array terfilter terakhir untuk indexing btn onclick
 
 async function init() {
   try {
@@ -41,14 +42,8 @@ function showToast(message, isError = false) {
 }
 
 function updateMetrics() {
-  const waiting = submissions.filter((s) => s.status === 'waiting_kaprodi').length;
-  const approved = submissions.filter(
-    (s) =>
-      s.status === 'approved' ||
-      s.status === 'waiting_akademik' ||
-      s.status === 'sk_process' ||
-      s.status === 'sk_issued'
-  ).length;
+  const waiting = submissions.filter((s) => statusNorm(s.status) === 'waiting_kaprodi').length;
+  const approved = submissions.filter((s) => ['sk_issued', 'waiting_akademik', 'sk_process'].includes(statusNorm(s.status))).length;
 
   document.getElementById('kaprodi-waiting-count').innerText = waiting;
   document.getElementById('kaprodi-total-count').innerText = submissions.length;
@@ -73,13 +68,9 @@ if (submissions === null) {
   const filtered = submissions.filter((s) => {
     if (currentFilter !== 'all') {
       if (currentFilter === 'approved') {
-        const isApproved =
-          s.status === 'approved' ||
-          s.status === 'waiting_akademik' ||
-          s.status === 'sk_process' ||
-          s.status === 'sk_issued';
+        const isApproved = ['sk_issued', 'waiting_akademik', 'sk_process'].includes(statusNorm(s.status));
         if (!isApproved) return false;
-      } else if (s.status !== currentFilter) {
+      } else if (statusNorm(s.status) !== currentFilter) {
         return false;
       }
     }
@@ -95,12 +86,15 @@ if (submissions === null) {
 
   if (!tbody) return;
 
+  lastFiltered = filtered;
+
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-muted italic">Tidak ada pengajuan pada filter ini.</td></tr>`;
     return;
   }
 
   const statusBadges = {
+    drafting: { label: 'Draft', cls: 'bg-slate-100 text-slate-800 border-slate-300' },
     pending_lecturer: { label: 'Menunggu Review', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
     waiting_kaprodi: { label: 'Pleno Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
     waiting_akademik: { label: 'Menunggu Administrasi TU', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
@@ -115,7 +109,7 @@ if (submissions === null) {
     .map((sub, idx) => {
       const student = sub.student;
       const chosenOpt = sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
-      const statusBadge = statusBadges[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
+      const statusBadge = statusBadges[statusNorm(sub.status)] || statusBadges[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
 
       return `
       <tr class="hover:bg-subtle/80 transition-colors">
@@ -133,7 +127,7 @@ if (submissions === null) {
         </td>
         <td class="py-3 px-4 whitespace-nowrap">
           <span class="badge text-xs px-2.5 py-0.5 font-bold border ${statusBadge.cls}">${statusBadge.label}</span>
-          ${sub.status === 'approved' && sub.nomor_surat ? `<div class="font-mono text-[10px] font-bold text-emerald-700 mt-0.5">${sub.nomor_surat}</div>` : ''}
+          ${statusNorm(sub.status) === 'sk_issued' && sub.nomor_surat ? `<div class="font-mono text-[10px] font-bold text-emerald-700 mt-0.5">${sub.nomor_surat}</div>` : ''}
         </td>
         <td class="py-3 px-4">
           ${
@@ -155,7 +149,7 @@ if (submissions === null) {
             Berkas
           </button>
           ${
-            sub.status === 'waiting_kaprodi'
+            statusNorm(sub.status) === 'waiting_kaprodi'
               ? `
             <button
               type="button"
@@ -174,14 +168,14 @@ if (submissions === null) {
 }
 
 window.viewDossierKaprodi = (idx) => {
-  const sub = submissions[idx];
+  const sub = lastFiltered[idx];
   if (sub && window.openDossierModal) {
     window.openDossierModal(sub);
   }
 };
 
 window.openKaprodiModal = (idx) => {
-  const sub = submissions[idx];
+  const sub = lastFiltered[idx];
   if (!sub) return;
   selectedSubmission = sub;
 

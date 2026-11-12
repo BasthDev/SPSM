@@ -35,7 +35,6 @@ export default function OnboardingScreen() {
   const [nim, setNim] = useState('');
   const [department, setDepartment] = useState('');
   const [batchYear, setBatchYear] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
 
   // Dynamic Options from DB
   const [departmentOptions, setDepartmentOptions] = useState(FALLBACK_DEPARTMENTS);
@@ -75,7 +74,7 @@ export default function OnboardingScreen() {
         if (active && years.length > 0) {
           setBatchYearOptions(
             years.map((y) => ({
-              label: y.label,
+              label: y.label ?? `Angkatan ${y.year}`,
               value: String(y.year),
             }))
           );
@@ -137,7 +136,6 @@ export default function OnboardingScreen() {
         nim: nim.trim(),
         department,
         batchYear,
-        whatsapp: whatsapp.trim(),
         avatarUrl: avatarUrl.trim() || undefined,
       });
       router.replace('/dashboard');
@@ -204,15 +202,6 @@ export default function OnboardingScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               error={errors.email}
-            />
-
-            <Input
-              label="Nomor WhatsApp (opsional)"
-              value={whatsapp}
-              onChangeText={setWhatsapp}
-              placeholder="08xxxxxxxxxx"
-              keyboardType="phone-pad"
-              hint="Digunakan untuk notifikasi plotting dosen pembimbing"
             />
           </Section>
         );
@@ -285,12 +274,6 @@ export default function OnboardingScreen() {
               <Text style={styles.summaryLabel}>Tahun Angkatan (Letting)</Text>
               <Text style={styles.summaryValue}>{selectedYearLabel}</Text>
             </View>
-            {whatsapp ? (
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>WhatsApp</Text>
-                <Text style={styles.summaryValue}>{whatsapp}</Text>
-              </View>
-            ) : null}
           </Section>
         );
 

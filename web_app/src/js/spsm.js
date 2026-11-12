@@ -1,4 +1,4 @@
-import { account, databases, storage, APPWRITE_CONFIG, Query, ID, OAuthProvider } from './appwrite.js';
+import { apiClient } from './apiClient.js';
 
 export function extractProdiCode(dept) {
   if (!dept) return 'TI';
@@ -27,6 +27,16 @@ export function formatNomorSurat(urutanNum, prodiCode, angkatan, year = new Date
   return { nomor_surat, urutan };
 }
 
+// Normalisasi status legacy → kanonik (server sudah menormalisasi, ini pengaman UI)
+export function statusNorm(status) {
+  if (status === 'approved') return 'sk_issued';
+  if (status === 'approved_lecturer' || status === 'pending_kaprodi') return 'waiting_kaprodi';
+  return status || '';
+}
+
+// Status yang dianggap "SK sudah disahkan/terbit"
+export const APPROVED_STATUSES = new Set(['sk_issued', 'approved']);
+
 export function formatDateShort(isoString) {
   if (!isoString) return '-';
   try {
@@ -47,21 +57,21 @@ export const authService = {
     const path = window.location.pathname.replace(/\/[^/]*$/, '/');
     const successUrl = origin + path + 'index.html';
     const failureUrl = origin + path + 'signin.html?error=oauth_failed';
-
-    account.createOAuth2Session(OAuthProvider.Google, successUrl, failureUrl);
+    const params = new URLSearchParams({
+      project: '6af1b3b200056ab6bc1d',
+      success: successUrl,
+      failure: failureUrl,
+    });
+    window.location.href = `https://sgp.cloud.appwrite.io/v1/account/tokens/oauth2/google?${params.toString()}`;
   },
 
   async loginWithEmail(email, pass) {
-    try {
-      return await account.createEmailPasswordSession(email.trim(), pass);
-    } catch (err) {
-      throw new Error(err.message || 'Gagal masuk dengan email & password.');
-    }
+    return await apiClient.auth.login(email.trim(), pass);
   },
 
   async logout() {
     try {
-      await account.deleteSession('current');
+      await apiClient.auth.logout();
     } catch (e) {
       console.warn('Logout error', e);
     }
@@ -71,106 +81,37 @@ export const authService = {
 
   async getCurrentUser() {
     try {
-      const acct = await account.get();
-      if (!acct || !acct.$id) return null;
+      const u = await apiClient.auth.getCurrentUser();
+      if (!u) return null;
 
-      const acctEmail = (acct.email || '').toLowerCase();
-      const isAdminEmail = acctEmail === 'ws.basithachmed@gmail.com';
-
-      // 1. Fetch UserProfile
-      let profile = null;
-      try {
-        const userRes = await databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.users,
-          [Query.equal('user_id', acct.$id), Query.limit(1)]
-        );
-        if (userRes.documents.length > 0) {
-          profile = userRes.documents[0];
-        }
-      } catch (e) {
-        console.warn('No user profile found', e);
-      }
-
-      // 2. Fetch Lecturer record
-      let lecturer = null;
-      try {
-        const emailQueries = [Query.equal('email', acctEmail), Query.limit(1)];
-        let lecRes = await databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.lecturers,
-          emailQueries
-        );
-
-        if (lecRes.documents.length === 0 && acct.email) {
-          lecRes = await databases.listDocuments(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.lecturers,
-            [Query.equal('email', acct.email), Query.limit(1)]
-          );
-        }
-
-        if (lecRes.documents.length === 0) {
-          lecRes = await databases.listDocuments(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.lecturers,
-            [Query.equal('user_id', acct.$id), Query.limit(1)]
-          );
-        }
-
-        if (lecRes.documents.length > 0) {
-          lecturer = lecRes.documents[0];
-        }
-      } catch (e) {
-        console.warn('Lecturer search error', e);
-      }
-
-      // Auto-register Google login as lecturer if new
-      if (!isAdminEmail && !lecturer) {
-        try {
-          const autoNip = acct.phone || `G-${Date.now().toString().slice(-6)}`;
-          lecturer = await databases.createDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.lecturers,
-            ID.unique(),
-            {
-              nip: autoNip,
-              name: acct.name || 'Dosen Pembimbing',
-              email: acctEmail,
-              department_id: 'TI',
-              expertise: 'Komputer & Sistem',
-              quota: 10,
-              current_students: 0,
-              role: 'lecturer',
-              is_active: true,
-              user_id: acct.$id,
-            }
-          );
-        } catch (err) {
-          console.warn('Auto-create lecturer failed', err);
-        }
-      }
-
-      let role = 'student';
-      if (isAdminEmail) {
-        role = 'admin';
-      } else if (lecturer) {
-        role = lecturer.role || 'lecturer';
-      } else if (profile) {
-        role = profile.role || 'student';
-      }
-
-      const avatarUrl =
-        acct.prefs?.avatar ||
-        `https://ui-avatars.com/api/?name=${encodeURIComponent(acct.name || 'User')}&background=204B76&color=fff&bold=true`;
-
+      const isAdmin = Boolean(u.isAdmin || u.role === 'admin' || (u.email || '').toLowerCase() === 'ws.basithachmed@gmail.com');
       return {
-        account: acct,
-        profile,
-        lecturer,
-        role,
-        isAdmin: isAdminEmail || role === 'admin',
-        avatarUrl,
+        account: { $id: u.userId || u.id, email: u.email, name: u.name },
+        profile: u.profile
+          ? {
+              ...u.profile,
+              $id: u.profile.id,
+              user_id: u.profile.userId,
+              nim_or_nip: u.profile.nimOrNip || u.profile.nim,
+              nim: u.profile.nim,
+              department: u.profile.department,
+              batch_year: u.profile.batchYear,
+              has_uploaded_thesis: u.profile.thesisUploaded ?? u.profile.hasUploadedThesis ?? false,
+            }
+          : null,
+        lecturer: u.lecturer
+          ? {
+              ...u.lecturer,
+              $id: u.lecturer.id,
+              department_id: u.lecturer.departmentId || u.lecturer.department || '',
+              current_students: u.lecturer.currentStudents ?? u.lecturer.currentAdviseeCount ?? 0,
+              quota: u.lecturer.quota ?? u.lecturer.maxAdviseeQuota ?? 10,
+              is_active: u.lecturer.isActive ?? u.lecturer.is_active ?? true,
+            }
+          : null,
+        role: u.role || (isAdmin ? 'admin' : 'student'),
+        isAdmin,
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=204B76&color=fff&bold=true`,
       };
     } catch {
       return null;
@@ -178,20 +119,33 @@ export const authService = {
   },
 };
 
+// ============ MEMOIZATION LAYER ============
+const _lecCache = new Map();
+let _subsCache = new Map();
+
 export const lecturerService = {
   async getLecturers() {
     if (_lecCache.has('all')) return _lecCache.get('all');
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.lecturers,
-        [Query.orderAsc('name'), Query.limit(100)]
-      );
-      _lecCache.set('all', res.documents);
-      return res.documents;
-    } catch {
-      return [];
+      const apiList = await apiClient.lecturers.list();
+      if (Array.isArray(apiList)) {
+        const mapped = apiList.map((l) => ({
+          ...l,
+          $id: l.id,
+          department_id: l.departmentId || l.department || '',
+          expertise: l.expertise || '',
+          role: l.role || 'lecturer',
+          current_students: l.currentStudents ?? l.currentAdviseeCount ?? 0,
+          quota: l.quota ?? l.maxAdviseeQuota ?? 10,
+          is_active: l.isActive ?? l.is_active ?? true,
+        }));
+        _lecCache.set('all', mapped);
+        return mapped;
+      }
+    } catch (e) {
+      console.warn('getLecturers failed:', e);
     }
+    return [];
   },
 
   invalidateLecturerCache() {
@@ -202,27 +156,22 @@ export const lecturerService = {
     this.invalidateLecturerCache();
     if (!lecturerId) return;
     try {
-      const allApproved = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.thesisSubmissions,
-        [Query.equal('status', 'approved'), Query.limit(100)]
-      );
-
-      const count = allApproved.documents.filter((sub) => {
+      const allSubs = await apiClient.submissions.list();
+      const count = (allSubs || []).filter((sub) => {
+        if (!APPROVED_STATUSES.has(statusNorm(sub.status)) && !['waiting_akademik', 'sk_process'].includes(sub.status)) {
+          return false;
+        }
         const parts = [
-          sub.advisor_1_id,
-          sub.advisor_2_id,
-          ...(sub.advisor_id ? sub.advisor_id.split(',') : []),
-        ].filter(Boolean).map((p) => p.trim());
+          sub.advisor1Id || sub.advisor_1_id,
+          sub.advisor2Id || sub.advisor_2_id,
+        ].filter(Boolean).map((p) => String(p).trim());
         return parts.includes(lecturerId);
       }).length;
 
-      await databases.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.lecturers,
-        lecturerId,
-        { current_students: count }
-      );
+      await apiClient.lecturers.update(lecturerId, {
+        currentStudents: count,
+        current_students: count,
+      });
     } catch (e) {
       console.warn('syncStudentCount failed', e);
     }
@@ -230,59 +179,174 @@ export const lecturerService = {
 
   async updateRole(lecturerId, role) {
     this.invalidateLecturerCache();
-    return await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      lecturerId,
-      { role }
-    );
+    return await apiClient.lecturers.update(lecturerId, { role });
   },
 
   async createLecturer(data) {
     this.invalidateLecturerCache();
-    return await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      ID.unique(),
-      data
-    );
+    const deptId = data.department_id || data.department || data.departmentId || '';
+    const created = await apiClient.lecturers.create({
+      name: data.name,
+      nip: data.nip,
+      email: data.email,
+      phone: data.phone || '',
+      department_id: deptId,
+      departmentId: deptId,
+      department: deptId,
+      is_active: data.is_active ?? true,
+      isActive: data.is_active ?? true,
+      current_students: data.current_students || 0,
+      currentStudents: data.current_students || 0,
+      quota: data.quota || 10,
+      role: data.role || 'lecturer',
+      expertise: data.expertise || '',
+    });
+    return { ...created, $id: created.id };
   },
 
   async updateLecturer(id, data) {
     this.invalidateLecturerCache();
-    return await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      id,
-      data
-    );
+    const deptId = data.department_id || data.department || data.departmentId;
+    const updated = await apiClient.lecturers.update(id, {
+      name: data.name,
+      nip: data.nip,
+      email: data.email,
+      phone: data.phone,
+      department_id: deptId,
+      departmentId: deptId,
+      department: deptId,
+      is_active: data.is_active,
+      isActive: data.is_active,
+      current_students: data.current_students,
+      currentStudents: data.current_students,
+      quota: data.quota,
+      role: data.role,
+      expertise: data.expertise,
+    });
+    return { ...updated, $id: updated.id };
   },
 
   async deleteLecturer(id) {
     this.invalidateLecturerCache();
-    return await databases.deleteDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      id
-    );
+    return await apiClient.lecturers.delete(id);
   },
 };
 
-// ============ MEMOIZATION LAYER ============
-// Cache hasil fetch berat (submissions ter-hydrate & lecturers) per kombinasi argumen.
-// Invalidasi manual via lecturerService.invalidateLecturerCache() dan
-// submissionService.invalidateSubmissionsCache() — dipanggil otomatis oleh method mutasi.
-const _lecCache = new Map(); // key: 'all' | '' -> documents
-let _subsCache = new Map(); // key: `${statusFilter}|${advisorIdFilter || ''}` -> hydrated docs
+function lecturerDtoToLegacy(l) {
+  if (!l) return null;
+  return {
+    ...l,
+    $id: l.id,
+    department_id: l.departmentId || l.department || '',
+    current_students: l.currentStudents ?? l.currentAdviseeCount ?? 0,
+    quota: l.quota ?? l.maxAdviseeQuota ?? 10,
+    is_active: l.isActive ?? l.is_active ?? true,
+  };
+}
+
+// Resolve preferred advisor: utamakan objek LecturerDto hasil hydration,
+// fallback lookup by id di daftar dosen.
+function resolvePreferredAdvisor(dto, id, lecById) {
+  if (dto) return lecturerDtoToLegacy(dto);
+  if (!id) return null;
+  const found = lecById?.get(id);
+  return found ? lecturerDtoToLegacy(found) : { $id: id, name: `Dosen ID: ${id}` };
+}
+
+function mapSubmissionDtoToLegacy(sub, lecById) {
+  if (!sub) return null;
+  const surat = sub.surat || null;
+  return {
+    $id: sub.id,
+    id: sub.id,
+    student_id: sub.studentId,
+    advisor_1_id: sub.advisor1Id,
+    advisor_2_id: sub.advisor2Id,
+    advisor_id: sub.advisor1Id && sub.advisor2Id ? `${sub.advisor1Id},${sub.advisor2Id}` : (sub.advisor1Id || sub.advisor2Id || null),
+    preferred_advisor_1_id: sub.preferredAdvisor1Id || sub.preferredAdvisor1?.id || null,
+    preferred_advisor_2_id: sub.preferredAdvisor2Id || sub.preferredAdvisor2?.id || null,
+    preferredAdvisor1: resolvePreferredAdvisor(sub.preferredAdvisor1, sub.preferredAdvisor1Id, lecById),
+    preferredAdvisor2: resolvePreferredAdvisor(sub.preferredAdvisor2, sub.preferredAdvisor2Id, lecById),
+    status: sub.status,
+    status_norm: statusNorm(sub.status),
+    submitted_at: sub.submittedAt,
+    $createdAt: sub.submittedAt,
+    $updatedAt: sub.updatedAt,
+    reviewer_notes: sub.reviewerNotes || '',
+    kaprodi_notes: sub.kaprodiNotes || '',
+    nomor_surat: surat?.nomorSurat || null,
+    urutan_surat: surat?.urutan ? String(surat.urutan) : null,
+    no_dokumen: surat?.noDokumen || null,
+    sk_generated_at: surat?.createdAt || null,
+    scanned_sk_id: surat?.scannedSkId || null,
+    template_sk_id: surat?.templateSkId || null,
+    options: (sub.options || []).map((opt) => ({
+      ...opt,
+      $id: opt.id,
+      submission_id: opt.submissionId,
+      option_number: opt.optionNumber,
+      relevance_table: opt.relevanceTable,
+      relevance_variable: opt.relevanceVariable,
+      relevance_methodology: opt.relevanceMethodology,
+      relevance_note: opt.relevanceNote,
+      journal_title: opt.journalTitle,
+      journal_author: opt.journalAuthor,
+      journal_year: opt.journalYear,
+      journal_file_id: opt.journalFileId,
+      is_selected: opt.isSelected,
+      is_selected_by_lecturer: opt.isSelectedByLecturer ?? opt.isSelected,
+      lecturer_notes: opt.reviewNotes,
+      review_notes: opt.reviewNotes,
+    })),
+    student: sub.student
+      ? {
+          ...sub.student,
+          $id: sub.student.id,
+          user_id: sub.student.userId,
+          nim_or_nip: sub.student.nimOrNip || sub.student.nim,
+          nim: sub.student.nim,
+          department: sub.student.department,
+          batch_year: sub.student.batchYear,
+          has_uploaded_thesis: sub.student.thesisUploaded ?? sub.student.hasUploadedThesis ?? false,
+          current_sks: sub.student.currentSks,
+        }
+      : null,
+    advisor: lecturerDtoToLegacy(sub.advisor1),
+    advisor2: lecturerDtoToLegacy(sub.advisor2),
+    surat: surat
+      ? {
+          ...surat,
+          $id: surat.id,
+          nomor_surat: surat.nomorSurat,
+          urutan_surat: surat.urutan,
+          no_dokumen: surat.noDokumen,
+          template_sk_id: surat.templateSkId,
+          scanned_sk_id: surat.scannedSkId,
+          sk_generated_at: surat.createdAt,
+          tanggal_terbit: surat.createdAt,
+          created_at: surat.createdAt,
+        }
+      : null,
+    logs: (sub.logs || []).map((l) => ({
+      ...l,
+      $id: l.id,
+      submission_id: l.submissionId,
+      actor_id: l.actorId,
+      actor_name: l.actorName,
+      created_at: l.createdAt,
+      $createdAt: l.createdAt,
+    })),
+  };
+}
 
 export const submissionService = {
   invalidateSubmissionsCache() {
     _subsCache = new Map();
   },
 
-  getFileViewUrl(fileId) {
+  getFileViewUrl(fileId, bucket = 'journals') {
     if (!fileId) return '#';
-    return storage.getFileView(APPWRITE_CONFIG.storageBucketId, fileId).toString();
+    return apiClient.files.getViewUrl(bucket, fileId);
   },
 
   async getAllSubmissions(statusFilter, advisorIdFilter) {
@@ -292,271 +356,77 @@ export const submissionService = {
     }
 
     try {
-      const queries = [Query.orderDesc('$createdAt'), Query.limit(100)];
-      if (statusFilter && statusFilter !== 'all') {
-        queries.push(Query.equal('status', statusFilter));
-      }
+      const filter = {};
+      if (statusFilter && statusFilter !== 'all') filter.status = statusFilter;
+      if (advisorIdFilter && advisorIdFilter !== 'all') filter.advisorId = advisorIdFilter;
 
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.thesisSubmissions,
-        queries
-      );
-
-      let submissions = res.documents;
-
-      if (advisorIdFilter && advisorIdFilter !== 'all') {
-        submissions = submissions.filter((sub) => {
-          const parts = [
-            sub.advisor_1_id,
-            sub.advisor_2_id,
-            ...(sub.advisor_id ? sub.advisor_id.split(',') : []),
-          ].filter(Boolean).map((s) => s.trim());
-          return parts.includes(advisorIdFilter);
-        });
-      }
-
-      // Hydrate with options, student, advisors, logs
-      const hydrated = await Promise.all(
-        submissions.map(async (sub) => {
+      const apiSubs = await apiClient.submissions.list(filter);
+      if (Array.isArray(apiSubs)) {
+        // Lookup dosen untuk fallback resolusi preferred advisor (bila DTO tidak ter-hydrate)
+        let lecById = null;
+        const needsLookup = apiSubs.some(
+          (s) => (s.preferredAdvisor1Id && !s.preferredAdvisor1) || (s.preferredAdvisor2Id && !s.preferredAdvisor2)
+        );
+        if (needsLookup) {
           try {
-            const [optRes, logRes] = await Promise.all([
-              databases.listDocuments(
-                APPWRITE_CONFIG.databaseId,
-                APPWRITE_CONFIG.collections.submissionOptions,
-                [Query.equal('submission_id', sub.$id), Query.orderAsc('option_number')]
-              ),
-              databases.listDocuments(
-                APPWRITE_CONFIG.databaseId,
-                APPWRITE_CONFIG.collections.approvalLogs,
-                [Query.equal('submission_id', sub.$id), Query.orderAsc('$createdAt')]
-              ),
-            ]);
-
-            let student = null;
-            if (sub.student_id) {
-              try {
-                const sRes = await databases.listDocuments(
-                  APPWRITE_CONFIG.databaseId,
-                  APPWRITE_CONFIG.collections.users,
-                  [Query.equal('user_id', sub.student_id), Query.limit(1)]
-                );
-                if (sRes.documents.length > 0) student = sRes.documents[0];
-              } catch {}
-            }
-
-            let advisor = null;
-            let advisor2 = null;
-            const a1Id = sub.advisor_1_id || (sub.advisor_id ? sub.advisor_id.split(',')[0]?.trim() : null);
-            const a2Id = sub.advisor_2_id || (sub.advisor_id ? sub.advisor_id.split(',')[1]?.trim() : null);
-            try {
-              if (a1Id) {
-                advisor = await databases.getDocument(
-                  APPWRITE_CONFIG.databaseId,
-                  APPWRITE_CONFIG.collections.lecturers,
-                  a1Id
-                );
-              }
-              if (a2Id) {
-                advisor2 = await databases.getDocument(
-                  APPWRITE_CONFIG.databaseId,
-                  APPWRITE_CONFIG.collections.lecturers,
-                  a2Id
-                );
-              }
-            } catch {}
-
-            // Parse log untuk nomor SK & usulan pembimbing mahasiswa
-            let nomorSurat = null;
-            let urutanSurat = null;
-            let skGeneratedAt = null;
-            let preferredAdvisor1 = null;
-            let preferredAdvisor2 = null;
-
-            const studentLog = (logRes.documents || []).find(
-              (l) => l.action === 'PENGAJUAN_MAHASISWA'
-            );
-            if (studentLog && studentLog.notes) {
-              try {
-                const parsed = JSON.parse(studentLog.notes);
-                if (parsed.pref1_name || parsed.pref1) {
-                  preferredAdvisor1 = {
-                    $id: parsed.pref1 || '',
-                    name: parsed.pref1_name || `Dosen ID: ${parsed.pref1}`,
-                  };
-                }
-                if (parsed.pref2_name || parsed.pref2) {
-                  preferredAdvisor2 = {
-                    $id: parsed.pref2 || '',
-                    name: parsed.pref2_name || `Dosen ID: ${parsed.pref2}`,
-                  };
-                }
-              } catch {}
-            }
-
-            let suratDoc = null;
-            try {
-              const surRes = await databases.listDocuments(
-                APPWRITE_CONFIG.databaseId,
-                APPWRITE_CONFIG.collections.surat || 'surat',
-                [Query.equal('submission_id', sub.$id), Query.limit(1)]
-              );
-              if (surRes.documents.length > 0) {
-                suratDoc = surRes.documents[0];
-                nomorSurat = suratDoc.nomor_surat;
-                urutanSurat = String(suratDoc.urutan);
-                skGeneratedAt = suratDoc.created_at;
-              }
-            } catch {}
-
-            const kaprodiLog = [...(logRes.documents || [])]
-              .reverse()
-              .find((l) => l.action === 'DISAHKAN_KAPRODI');
-            if (kaprodiLog && kaprodiLog.notes) {
-              try {
-                if (kaprodiLog.notes.trim().startsWith('{')) {
-                  const parsed = JSON.parse(kaprodiLog.notes);
-                  nomorSurat = parsed.nomor_surat || null;
-                  urutanSurat = parsed.urutan || null;
-                  skGeneratedAt = parsed.generated_at || kaprodiLog.created_at;
-                  if (parsed.text) kaprodiLog.notes = parsed.text;
-                }
-              } catch {}
-            }
-
-            return {
-              ...sub,
-              student,
-              advisor,
-              advisor2,
-              preferredAdvisor1,
-              preferredAdvisor2,
-              nomor_surat: nomorSurat,
-              urutan_surat: urutanSurat,
-              sk_generated_at: skGeneratedAt,
-              options: optRes.documents,
-              logs: logRes.documents,
-            };
-          } catch {
-            return sub;
+            const lecs = await lecturerService.getLecturers();
+            lecById = new Map((lecs || []).map((l) => [l.$id || l.id, l]));
+          } catch (e) {
+            console.warn('lecturer lookup for preferred advisors failed:', e);
           }
-        })
-      );
-
-      _subsCache.set(cacheKey, hydrated);
-      return hydrated;
-    } catch (err) {
-      console.error('getAllSubmissions failed', err);
-      return [];
+        }
+        let submissions = apiSubs.map((s) => mapSubmissionDtoToLegacy(s, lecById));
+        if (advisorIdFilter && advisorIdFilter !== 'all') {
+          submissions = submissions.filter((sub) => {
+            const parts = [
+              sub.advisor_1_id,
+              sub.advisor_2_id,
+            ].filter(Boolean).map((s) => s.trim());
+            return parts.includes(advisorIdFilter);
+          });
+        }
+        _subsCache.set(cacheKey, submissions);
+        return submissions;
+      }
+    } catch (apiErr) {
+      console.warn('apiClient list failed:', apiErr);
     }
+    return [];
+  },
+
+  getSubmissions(statusFilter, advisorIdFilter) {
+    return this.getAllSubmissions(statusFilter, advisorIdFilter);
   },
 
   async reviewAndSelectTitle(submissionId, selectedOptionId, advisor1Id, advisor2Id, reviewerName, notes) {
     this.invalidateSubmissionsCache();
-    const combinedAdvisorId = advisor2Id ? `${advisor1Id.trim()},${advisor2Id.trim()}` : advisor1Id.trim();
+    const a1 = (advisor1Id || '').trim();
+    const a2 = (advisor2Id || '').trim();
 
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
+    return await apiClient.submissions.updateStatus(
       submissionId,
+      'waiting_kaprodi',
+      'VERIFIKASI_DOSEN_PENILAI',
+      notes || 'Proposal disetujui Dosen Penilai dan diajukan ke Kaprodi.',
       {
-        status: 'waiting_kaprodi',
-        advisor_id: combinedAdvisorId,
-        advisor_1_id: advisor1Id ? advisor1Id.trim() : null,
-        advisor_2_id: advisor2Id ? advisor2Id.trim() : null,
-        reviewer_notes: notes || '',
-      }
-    );
-
-    // Update options selection
-    const optRes = await databases.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.submissionOptions,
-      [Query.equal('submission_id', submissionId)]
-    );
-
-    await Promise.all(
-      optRes.documents.map((opt) =>
-        databases.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.submissionOptions,
-          opt.$id,
-          {
-            is_selected: opt.$id === selectedOptionId,
-          }
-        )
-      )
-    );
-
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.approvalLogs,
-      ID.unique(),
-      {
-        submission_id: submissionId,
-        actor_id: reviewerName,
-        action: 'VERIFIKASI_DOSEN_PENILAI',
-        notes: notes || 'Proposal disetujui Dosen Penilai dan diajukan ke Kaprodi.',
-        created_at: new Date().toISOString(),
+        advisor1Id: a1 || null,
+        advisor2Id: a2 || null,
+        selectedOptionId,
+        reviewerNotes: notes || '',
       }
     );
   },
 
   async ensureSuratGenerated(submissionId) {
     try {
-      const col = APPWRITE_CONFIG.collections.surat || 'surat';
-      const existing = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        col,
-        [Query.equal('submission_id', submissionId), Query.limit(1)]
-      );
-      if (existing.documents.length > 0) return existing.documents[0];
+      const existing = await apiClient.surat.getBySubmissionId(submissionId);
+      if (existing) return existing;
 
-      const subDoc = await databases.getDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.thesisSubmissions,
-        submissionId
-      );
+      const sub = await apiClient.submissions.getById(submissionId);
+      const dept = sub?.student?.department || 'TI';
+      const batchYear = sub?.student?.batchYear || '2023';
 
-      let prodiCode = 'TI';
-      let angkatan = '21';
-      if (subDoc.student_id) {
-        const userRes = await databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.users,
-          [Query.equal('user_id', subDoc.student_id), Query.limit(1)]
-        );
-        if (userRes.documents.length > 0) {
-          const u = userRes.documents[0];
-          prodiCode = extractProdiCode(u.department);
-          angkatan = extractAngkatan(u.batch_year);
-        }
-      }
-
-      const year = new Date().getFullYear();
-      const allSurat = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        col,
-        [Query.orderDesc('urutan'), Query.limit(100)]
-      );
-      const currentYearSurat = allSurat.documents.filter((s) => (s.nomor_surat || '').endsWith(String(year)));
-      const nextUrutan = (currentYearSurat[0]?.urutan || 0) + 1;
-      const { nomor_surat } = formatNomorSurat(nextUrutan, prodiCode, angkatan, year);
-      const no_dokumen = `SPSM-${submissionId.toUpperCase().slice(-8)}-${Date.now().toString(16).toUpperCase()}`;
-
-      const newSurat = await databases.createDocument(
-        APPWRITE_CONFIG.databaseId,
-        col,
-        ID.unique(),
-        {
-          submission_id: submissionId,
-          nomor_surat,
-          urutan: nextUrutan,
-          no_dokumen,
-          created_at: new Date().toISOString(),
-        }
-      );
-      return newSurat;
+      return await apiClient.surat.generate(submissionId, dept, batchYear);
     } catch (err) {
       console.warn('ensureSuratGenerated warning:', err);
       return null;
@@ -565,69 +435,26 @@ export const submissionService = {
 
   async processDekanSignature(submissionId, staffName) {
     this.invalidateSubmissionsCache();
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
+    return await apiClient.submissions.updateStatus(
       submissionId,
-      { status: 'sk_process' }
-    );
-
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.approvalLogs,
-      ID.unique(),
-      {
-        submission_id: submissionId,
-        actor_id: staffName || 'Tata Usaha (Akademik)',
-        action: 'PROSES_TTD_DEKAN',
-        notes: 'Draf SK telah dicetak fisik dan sedang dalam proses tanda tangan Dekan.',
-        created_at: new Date().toISOString(),
-      }
+      'sk_process',
+      'PROSES_TTD_DEKAN',
+      'Draf SK telah dicetak fisik dan sedang dalam proses tanda tangan Dekan.',
+      null
     );
   },
 
   async uploadSignedSk(submissionId, file, staffName) {
     this.invalidateSubmissionsCache();
-    const uploaded = await storage.createFile(
-      APPWRITE_CONFIG.storageBucketId,
-      ID.unique(),
-      file
-    );
+    const uploaded = await apiClient.files.upload('sk', file);
+    const fileId = uploaded.fileId || uploaded.id;
 
-    const col = APPWRITE_CONFIG.collections.surat || 'surat';
-    const suratRes = await databases.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      col,
-      [Query.equal('submission_id', submissionId), Query.limit(1)]
-    );
-
-    if (suratRes.documents.length > 0) {
-      await databases.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        col,
-        suratRes.documents[0].$id,
-        { scanned_sk_id: uploaded.$id }
-      );
-    }
-
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
+    await apiClient.submissions.updateStatus(
       submissionId,
-      { status: 'sk_issued' }
-    );
-
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.approvalLogs,
-      ID.unique(),
-      {
-        submission_id: submissionId,
-        actor_id: staffName || 'Tata Usaha (Akademik)',
-        action: 'SK_RESMI_TERBIT',
-        notes: `Scan PDF SK resmi ber-TTD basah Dekan berhasil diunggah (File ID: ${uploaded.$id}). SK resmi diterbitkan.`,
-        created_at: new Date().toISOString(),
-      }
+      'sk_issued',
+      'SK_RESMI_TERBIT',
+      `Scan PDF SK resmi ber-TTD basah Dekan berhasil diunggah (File ID: ${fileId}). SK resmi diterbitkan.`,
+      { scannedSkId: fileId }
     );
 
     return uploaded;
@@ -637,54 +464,31 @@ export const submissionService = {
     this.invalidateSubmissionsCache();
     const a1 = (advisor1Id || '').trim();
     const a2 = (advisor2Id || '').trim();
-    const combinedAdvisorId = a2 ? `${a1},${a2}` : a1;
 
-    // 1. Status -> waiting_akademik (Blueprint v2.2)
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
+    const surat = await this.ensureSuratGenerated(submissionId);
+
+    await apiClient.submissions.updateStatus(
       submissionId,
+      'waiting_akademik',
+      'DISAHKAN_KAPRODI',
+      JSON.stringify({
+        nomor_surat: surat?.nomorSurat || surat?.nomor_surat,
+        urutan: surat?.urutan,
+        text: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi (Tahap Pleno). Menunggu administrasi SK.',
+        generated_at: new Date().toISOString(),
+      }),
       {
-        status: 'waiting_akademik',
-        advisor_id: combinedAdvisorId,
-        advisor_1_id: a1,
-        advisor_2_id: a2,
+        advisor1Id: a1 || null,
+        advisor2Id: a2 || null,
       }
     );
 
-    // 2. Increment quotas
     if (a1) await lecturerService.syncStudentCount(a1);
     if (a2 && a2 !== a1) await lecturerService.syncStudentCount(a2);
 
-    // 3. Generate Surat record
-    const surat = await this.ensureSuratGenerated(submissionId);
-
-    // 4. Log
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.approvalLogs,
-      ID.unique(),
-      {
-        submission_id: submissionId,
-        actor_id: kaprodiName,
-        action: 'DISAHKAN_KAPRODI',
-        notes: JSON.stringify({
-          nomor_surat: surat?.nomor_surat,
-          urutan: surat?.urutan,
-          text: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi (Tahap Pleno). Menunggu administrasi SK.',
-          generated_at: new Date().toISOString(),
-        }),
-        created_at: new Date().toISOString(),
-      }
-    );
     return surat;
   },
 
-  /**
-   * Catatan bisa berbentuk string biasa atau object {opt1, opt2, opt3, general}.
-   * Format output mengikuti web lama: "Catatan Revisi per Judul:\nJudul 1: ..."
-   * agar mobile app bisa parse revision_note per opsi.
-   */
   _buildStructuredNotes(kind, notes) {
     if (typeof notes === 'string') return notes;
     if (!notes || typeof notes !== 'object') return '';
@@ -700,53 +504,23 @@ export const submissionService = {
 
   async requestRevision(submissionId, actorName, notes) {
     this.invalidateSubmissionsCache();
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
+    return await apiClient.submissions.updateStatus(
       submissionId,
-      { status: 'revision' }
-    );
-
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.approvalLogs,
-      ID.unique(),
-      {
-        submission_id: submissionId,
-        actor_id: actorName,
-        action: 'MINTA_REVISI',
-        notes: this._buildStructuredNotes('revisi', notes) || 'Proposal memerlukan perbaikan dari mahasiswa.',
-        created_at: new Date().toISOString(),
-      }
+      'revision',
+      'MINTA_REVISI',
+      this._buildStructuredNotes('revisi', notes) || 'Proposal memerlukan perbaikan dari mahasiswa.',
+      null
     );
   },
 
   async rejectSubmission(submissionId, actorName, notes, advisorId) {
     this.invalidateSubmissionsCache();
-    // Unmark semua opsi terpilih
-    try {
-      const optRes = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.submissionOptions,
-        [Query.equal('submission_id', submissionId)]
-      );
-      for (const opt of optRes.documents) {
-        if (opt.is_selected_by_lecturer) {
-          await databases.updateDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.submissionOptions,
-            opt.$id,
-            { is_selected_by_lecturer: false }
-          );
-        }
-      }
-    } catch {}
-
-    await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.thesisSubmissions,
+    const res = await apiClient.submissions.updateStatus(
       submissionId,
-      { status: 'rejected' }
+      'rejected',
+      'DITOLAK',
+      this._buildStructuredNotes('tolak', notes) || 'Pengajuan judul ditolak.',
+      null
     );
 
     if (advisorId) {
@@ -756,18 +530,7 @@ export const submissionService = {
       }
     }
 
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.approvalLogs,
-      ID.unique(),
-      {
-        submission_id: submissionId,
-        actor_id: actorName,
-        action: 'DITOLAK',
-        notes: this._buildStructuredNotes('tolak', notes) || 'Pengajuan judul ditolak.',
-        created_at: new Date().toISOString(),
-      }
-    );
+    return res;
   },
 };
 
@@ -783,114 +546,37 @@ export const settingsService = {
       required_courses: [],
     };
     try {
-      // 1. Coba collection system_settings khusus
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        'system_settings',
-        [Query.limit(1)]
-      );
-      if (res.documents.length > 0) {
-        const doc = res.documents[0];
+      const s = await apiClient.settings.get();
+      if (s) {
         return {
-          is_active: Boolean(doc.is_active),
-          start_date: doc.start_date || DEFAULTS.start_date,
-          end_date: doc.end_date || DEFAULTS.end_date,
-          academic_year: doc.academic_year || DEFAULTS.academic_year,
-          min_sks: typeof doc.min_sks === 'number' ? doc.min_sks : DEFAULTS.min_sks,
-          required_title_count: typeof doc.required_title_count === 'number' ? doc.required_title_count : DEFAULTS.required_title_count,
-          required_courses: Array.isArray(doc.required_courses) ? doc.required_courses : DEFAULTS.required_courses,
+          is_active: s.submissionOpen !== false,
+          start_date: s.startDate || DEFAULTS.start_date,
+          end_date: s.endDate || DEFAULTS.end_date,
+          academic_year: s.academicYear || DEFAULTS.academic_year,
+          min_sks: s.minSks || DEFAULTS.min_sks,
+          required_title_count: s.maxOptions || DEFAULTS.required_title_count,
+          required_courses: s.requiredCourses || DEFAULTS.required_courses,
         };
       }
-    } catch {}
-
-    // 2. Fallback: dokumen SETTINGS_SYS di collection departments
-    try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        [Query.equal('code', 'SETTINGS_SYS'), Query.limit(1)]
-      );
-      if (res.documents.length > 0) {
-        try {
-          const parsed = JSON.parse(res.documents[0].name);
-          return {
-            is_active: Boolean(parsed.is_active),
-            start_date: parsed.start_date || DEFAULTS.start_date,
-            end_date: parsed.end_date || DEFAULTS.end_date,
-            academic_year: parsed.academic_year || DEFAULTS.academic_year,
-            min_sks: typeof parsed.min_sks === 'number' ? parsed.min_sks : DEFAULTS.min_sks,
-            required_title_count: typeof parsed.required_title_count === 'number' ? parsed.required_title_count : DEFAULTS.required_title_count,
-            required_courses: Array.isArray(parsed.required_courses) ? parsed.required_courses : DEFAULTS.required_courses,
-          };
-        } catch {
-          return DEFAULTS;
-        }
-      }
-      // Buat dokumen default jika belum ada
-      await databases.createDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        ID.unique(),
-        {
-          name: JSON.stringify(DEFAULTS),
-          code: 'SETTINGS_SYS',
-          faculty: 'SYSTEM',
-          is_active: true,
-        }
-      );
-      return DEFAULTS;
-    } catch (err) {
-      console.warn('getSettings failed, using defaults:', err);
-      return DEFAULTS;
+    } catch (e) {
+      console.warn('getSettings via API failed:', e);
     }
+    return DEFAULTS;
   },
 
   async updateSettings(settings) {
-    // 1. Update system_settings jika collection ada
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        'system_settings',
-        [Query.limit(1)]
-      );
-      if (res.documents.length > 0) {
-        await databases.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          'system_settings',
-          res.documents[0].$id,
-          settings
-        );
-      }
-    } catch {}
-
-    // 2. Simpan ke dokumen SETTINGS_SYS di departments (sumber utama mobile app)
-    const res = await databases.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      [Query.equal('code', 'SETTINGS_SYS'), Query.limit(1)]
-    );
-    if (res.documents.length > 0) {
-      await databases.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        res.documents[0].$id,
-        {
-          name: JSON.stringify(settings),
-          is_active: Boolean(settings.is_active),
-        }
-      );
-    } else {
-      await databases.createDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        ID.unique(),
-        {
-          name: JSON.stringify(settings),
-          code: 'SETTINGS_SYS',
-          faculty: 'SYSTEM',
-          is_active: Boolean(settings.is_active),
-        }
-      );
+      await apiClient.settings.update({
+        submissionOpen: settings.is_active,
+        academicYear: settings.academic_year,
+        maxOptions: settings.required_title_count,
+        startDate: settings.start_date,
+        endDate: settings.end_date,
+        minSks: settings.min_sks,
+        requiredCourses: settings.required_courses,
+      });
+    } catch (e) {
+      console.warn('updateSettings via API failed:', e);
     }
     return settings;
   },
@@ -898,123 +584,113 @@ export const settingsService = {
 
 export const repoService = {
   async listAllFiles() {
-    const files = [];
-    let cursor;
-    for (let page = 0; page < 20; page++) {
-      const queries = [Query.limit(50), Query.orderDesc('$createdAt')];
-      if (cursor) queries.push(Query.cursorAfter(cursor));
-      const res = await storage.listFiles(APPWRITE_CONFIG.storageBucketId, queries);
-      const docs = res.files || [];
-      if (docs.length === 0) break;
-      files.push(...docs);
-      if (docs.length < 50) break;
-      cursor = docs[docs.length - 1].$id;
+    try {
+      const files = await apiClient.files.list('journals');
+      if (Array.isArray(files)) {
+        return files
+          // File referensi opsi judul (refopt_*) bukan dokumen repository — kecualikan
+          .filter((f) => !/^refopt_/i.test((f.name || '').replace(/^owner_[^_]+__/, '')))
+          .map((f) => ({
+            $id: f.id,
+            name: f.name,
+            sizeOriginal: f.sizeOriginal ?? f.size,
+            $createdAt: f.createdAt,
+            mimeType: f.mimeType,
+          }));
+      }
+    } catch (e) {
+      console.warn('listAllFiles failed:', e);
     }
-    return files;
+    return [];
   },
 
-  getFileViewUrl(fileId) {
+  getFileViewUrl(fileId, bucket = 'journals') {
     if (!fileId) return '#';
-    try {
-      return storage.getFileView(APPWRITE_CONFIG.storageBucketId, fileId).toString();
-    } catch {
-      return '#';
-    }
+    return apiClient.files.getViewUrl(bucket, fileId);
   },
 
   getFileDownloadUrl(fileId) {
     if (!fileId) return '#';
-    try {
-      return storage.getFileDownload(APPWRITE_CONFIG.storageBucketId, fileId).toString();
-    } catch {
-      return '#';
-    }
+    return apiClient.files.getDownloadUrl('journals', fileId);
   },
 };
 
 export const masterDataService = {
   async getDepartments() {
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        [Query.orderAsc('name'), Query.limit(100)]
-      );
-      return res.documents.filter(
-        (d) =>
-          d.code !== 'SETTINGS_SYS' &&
-          d.$id !== 'SETTINGS_SYS' &&
-          !d.code?.toUpperCase().includes('SETTINGS') &&
-          !(d.name || '').trim().startsWith('{') &&
-          d.faculty !== 'SYSTE'
-      );
-    } catch {
-      return [];
+      const list = await apiClient.departments.list();
+      if (Array.isArray(list)) {
+        return list.map((d) => ({
+          ...d,
+          $id: d.id,
+          is_active: d.isActive,
+        }));
+      }
+    } catch (e) {
+      console.warn('getDepartments failed:', e);
     }
+    return [];
   },
 
   async getBatchYears() {
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.batchYears,
-        [Query.orderDesc('year'), Query.limit(100)]
-      );
-      return res.documents;
-    } catch {
-      return [];
+      const list = await apiClient.batchYears.list();
+      if (Array.isArray(list)) {
+        return list.map((b) => ({
+          ...b,
+          $id: b.id,
+          is_active: b.isActive,
+        }));
+      }
+    } catch (e) {
+      console.warn('getBatchYears failed:', e);
     }
+    return [];
   },
 
   async createDepartment(data) {
-    return await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      ID.unique(),
-      data
-    );
+    const res = await apiClient.departments.create({
+      code: data.code,
+      name: data.name,
+      faculty: data.faculty || '',
+      isActive: data.is_active ?? true,
+    });
+    return { ...res, $id: res.id };
   },
 
   async updateDepartment(id, data) {
-    return await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      id,
-      data
-    );
+    const res = await apiClient.departments.update(id, {
+      code: data.code,
+      name: data.name,
+      faculty: data.faculty,
+      isActive: data.is_active,
+    });
+    return { ...res, $id: res.id };
   },
 
   async deleteDepartment(id) {
-    return await databases.deleteDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      id
-    );
+    return await apiClient.departments.delete(id);
   },
 
   async createBatchYear(data) {
-    return await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.batchYears,
-      ID.unique(),
-      data
-    );
+    const res = await apiClient.batchYears.create({
+      year: parseInt(data.year, 10) || data.year,
+      label: data.label || '',
+      isActive: data.is_active ?? true,
+    });
+    return { ...res, $id: res.id };
   },
 
   async updateBatchYear(id, data) {
-    return await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.batchYears,
-      id,
-      data
-    );
+    const res = await apiClient.batchYears.update(id, {
+      year: parseInt(data.year, 10) || data.year,
+      label: data.label,
+      isActive: data.is_active,
+    });
+    return { ...res, $id: res.id };
   },
 
   async deleteBatchYear(id) {
-    return await databases.deleteDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.batchYears,
-      id
-    );
+    return await apiClient.batchYears.delete(id);
   },
 };

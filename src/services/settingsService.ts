@@ -1,8 +1,5 @@
-import { databases } from './appwrite';
-import { Query } from 'react-native-appwrite';
+import { apiClient } from './apiClient';
 import {
-  DATABASE_ID,
-  COLLECTION_SYSTEM_SETTINGS,
   SystemSettings,
   UserProfile,
   AcademicRequirements,
@@ -49,33 +46,20 @@ export const settingsService = {
    */
   async getSettings(): Promise<SystemSettings> {
     try {
-      const res = await databases.listDocuments({
-        databaseId: DATABASE_ID,
-        collectionId: COLLECTION_SYSTEM_SETTINGS,
-        queries: [Query.limit(1)],
-      });
-
-      if (res.documents.length > 0) {
-        const doc = res.documents[0] as any;
+      const data = await apiClient.settings.get();
+      if (data) {
         return {
-          is_active: Boolean(doc.is_active),
-          start_date: doc.start_date || DEFAULT_SETTINGS.start_date,
-          end_date: doc.end_date || DEFAULT_SETTINGS.end_date,
-          academic_year: doc.academic_year || DEFAULT_SETTINGS.academic_year,
-          min_sks: typeof doc.min_sks === 'number' ? doc.min_sks : DEFAULT_SETTINGS.min_sks,
-          required_title_count:
-            typeof doc.required_title_count === 'number' && doc.required_title_count > 0
-              ? doc.required_title_count
-              : DEFAULT_SETTINGS.required_title_count,
-          // Always trust the DB value — even if it's an empty array (admin cleared it)
-          // Only fall back to [] if the field is completely absent/null
-          required_courses: Array.isArray(doc.required_courses)
-            ? doc.required_courses
-            : [],
+          is_active: data.submissionOpen ?? true,
+          start_date: DEFAULT_SETTINGS.start_date,
+          end_date: DEFAULT_SETTINGS.end_date,
+          academic_year: data.academicYear || DEFAULT_SETTINGS.academic_year,
+          min_sks: DEFAULT_SETTINGS.min_sks,
+          required_title_count: data.maxOptions || DEFAULT_SETTINGS.required_title_count,
+          required_courses: [],
         };
       }
     } catch (err) {
-      console.warn('Failed to load system settings from database, using defaults:', err);
+      console.warn('Failed to load system settings from API, using defaults:', err);
     }
 
     return DEFAULT_SETTINGS;

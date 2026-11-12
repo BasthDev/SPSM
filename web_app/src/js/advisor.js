@@ -1,4 +1,4 @@
-import { submissionService, lecturerService, authService, formatDateShort } from './spsm.js';
+import { submissionService, lecturerService, authService, formatDateShort, statusNorm } from './spsm.js';
 
 let submissions = null;
 let lecturers = [];
@@ -20,12 +20,8 @@ async function init() {
     ]);
 
     // Keep only approved/issued/in-process SK submissions for advisor view
-    submissions = subList.filter(
-      (s) =>
-        s.status === 'approved' ||
-        s.status === 'sk_issued' ||
-        s.status === 'sk_process' ||
-        s.status === 'waiting_akademik'
+    submissions = subList.filter((s) =>
+      ['sk_issued', 'approved', 'sk_process', 'waiting_akademik'].includes(statusNorm(s.status))
     );
     lecturers = lecList;
 
