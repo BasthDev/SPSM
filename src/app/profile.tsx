@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   AppHeader,
@@ -12,7 +12,7 @@ import { authService } from '@/services/authService';
 import { academicService } from '@/services/academicService';
 import type { UserProfile } from '@/models/types';
 import { Colors } from '@/theme/theme';
-import { BookOpen, Hash, Calendar, Shield, LogOut, Phone } from 'lucide-react-native';
+import { BookOpen, Hash, Calendar, Shield, LogOut, Phone, Settings, ChevronRight } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -88,6 +88,7 @@ export default function ProfileScreen() {
               source={user?.avatar_url}
               size={76}
               backgroundColor={Colors.primary}
+              iconFallback
             />
           </View>
           <Text style={styles.name}>{user?.name ?? 'Mahasiswa'}</Text>
@@ -135,6 +136,22 @@ export default function ProfileScreen() {
             value="Terverifikasi SSO Google"
           />
         </Section>
+
+        {/* Pengaturan shortcut */}
+        <TouchableOpacity
+          style={styles.settingsRow}
+          onPress={() => router.push('/settings')}
+          activeOpacity={0.7}
+        >
+          <View style={infoStyles.iconCircle}>
+            <Settings size={16} color={Colors.primary} strokeWidth={2.2} />
+          </View>
+          <View style={infoStyles.textCol}>
+            <Text style={infoStyles.label}>Pengaturan</Text>
+            <Text style={infoStyles.value}>Notifikasi & Preferensi Aplikasi</Text>
+          </View>
+          <ChevronRight size={18} color={Colors.textTertiary} strokeWidth={2.2} />
+        </TouchableOpacity>
 
         {/* Actions */}
         <View style={styles.actionsWrapper}>
@@ -273,6 +290,17 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.border,
     marginVertical: 12,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
   },
   actionsWrapper: {
     marginTop: 4,

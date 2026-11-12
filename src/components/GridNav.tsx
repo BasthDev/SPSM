@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import {
   BookOpen,
   FileText,
+  Settings,
   User,
   HelpCircle,
 } from 'lucide-react-native';
@@ -40,6 +41,14 @@ export const GridNav: React.FC<GridNavProps> = ({ style }) => {
       route: '/profile',
       color: '#7C3AED',
       bgColor: '#F5F3FF',
+    },
+    {
+      id: 'pengaturan',
+      label: 'Pengaturan',
+      icon: Settings,
+      route: '/settings',
+      color: '#475569',
+      bgColor: '#F1F5F9',
     },
     {
       id: 'panduan',

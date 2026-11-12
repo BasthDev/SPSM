@@ -1,5 +1,7 @@
 import { ConnectionBanner } from '@/components';
+import { setupNotificationHandler } from '@/services/notificationService';
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -12,6 +14,10 @@ LogBox.ignoreLogs([
  * Root layout — defines the root Stack navigator.
  */
 export default function RootLayout() {
+  useEffect(() => {
+    setupNotificationHandler();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ConnectionBanner />
@@ -22,6 +28,7 @@ export default function RootLayout() {
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="logout" options={{ headerShown: false, gestureEnabled: false }} />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="settings" />
       <Stack.Screen name="submission" />
       </Stack>
     </SafeAreaProvider>

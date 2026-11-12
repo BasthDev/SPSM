@@ -73,7 +73,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({
           activeOpacity={0.85}
         >
           <View style={styles.avatarBorder}>
-            <Avatar name={displayName} source={avatarUrl} size={48} backgroundColor="#1E3A5F" />
+            <Avatar name={displayName} source={avatarUrl} size={48} backgroundColor="#1E3A5F" iconFallback />
           </View>
 
           <View style={styles.userTextCol}>
