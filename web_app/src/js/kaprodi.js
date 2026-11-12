@@ -101,12 +101,12 @@ if (submissions === null) {
   }
 
   const statusBadges = {
-    pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
-    waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
-    waiting_akademik: { label: 'Menunggu SK (TU)', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+    pending_lecturer: { label: 'Menunggu Review', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
+    waiting_kaprodi: { label: 'Pleno Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+    waiting_akademik: { label: 'Menunggu Administrasi TU', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
     sk_process: { label: 'Proses TTD Dekan', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
     sk_issued: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
-    approved: { label: 'Disahkan', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+    approved: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
     revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
     rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },
   };
@@ -115,7 +115,7 @@ if (submissions === null) {
     .map((sub, idx) => {
       const student = sub.student;
       const chosenOpt = sub.options?.find((o) => o.is_selected_by_lecturer) || sub.options?.[0];
-      const statusBadge = statusBadges[sub.status] || { label: sub.status, cls: 'bg-slate-100 text-slate-800' };
+      const statusBadge = statusBadges[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
 
       return `
       <tr class="hover:bg-subtle/80 transition-colors">

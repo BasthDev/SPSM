@@ -1,8 +1,12 @@
 export type UserRole = 'student' | 'lecturer' | 'reviewer' | 'kaprodi' | 'admin';
 
 export type SubmissionStatus =
+  | 'drafting'
   | 'pending_lecturer'
   | 'waiting_kaprodi'
+  | 'waiting_akademik'
+  | 'sk_process'
+  | 'sk_issued'
   | 'approved'
   | 'rejected'
   | 'revision';

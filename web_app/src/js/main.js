@@ -19,16 +19,16 @@ window.openDossierModal = (sub) => {
   const badge = document.getElementById('modal-status-badge');
   if (badge) {
     const statusMap = {
-      pending_lecturer: { label: 'Menunggu Reviewer', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
-      waiting_kaprodi: { label: 'Menunggu Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
-      waiting_akademik: { label: 'Menunggu SK (TU)', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
+      pending_lecturer: { label: 'Menunggu Review', cls: 'bg-amber-100 text-amber-900 border-amber-300' },
+      waiting_kaprodi: { label: 'Pleno Kaprodi', cls: 'bg-blue-100 text-blue-900 border-blue-300' },
+      waiting_akademik: { label: 'Menunggu Administrasi TU', cls: 'bg-indigo-100 text-indigo-900 border-indigo-300' },
       sk_process: { label: 'Proses TTD Dekan', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
       sk_issued: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
-      approved: { label: 'Disahkan (SK Terbit)', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
+      approved: { label: 'SK Resmi Terbit', cls: 'bg-emerald-100 text-emerald-900 border-emerald-300' },
       revision: { label: 'Perlu Revisi', cls: 'bg-orange-100 text-orange-900 border-orange-300' },
       rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-900 border-red-300' },
     };
-    const current = statusMap[sub.status] || { label: sub.status, cls: 'bg-slate-100 text-slate-800' };
+    const current = statusMap[sub.status] || { label: String(sub.status || '').replace(/_/g, ' '), cls: 'bg-slate-100 text-slate-800' };
     badge.innerText = current.label;
     badge.className = `badge text-xs px-3 py-1 font-bold border ${current.cls}`;
   }
@@ -412,3 +412,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 });
+
+// ============ UX: Scroll Restoration + Prefetch ============
+// Simpan posisi scroll per halaman di sessionStorage — saat user kembali
+// ke halaman yang sama, scroll langsung dipulihkan (MPA reload total).
+(function initScrollRestoration() {
+  const key = 'spsm_scroll_' + location.pathname;
+
+  // Pulihkan posisi scroll setelah halaman selesai render
+  const saved = sessionStorage.getItem(key);
+  if (saved) {
+    const y = parseInt(saved, 10);
+    if (!isNaN(y) && y > 0) {
+      // Tunggu konten selesai dirender (fetch Appwrite bisa mengubah tinggi)
+      const restore = () => window.scrollTo(0, y);
+      if (document.readyState === 'complete') {
+        setTimeout(restore, 150);
+      } else {
+        window.addEventListener('load', () => setTimeout(restore, 150));
+      }
+    }
+  }
+
+  // Simpan posisi scroll (debounced) saat user scroll
+  let scrollTimer = null;
+  window.addEventListener(
+    'scroll',
+    () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        sessionStorage.setItem(key, String(window.scrollY));
+      }, 150);
+    },
+    { passive: true }
+  );
+
+  // Reset posisi scroll saat navigasi ke halaman baru via link dalam app
+  document.querySelectorAll('a[href]').forEach((a) => {
+    const href = a.getAttribute('href');
+    if (href && href.endsWith('.html')) {
+      a.addEventListener('click', () => {
+        sessionStorage.setItem('spsm_scroll_' + location.pathname, String(window.scrollY));
+      });
+    }
+  });
+})();
+
+// Prefetch halaman lain saat user hover link sidebar — klik terasa instan
+(function initPrefetch() {
+  const prefetched = new Set();
+  document.addEventListener('mouseover', (e) => {
+    const a = e.target.closest('a[href$=".html"]');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href || href === location.pathname.split('/').pop() || prefetched.has(href)) return;
+    prefetched.add(href);
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = href;
+    document.head.appendChild(link);
+  });
+})();

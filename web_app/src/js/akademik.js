@@ -99,7 +99,7 @@ if (submissions === null) {
 
   const statusBadges = {
     waiting_akademik: {
-      label: 'Menunggu Draf & Cetak',
+      label: 'Menunggu Administrasi TU',
       cls: 'bg-indigo-100 text-indigo-900 border-indigo-300',
     },
     sk_process: {
@@ -111,7 +111,7 @@ if (submissions === null) {
       cls: 'bg-emerald-100 text-emerald-900 border-emerald-300',
     },
     approved: {
-      label: 'Disahkan (SK Terbit)',
+      label: 'SK Resmi Terbit',
       cls: 'bg-emerald-100 text-emerald-900 border-emerald-300',
     },
     waiting_kaprodi: {
@@ -130,7 +130,7 @@ if (submissions === null) {
       const chosenOpt =
         sub.options?.find((o) => o.is_selected || o.is_selected_by_lecturer) || sub.options?.[0];
       const statusBadge = statusBadges[sub.status] || {
-        label: sub.status,
+        label: String(sub.status || '').replace(/_/g, ' '),
         cls: 'bg-slate-100 text-slate-800',
       };
 

@@ -49,7 +49,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; d
     dot: '#FFFFFF',
   },
   approved: {
-    label: 'Disetujui',
+    label: 'SK Resmi Terbit',
     bg: '#059669',
     text: '#FFFFFF',
     dot: '#FFFFFF',

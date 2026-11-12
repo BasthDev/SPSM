@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SubmissionStatus } from '../types';
-import { Clock, CheckCircle2, AlertCircle, XCircle, RotateCcw } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, XCircle, RotateCcw, FileEdit } from 'lucide-react';
 
 interface Props {
   status: SubmissionStatus;
@@ -12,22 +12,50 @@ export const StatusBadge: React.FC<Props> = ({ status, size = 'md' }) => {
     SubmissionStatus,
     { label: string; bg: string; text: string; border: string; icon: React.ReactNode }
   > = {
+    drafting: {
+      label: 'Draf',
+      bg: '#F1F5F9',
+      text: '#475569',
+      border: '#CBD5E1',
+      icon: <FileEdit size={size === 'sm' ? 12 : 13} />,
+    },
     pending_lecturer: {
-      label: 'Menunggu Reviewer',
+      label: 'Menunggu Review',
       bg: '#FEF3C7',
       text: '#92400E',
       border: '#FDE68A',
       icon: <Clock size={size === 'sm' ? 12 : 13} />,
     },
     waiting_kaprodi: {
-      label: 'Menunggu Kaprodi',
+      label: 'Pleno Kaprodi',
       bg: '#EFF6FF',
       text: '#1D4ED8',
       border: '#BFDBFE',
       icon: <Clock size={size === 'sm' ? 12 : 13} />,
     },
+    waiting_akademik: {
+      label: 'Menunggu Administrasi TU',
+      bg: '#F5F3FF',
+      text: '#6D28D9',
+      border: '#DDD6FE',
+      icon: <Clock size={size === 'sm' ? 12 : 13} />,
+    },
+    sk_process: {
+      label: 'Proses TTD Dekan',
+      bg: '#FFF7ED',
+      text: '#C2410C',
+      border: '#FED7AA',
+      icon: <Clock size={size === 'sm' ? 12 : 13} />,
+    },
+    sk_issued: {
+      label: 'SK Resmi Terbit',
+      bg: '#ECFDF5',
+      text: '#065F46',
+      border: '#A7F3D0',
+      icon: <CheckCircle2 size={size === 'sm' ? 12 : 13} />,
+    },
     approved: {
-      label: 'Disahkan (SK Terbit)',
+      label: 'SK Resmi Terbit',
       bg: '#ECFDF5',
       text: '#065F46',
       border: '#A7F3D0',
@@ -50,7 +78,7 @@ export const StatusBadge: React.FC<Props> = ({ status, size = 'md' }) => {
   };
 
   const current = configs[status] || {
-    label: status,
+    label: status.replace(/_/g, ' '),
     bg: '#F8FAFC',
     text: '#475569',
     border: '#E2E8F0',
