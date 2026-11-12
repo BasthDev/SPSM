@@ -299,7 +299,7 @@ export const SubmissionDetailModal: React.FC<Props> = ({ submission, onClose }) 
             <div className="space-y-4">
               <div className="formal-section-title">
                 <BookOpen size={16} color="#0A4C8F" />
-                <span>Daftar Usulan 3 Opsi Judul Skripsi</span>
+                <span>Daftar Usulan {submission.options?.length ?? 3} Opsi Judul Skripsi</span>
               </div>
               <div className="dossier-options-stack">
                 {submission.options && submission.options.length > 0 ? (

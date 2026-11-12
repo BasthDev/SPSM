@@ -307,7 +307,10 @@ export default function DashboardScreen() {
           <ClosedPeriodCard periodDisplay={periodDisplay} />
         ) : (
           /* Case D: Eligible and Period Open (or has exemption) */
-          <HeroSubmitCard onPress={() => router.push('/submission/create' as any)} />
+          <HeroSubmitCard
+            onPress={() => router.push('/submission/create' as any)}
+            titleCount={settings?.required_title_count ?? 3}
+          />
         )}
 
         {/* 2. SECTION HEADER */}
@@ -327,7 +330,7 @@ export default function DashboardScreen() {
             title="Belum Ada Pengajuan"
             subtitle={
               canSubmitNew
-                ? 'Anda belum memiliki riwayat pengajuan judul. Klik tombol di atas untuk mengajukan 3 usulan judul skripsi.'
+                ? `Anda belum memiliki riwayat pengajuan judul. Klik tombol di atas untuk mengajukan ${settings?.required_title_count ?? 3} usulan judul skripsi.`
                 : 'Belum ada riwayat pengajuan judul skripsi pada akun Anda.'
             }
             icon={<FileText size={32} color={Colors.primary} strokeWidth={2} />}

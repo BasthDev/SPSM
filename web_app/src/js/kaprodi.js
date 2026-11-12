@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Search
   const searchInput = document.getElementById('kaprodi-search');
   if (searchInput) {
-    searchInput.addEventListener('input', () => renderTable());
+    searchInput.addEventListener('input', () => { clearTimeout(searchInput._debounce); searchInput._debounce = setTimeout(renderTable, 200); });
   }
 
   // Filter Buttons

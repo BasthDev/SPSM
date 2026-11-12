@@ -65,15 +65,24 @@ scripts/
 - **Bucket Storage:** `journal_files`
 - **Package name:** `id.my.basthdev.spsm`
 
-### Collections
+### Collections (Blueprint v2.2)
 
 | Collection | Isi |
 |---|---|
-| `users` | Profil mahasiswa (user_id, nim, prodi, angkatan, `has_uploaded_thesis`) |
-| `thesis_submissions` | Header pengajuan (student_id, status, submitted_at, nomor_surat, dll) |
-| `submission_options` | 3 opsi judul per pengajuan (title, background, journal_*, relevance_*) |
-| `approval_logs` | Jejak review (VERIFIKASI_DOSEN_PENILAI, DISAHKAN_KAPRODI, MINTA_REVISI, DITOLAK, PENGAJUAN_MAHASISWA, UPLOAD_SKRSIPSI) |
-| `departments`, `batch_years`, `lecturers` | Data akademik |
+| `system_settings` | Konfigurasi global: `is_active`, `start_date`, `end_date`, `academic_year`, `min_sks`, `required_title_count` (N judul dinamis), `required_courses` |
+| `users` | Profil mahasiswa (nim, prodi, angkatan, `current_sks`, `academic_requirements` JSON, `has_uploaded_thesis`) |
+| `thesis_submissions` | Header pengajuan (`student_id`, `advisor_1_id`, `advisor_2_id`, `preferred_advisor_*`, status v2.2) |
+| `submission_options` | N opsi judul per pengajuan (title, background, journal_*, relevance_*, `is_selected`) |
+| `surat` | Dokumen SK (`submission_id`, `nomor_surat`, `urutan`, `template_sk_id`, `scanned_sk_id`) |
+| `approval_logs` | Jejak review (PENGAJUAN_MAHASISWA, VERIFIKASI_DOSEN_PENILAI, DISAHKAN_KAPRODI, MINTA_REVISI, DITOLAK, UPLOAD_SKRSIPSI) |
+| `departments`, `batch_years`, `lecturers` | Data akademik (role dosen: lecturer/reviewer/kaprodi/akademik/admin) |
+
+### Status Pengajuan (v2.2)
+`pending_lecturer` → `waiting_kaprodi` → `waiting_akademik` → `sk_process` → `sk_issued`
+(+ `revision`/`rejected` dengan hak akses bypass periode; `approved` = backward compat)
+
+### Alur Lengkap
+Mahasiswa ajukan N judul (jumlah dari `required_title_count`) → Dosen Penilai pilih judul + plot 2 pembimbing → Kaprodi plenokan & sahkan → sistem generate nomor SK → TU (role `akademik`) cetak draf SK fisik → TTD Dekan offline → TU upload scan SK → `sk_issued`, mahasiswa download SK.
 
 ### Konvensi File Storage
 
@@ -91,11 +100,12 @@ scripts/
 - Pertama login → redirect `/onboarding` → simpan profil ke `users`
 
 ### Dashboard
-- Hero card ajukan judul, status terkini, GridNav 4 menu (Repo, Skripsi Ku, Profil, Panduan)
-- Riwayat pengajuan: kartu collapse default, expand menampilkan detail; badge status solid di pojok kanan atas (`top:-10, right:10`)
+- `PeriodInfoCard` (status periode buka/akan datang/tutup), `EligibilityCard` (cek SKS + mata kuliah prasyarat), hero card ajukan judul, GridNav 4 menu (Repo, Skripsi Ku, Profil, Panduan)
+- Riwayat pengajuan: kartu collapse default; kartu revision/rejected punya tombol **"Ajukan Ulang dengan Data Sama"** (disabled jika masih ada pengajuan aktif) → `/submission/create?resubmit=<id>` prefill semua data
 
 ### Pengajuan Judul (`submission/create.tsx`)
-- 5 step: Judul 1-3 → Dosen → Kirim
+- Step dinamis: N judul (`required_title_count` dari settings) → Dosen → Kirim
+- Mode resubmit (`?resubmit=<id>`): prefill judul/latar belakang/jurnal/relevansi + calon pembimbing dari pengajuan revision/rejected sebelumnya
 - Tiap opsi: judul, latar belakang, referensi jurnal (judul/penulis/**tahun**), tabel relevansi (variabel, metodologi, kesesuaian)
 - **Cek kemiripan judul** sebelum submit (lihat bagian Gemini)
 - Upload PDF jurnal opsional per opsi → `journal_files`

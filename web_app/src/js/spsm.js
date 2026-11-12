@@ -180,19 +180,26 @@ export const authService = {
 
 export const lecturerService = {
   async getLecturers() {
+    if (_lecCache.has('all')) return _lecCache.get('all');
     try {
       const res = await databases.listDocuments(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.lecturers,
         [Query.orderAsc('name'), Query.limit(100)]
       );
+      _lecCache.set('all', res.documents);
       return res.documents;
     } catch {
       return [];
     }
   },
 
+  invalidateLecturerCache() {
+    _lecCache.clear();
+  },
+
   async syncStudentCount(lecturerId) {
+    this.invalidateLecturerCache();
     if (!lecturerId) return;
     try {
       const allApproved = await databases.listDocuments(
@@ -222,6 +229,7 @@ export const lecturerService = {
   },
 
   async updateRole(lecturerId, role) {
+    this.invalidateLecturerCache();
     return await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.lecturers,
@@ -231,6 +239,7 @@ export const lecturerService = {
   },
 
   async createLecturer(data) {
+    this.invalidateLecturerCache();
     return await databases.createDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.lecturers,
@@ -240,6 +249,7 @@ export const lecturerService = {
   },
 
   async updateLecturer(id, data) {
+    this.invalidateLecturerCache();
     return await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.lecturers,
@@ -249,6 +259,7 @@ export const lecturerService = {
   },
 
   async deleteLecturer(id) {
+    this.invalidateLecturerCache();
     return await databases.deleteDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.lecturers,
@@ -257,13 +268,29 @@ export const lecturerService = {
   },
 };
 
+// ============ MEMOIZATION LAYER ============
+// Cache hasil fetch berat (submissions ter-hydrate & lecturers) per kombinasi argumen.
+// Invalidasi manual via lecturerService.invalidateLecturerCache() dan
+// submissionService.invalidateSubmissionsCache() — dipanggil otomatis oleh method mutasi.
+const _lecCache = new Map(); // key: 'all' | '' -> documents
+let _subsCache = new Map(); // key: `${statusFilter}|${advisorIdFilter || ''}` -> hydrated docs
+
 export const submissionService = {
+  invalidateSubmissionsCache() {
+    _subsCache = new Map();
+  },
+
   getFileViewUrl(fileId) {
     if (!fileId) return '#';
     return storage.getFileView(APPWRITE_CONFIG.storageBucketId, fileId).toString();
   },
 
   async getAllSubmissions(statusFilter, advisorIdFilter) {
+    const cacheKey = `${statusFilter || 'all'}|${advisorIdFilter || 'all'}`;
+    if (_subsCache.has(cacheKey)) {
+      return _subsCache.get(cacheKey);
+    }
+
     try {
       const queries = [Query.orderDesc('$createdAt'), Query.limit(100)];
       if (statusFilter && statusFilter !== 'all') {
@@ -416,6 +443,7 @@ export const submissionService = {
         })
       );
 
+      _subsCache.set(cacheKey, hydrated);
       return hydrated;
     } catch (err) {
       console.error('getAllSubmissions failed', err);
@@ -424,6 +452,7 @@ export const submissionService = {
   },
 
   async reviewAndSelectTitle(submissionId, selectedOptionId, advisor1Id, advisor2Id, reviewerName, notes) {
+    this.invalidateSubmissionsCache();
     const combinedAdvisorId = advisor2Id ? `${advisor1Id.trim()},${advisor2Id.trim()}` : advisor1Id.trim();
 
     await databases.updateDocument(
@@ -535,6 +564,7 @@ export const submissionService = {
   },
 
   async processDekanSignature(submissionId, staffName) {
+    this.invalidateSubmissionsCache();
     await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.thesisSubmissions,
@@ -557,6 +587,7 @@ export const submissionService = {
   },
 
   async uploadSignedSk(submissionId, file, staffName) {
+    this.invalidateSubmissionsCache();
     const uploaded = await storage.createFile(
       APPWRITE_CONFIG.storageBucketId,
       ID.unique(),
@@ -603,6 +634,7 @@ export const submissionService = {
   },
 
   async kaprodiApprove(submissionId, advisor1Id, advisor2Id, kaprodiName, notes) {
+    this.invalidateSubmissionsCache();
     const a1 = (advisor1Id || '').trim();
     const a2 = (advisor2Id || '').trim();
     const combinedAdvisorId = a2 ? `${a1},${a2}` : a1;
@@ -667,6 +699,7 @@ export const submissionService = {
   },
 
   async requestRevision(submissionId, actorName, notes) {
+    this.invalidateSubmissionsCache();
     await databases.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.thesisSubmissions,
@@ -689,6 +722,7 @@ export const submissionService = {
   },
 
   async rejectSubmission(submissionId, actorName, notes, advisorId) {
+    this.invalidateSubmissionsCache();
     // Unmark semua opsi terpilih
     try {
       const optRes = await databases.listDocuments(

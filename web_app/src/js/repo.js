@@ -77,5 +77,5 @@ async function init() {
 
 document.addEventListener('DOMContentLoaded', () => {
   init();
-  document.getElementById('repo-search')?.addEventListener('input', renderTable);
+  document.getElementById('repo-search')?.addEventListener('input', () => { const el = document.getElementById('repo-search'); clearTimeout(el._debounce); el._debounce = setTimeout(renderTable, 200); });
 });

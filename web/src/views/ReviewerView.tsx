@@ -95,7 +95,7 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
   const handleSubmitForwardToKaprodi = async () => {
     if (!selectedSub) return;
     if (!selectedOptionId) {
-      showFeedback('Pilih salah satu dari 3 opsi judul yang disetujui!', 'error');
+      showFeedback(`Pilih salah satu dari ${selectedSub.options?.length ?? 3} opsi judul yang diajukan!`, 'error');
       return;
     }
     if (!selectedAdvisor1Id) {
@@ -162,7 +162,7 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
           rejectModal.generalNotes,
           selectedSub.advisor_id
         );
-        showFeedback('Status pengajuan diubah menjadi Perlu Revisi. Ketiga opsi memuat catatan.');
+        showFeedback('Status pengajuan diubah menjadi Perlu Revisi. Seluruh opsi memuat catatan.');
       } else {
         await submissionService.rejectSubmission(
           selectedSub.$id,
@@ -173,7 +173,7 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
           rejectModal.generalNotes,
           selectedSub.advisor_id
         );
-        showFeedback('Pengajuan telah ditolak. Ketiga opsi ditandai ditolak dengan catatan.');
+        showFeedback('Pengajuan telah ditolak. Seluruh opsi ditandai ditolak dengan catatan.');
       }
 
       setRejectModal(null);
@@ -214,7 +214,7 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
         <div>
           <h1 className="page-title">Panel Verifikasi Dosen Penilai (Reviewer)</h1>
           <p className="page-desc">
-            Periksa kelayakan proposal 3 judul skripsi, telaah tabel relevansi penelitian, dan plot 2 Dosen Pembimbing.
+            Periksa kelayakan seluruh usulan judul skripsi, telaah tabel relevansi penelitian, dan plot 2 Dosen Pembimbing.
           </p>
         </div>
       </div>
@@ -659,8 +659,8 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                 />
                 <span>
                   {rejectModal.type === 'revision'
-                    ? 'Catatan Revisi Terstruktur (3 Opsi Judul)'
-                    : 'Catatan Penolakan Terstruktur (3 Opsi Judul)'}
+                    ? `Catatan Revisi Terstruktur (${selectedSub?.options?.length ?? 3} Opsi Judul)`
+                    : `Catatan Penolakan Terstruktur (${selectedSub?.options?.length ?? 3} Opsi Judul)`}
                 </span>
               </h3>
               <button onClick={() => setRejectModal(null)} className="btn-close">
@@ -678,8 +678,8 @@ export const ReviewerView: React.FC<Props> = ({ reviewerName }) => {
                   }`}
                 >
                   {rejectModal.type === 'revision'
-                    ? 'Ketiga opsi judul akan ditandai perlu perbaikan. Masukkan catatan evaluasi untuk setiap judul agar mahasiswa dapat melakukan revisi secara transparan.'
-                    : 'Pengajuan akan ditolak dan ketiga opsi judul akan ditandai ditolak. Mahasiswa tetap dapat membuat pengajuan baru pasca penolakan.'}
+                    ? 'Seluruh opsi judul akan ditandai perlu perbaikan. Masukkan catatan evaluasi untuk setiap judul agar mahasiswa dapat melakukan revisi secara transparan.'
+                    : 'Pengajuan akan ditolak dan seluruh opsi judul akan ditandai ditolak. Mahasiswa tetap dapat membuat pengajuan baru pasca penolakan.'}
                 </div>
 
                 {/* Catatan Judul 1 */}

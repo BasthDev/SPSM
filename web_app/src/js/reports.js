@@ -371,6 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const searchFinished = document.getElementById('search-finished-students');
   if (searchFinished) {
-    searchFinished.addEventListener('input', () => renderFinishedStudentsReport());
+    searchFinished.addEventListener('input', () => { clearTimeout(searchFinished._debounce); searchFinished._debounce = setTimeout(renderFinishedStudentsReport, 200); });
   }
 });

@@ -408,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const searchInput = document.getElementById('akademik-search');
   if (searchInput) {
-    searchInput.addEventListener('input', () => renderTable());
+    searchInput.addEventListener('input', () => { clearTimeout(searchInput._debounce); searchInput._debounce = setTimeout(renderTable, 200); });
   }
 
   const filterButtons = document.querySelectorAll('#akademik-filter-group button');

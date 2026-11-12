@@ -353,7 +353,7 @@ export default function CreateSubmissionScreen() {
         preferredAdvisor2
       );
 
-      Alert.alert('Berhasil!', 'Pengajuan proposal 3 opsi judul skripsi berhasil dikirim.', [
+      Alert.alert('Berhasil!', `Pengajuan proposal ${titleCount} opsi judul skripsi berhasil dikirim.`, [
         { text: 'Buka Dashboard', onPress: () => router.replace('/dashboard') },
       ]);
     } catch (e: any) {
@@ -557,7 +557,7 @@ export default function CreateSubmissionScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionTitle}>Ringkasan Pengajuan Proposal</Text>
           <Text style={styles.sectionSubtitle}>
-            Periksa seluruh 3 opsi judul dan 2 pilihan dosen sebelum dikirim
+            Periksa seluruh {titleCount} opsi judul dan 2 pilihan dosen sebelum dikirim
           </Text>
         </View>
       </View>

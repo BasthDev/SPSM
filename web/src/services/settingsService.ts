@@ -5,6 +5,9 @@ export interface SystemSettings {
   start_date: string;
   end_date: string;
   academic_year: string;
+  min_sks?: number;
+  required_title_count?: number;
+  required_courses?: string[];
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -12,6 +15,9 @@ const DEFAULT_SETTINGS: SystemSettings = {
   start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
   end_date: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
   academic_year: '2025/2026 Ganjil',
+  min_sks: 100,
+  required_title_count: 3,
+  required_courses: [],
 };
 
 const SETTINGS_DOC_CODE = 'SETTINGS_SYS';
@@ -36,6 +42,14 @@ export const settingsService = {
           start_date: doc.start_date || DEFAULT_SETTINGS.start_date,
           end_date: doc.end_date || DEFAULT_SETTINGS.end_date,
           academic_year: doc.academic_year || DEFAULT_SETTINGS.academic_year,
+          min_sks: typeof doc.min_sks === 'number' ? doc.min_sks : DEFAULT_SETTINGS.min_sks,
+          required_title_count:
+            typeof doc.required_title_count === 'number'
+              ? doc.required_title_count
+              : DEFAULT_SETTINGS.required_title_count,
+          required_courses: Array.isArray(doc.required_courses)
+            ? doc.required_courses
+            : DEFAULT_SETTINGS.required_courses,
         };
       }
     } catch {
@@ -58,6 +72,14 @@ export const settingsService = {
           start_date: parsed.start_date || DEFAULT_SETTINGS.start_date,
           end_date: parsed.end_date || DEFAULT_SETTINGS.end_date,
           academic_year: parsed.academic_year || DEFAULT_SETTINGS.academic_year,
+          min_sks: typeof parsed.min_sks === 'number' ? parsed.min_sks : DEFAULT_SETTINGS.min_sks,
+          required_title_count:
+            typeof parsed.required_title_count === 'number'
+              ? parsed.required_title_count
+              : DEFAULT_SETTINGS.required_title_count,
+          required_courses: Array.isArray(parsed.required_courses)
+            ? parsed.required_courses
+            : DEFAULT_SETTINGS.required_courses,
         };
       }
 

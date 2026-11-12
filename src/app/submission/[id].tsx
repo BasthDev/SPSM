@@ -682,7 +682,7 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                   </View>
                 </View>
                 <Text style={styles.vStepDesc}>
-                  3 usulan judul dan latar belakang diajukan oleh Mahasiswa.
+                  {submission.options?.length ?? 3} usulan judul dan latar belakang diajukan oleh Mahasiswa.
                 </Text>
                 <Text style={styles.vStepDate}>{formattedSubmittedDate}</Text>
               </View>

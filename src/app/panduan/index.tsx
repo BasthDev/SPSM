@@ -137,7 +137,7 @@ export default function PanduanScreen() {
     },
     {
       question: 'Apakah saya bisa mengajukan lebih dari satu judul?',
-      answer: 'Ya, Anda dapat mengajukan 3 opsi judul dalam satu pengajuan. Dosen Penilai akan memilih salah satu yang terbaik.',
+      answer: 'Ya, Anda dapat mengajukan beberapa opsi judul dalam satu pengajuan (jumlah ditentukan oleh admin, umumnya 3). Dosen Penilai akan memilih salah satu yang terbaik.',
     },
     {
       question: 'Bagaimana cara menghubungi Dosen Pembimbing?',
@@ -331,9 +331,9 @@ export default function PanduanScreen() {
                     <Text style={styles.stepNumberText}>4</Text>
                   </View>
                   <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Susun 3 Opsi Judul + Tabel Relevansi</Text>
+                    <Text style={styles.stepTitle}>Susun Opsi-opsi Judul + Tabel Relevansi</Text>
                     <Text style={styles.stepDesc}>
-                      Tulis 3 usulan judul beserta latar belakang, jurnal acuan (judul, penulis,
+                      Tulis usulan judul (jumlah sesuai pengaturan admin, umumnya 3) beserta latar belakang, jurnal acuan (judul, penulis,
                       tahun terbit), dan tabel relevansi penelitian (variabel, metodologi, kesesuaian).
                     </Text>
                   </View>
@@ -375,7 +375,7 @@ export default function PanduanScreen() {
               iconBgColor="#F5F3FF"
             >
               <Text style={styles.sectionContent}>
-                Saat Anda menekan Kirim Pengajuan, sistem memeriksa 3 judul Anda terhadap
+                Saat Anda menekan Kirim Pengajuan, sistem memeriksa seluruh judul Anda terhadap
                 seluruh pengajuan yang masih aktif di kampus — secara teks (judul identik
                 atau hampir sama) dan menggunakan kecerdasan buatan untuk menilai kemiripan topik.
               </Text>

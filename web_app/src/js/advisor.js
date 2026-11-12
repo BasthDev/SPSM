@@ -179,6 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const searchInput = document.getElementById('advisor-search');
   if (searchInput) {
-    searchInput.addEventListener('input', () => updateMetricsAndTable());
+    searchInput.addEventListener('input', () => { clearTimeout(searchInput._debounce); searchInput._debounce = setTimeout(updateMetricsAndTable, 200); });
   }
 });

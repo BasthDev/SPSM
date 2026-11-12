@@ -170,7 +170,7 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
           rejectModal.generalNotes,
           selectedSub.advisor_id
         );
-        showFeedback('Pengajuan dikembalikan untuk revisi. Ketiga opsi memuat catatan perbaikan.');
+        showFeedback('Pengajuan dikembalikan untuk revisi. Seluruh opsi memuat catatan perbaikan.');
       } else {
         await submissionService.rejectSubmission(
           selectedSub.$id,
@@ -688,7 +688,7 @@ export const KaprodiView: React.FC<Props> = ({ kaprodiName }) => {
                   }`}
                 >
                   {rejectModal.type === 'revision'
-                    ? 'Ketiga opsi judul akan ditandai perlu perbaikan oleh Kaprodi.'
+                    ? 'Seluruh opsi judul akan ditandai perlu perbaikan oleh Kaprodi.'
                     : 'Pengajuan akan ditolak oleh Kaprodi dan mahasiswa dapat mengajukan kembali proposal baru.'}
                 </div>
 

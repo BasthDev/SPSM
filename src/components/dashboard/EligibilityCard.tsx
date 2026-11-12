@@ -182,9 +182,10 @@ export function ClosedPeriodCard({ periodDisplay }: ClosedPeriodCardProps) {
 // ─────────────────────────────────────────────────────────────
 interface HeroSubmitCardProps {
   onPress: () => void;
+  titleCount?: number;
 }
 
-export function HeroSubmitCard({ onPress }: HeroSubmitCardProps) {
+export function HeroSubmitCard({ onPress, titleCount = 3 }: HeroSubmitCardProps) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <View style={styles.solidHeroCard}>
@@ -196,7 +197,7 @@ export function HeroSubmitCard({ onPress }: HeroSubmitCardProps) {
             <View style={styles.heroTextCol}>
               <Text style={styles.heroTitle}>Ajukan Judul Skripsi</Text>
               <Text style={styles.heroSubtitle}>
-                Kirimkan 3 opsi judul skripsi untuk direview oleh Dosen Penilai &amp; Kaprodi
+                Kirimkan {titleCount} opsi judul skripsi untuk direview oleh Dosen Penilai &amp; Kaprodi
               </Text>
             </View>
             <View style={styles.heroChevronBox}>

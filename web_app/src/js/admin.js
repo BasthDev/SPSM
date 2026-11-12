@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const searchInput = document.getElementById('search-lecturer');
   if (searchInput) {
-    searchInput.addEventListener('input', () => renderLecturersTable());
+    searchInput.addEventListener('input', () => { clearTimeout(searchInput._debounce); searchInput._debounce = setTimeout(renderLecturersTable, 200); });
   }
 
   const addBtn = document.getElementById('btn-add-lecturer');
