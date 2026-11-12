@@ -433,6 +433,7 @@ export class AppwriteAdapter implements IDatabaseAdapter {
     if (patch.currentSks !== undefined) payload.current_sks = toInt(patch.currentSks, 0);
     if (patch.academicRequirements !== undefined) payload.academic_requirements = patch.academicRequirements;
     if (patch.avatarUrl !== undefined) payload.avatar_url = patch.avatarUrl;
+    if ((patch as any).pushToken !== undefined) payload.push_token = (patch as any).pushToken || null;
     if (patch.phone !== undefined) payload.phone = String(patch.phone).trim();
     const thesisFlag = patch.thesisUploaded ?? patch.hasUploadedThesis ?? (patch as any).has_uploaded_thesis;
     if (thesisFlag !== undefined) payload.has_uploaded_thesis = Boolean(thesisFlag);
@@ -766,6 +767,7 @@ export class AppwriteAdapter implements IDatabaseAdapter {
       currentSks: toInt(doc.current_sks, 0),
       academicRequirements: doc.academic_requirements || '',
       avatarUrl: doc.avatar_url || null,
+      pushToken: doc.push_token || null,
       role: doc.role || 'student',
       thesisUploaded,
       hasUploadedThesis: thesisUploaded,

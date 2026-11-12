@@ -68,6 +68,7 @@ export interface UserProfileDto {
   currentSks?: number;
   academicRequirements?: string;
   avatarUrl?: string | null;
+  pushToken?: string | null;
   role?: string;
   thesisUploaded?: boolean;
   hasUploadedThesis?: boolean;

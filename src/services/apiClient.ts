@@ -380,6 +380,19 @@ export const apiClient = {
     },
   },
 
+  // --- Notifications (push via Appwrite Messaging/FCM) ---
+  notifications: {
+    async register(token: string) {
+      return request<any>('/notifications/register', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      });
+    },
+    async unregister() {
+      return request<any>('/notifications/unregister', { method: 'POST' });
+    },
+  },
+
   // --- Users & Profiles ---
   users: {
     async getProfile(userId: string) {

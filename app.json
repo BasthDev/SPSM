@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "id.my.basthdev.spsm",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -42,7 +43,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
+          "icon": "./src/assets/images/logo.png",
           "color": "#0A4C8F"
         }
       ]

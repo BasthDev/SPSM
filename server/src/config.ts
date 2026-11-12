@@ -27,9 +27,16 @@ export const config = {
       journals: process.env.APPWRITE_BUCKET_JOURNALS || 'journal_files',
       sk: process.env.APPWRITE_BUCKET_SK || 'journal_files',
     },
+    // Appwrite Messaging → Push provider (FCM). ID provider dari Appwrite Console > Messaging > Providers.
+    messagingProviderId: process.env.APPWRITE_MESSAGING_PROVIDER_ID || '6af5e387003576bf7f1c',
   },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
     model: 'gemini-2.0-flash',
+  },
+  fcm: {
+    // Service account Firebase (JSON inline atau path file) — untuk FCM HTTP v1.
+    serviceAccountJson: process.env.FCM_SERVICE_ACCOUNT_JSON || '',
+    serviceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS || '',
   },
 };

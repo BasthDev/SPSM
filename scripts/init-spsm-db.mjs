@@ -226,6 +226,7 @@ async function setupCollections() {
   await createStringAttribute('users', 'academic_requirements', 2000, false);
   await createStringAttribute('users', 'avatar_url', 1000, false);
   await createStringAttribute('users', 'phone', 30, false);
+  await createStringAttribute('users', 'push_token', 512, false);
   await createBooleanAttribute('users', 'has_uploaded_thesis', false, false);
   await createStringAttribute('users', 'created_at', 100, false);
   await waitForAttributes('users');

@@ -6,6 +6,7 @@ import {
 } from '../database/types';
 import { CreateSubmissionInput } from '../validators/submissionValidator';
 import { masterDataService } from './masterDataService';
+import { notifySubmissionStatus } from './notificationService';
 import { storageAdapter } from '../storage';
 
 /** Patch fields whitelist for updateStatus — never merge arbitrary keys. */
@@ -238,6 +239,10 @@ export class SubmissionService {
       }
     }
 
+    // Ambil studentId sebelum update untuk notifikasi push ke mahasiswa
+    const prevSub = await db.getSubmissionById(submissionId).catch(() => null);
+    const studentAppwriteId = prevSub?.studentId || null;
+
     const updatePayload: Partial<SubmissionDto> = {};
     if (safePatch.advisor1Id !== undefined) updatePayload.advisor1Id = safePatch.advisor1Id;
     if (safePatch.advisor2Id !== undefined) updatePayload.advisor2Id = safePatch.advisor2Id;
@@ -320,6 +325,9 @@ export class SubmissionService {
       notes: notes || '',
       createdAt: new Date().toISOString(),
     });
+
+    // Notifikasi push ke mahasiswa (fire-and-forget, tidak boleh gagalkan update)
+    void notifySubmissionStatus(studentAppwriteId, normalizedStatus, submissionId, notes);
 
     return (await this.getSubmissionById(submissionId))!;
   }

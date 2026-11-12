@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { apiClient } from './apiClient';
 
 const ENABLED_KEY = 'spsm_notifications_enabled';
-const TOKEN_KEY = 'spsm_push_token';
+const DEVICE_TOKEN_KEY = 'spsm_fcm_device_token';
 const DEFAULT_CHANNEL = 'default';
 
 export type NotificationPermission = 'granted' | 'denied' | 'undetermined';
@@ -31,7 +31,7 @@ export async function ensureAndroidChannel() {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(DEFAULT_CHANNEL, {
     name: 'Notifikasi SPSM',
-    // eslint-disable-next-line import/namespace -- enum tersedia via re-export expo-notifications
+    // eslint-disable-next-line import/namespace -- enum via re-export expo-notifications
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#0A4C8F',
@@ -43,8 +43,8 @@ export async function isNotificationsEnabled(): Promise<boolean> {
   return v === 'true';
 }
 
-export async function getStoredPushToken(): Promise<string | null> {
-  return AsyncStorage.getItem(TOKEN_KEY);
+export async function getStoredDeviceToken(): Promise<string | null> {
+  return AsyncStorage.getItem(DEVICE_TOKEN_KEY);
 }
 
 /** Ambil status izin notifikasi native saat ini. */
@@ -55,25 +55,23 @@ export async function getNotificationPermission(): Promise<NotificationPermissio
   return 'undetermined';
 }
 
-async function registerPushToken(): Promise<string | null> {
+/**
+ * Ambil FCM device token native (Android) — dikirim ke backend yang mendaftarkannya
+ * sebagai Appwrite push target (provider FCM di Messaging).
+ * iOS butuh provider APNs di Appwrite; web tidak support.
+ */
+async function getFcmDeviceToken(): Promise<string | null> {
   if (!Device.isDevice) {
-    // Expo Go / emulator tidak bisa menerima push token fisik
-    console.warn('[notifications] Bukan physical device — push token tidak tersedia.');
-    return null;
-  }
-  const projectId =
-    Constants.expoConfig?.extra?.eas?.projectId ??
-    Constants.easConfig?.projectId;
-  if (!projectId) {
-    console.warn('[notifications] EAS projectId belum diset — jalankan `eas init` untuk mendapatkan token.');
+    console.warn('[notifications] Bukan physical device — FCM token tidak tersedia.');
     return null;
   }
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-    await AsyncStorage.setItem(TOKEN_KEY, tokenData.data);
-    return tokenData.data;
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+    const token = typeof tokenData.data === 'string' ? tokenData.data : String(tokenData.data);
+    await AsyncStorage.setItem(DEVICE_TOKEN_KEY, token);
+    return token;
   } catch (e) {
-    console.warn('[notifications] Gagal mengambil Expo push token:', e);
+    console.warn('[notifications] Gagal mengambil FCM device token:', e);
     return null;
   }
 }
@@ -84,17 +82,26 @@ export type ToggleResult =
 
 /**
  * Toggle notifikasi:
- * - ON  → minta izin native (POST_NOTIFICATIONS di Android 13+), lalu daftar token push.
- * - OFF → matikan flag in-app. Izin OS tidak bisa dicabut via API — arahkan user ke
- *         pengaturan sistem bila perlu (lihat Linking.openSettings()).
+ * - ON  → minta izin native (POST_NOTIFICATIONS Android 13+), ambil FCM token,
+ *         daftarkan ke backend → Appwrite push target.
+ * - OFF → hapus target di server + matikan flag in-app.
+ *         Izin OS tidak bisa dicabut via API — arahkan user ke Settings bila perlu.
  */
 export async function setNotificationsEnabled(enabled: boolean): Promise<ToggleResult> {
   await ensureAndroidChannel();
 
   if (!enabled) {
     await AsyncStorage.setItem(ENABLED_KEY, 'false');
+    try {
+      await apiClient.notifications.unregister();
+    } catch (e) {
+      console.warn('[notifications] unregister gagal:', e);
+    }
     const { status } = await Notifications.getPermissionsAsync();
-    return { ok: true, permission: status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined' };
+    return {
+      ok: true,
+      permission: status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined',
+    };
   }
 
   const { status } = await Notifications.requestPermissionsAsync();
@@ -102,13 +109,38 @@ export async function setNotificationsEnabled(enabled: boolean): Promise<ToggleR
     status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined';
 
   if (permission === 'granted') {
+    const token = await getFcmDeviceToken();
+    if (token) {
+      try {
+        await apiClient.notifications.register(token);
+      } catch (e) {
+        console.warn('[notifications] register ke server gagal:', e);
+      }
+    }
     await AsyncStorage.setItem(ENABLED_KEY, 'true');
-    await registerPushToken();
     return { ok: true, permission };
   }
 
   await AsyncStorage.setItem(ENABLED_KEY, 'false');
   return { ok: false, reason: 'denied', permission };
+}
+
+/**
+ * Panggil saat app start / setelah login jika notifikasi aktif —
+ * segarkan registrasi token (token FCM bisa berubah antar install).
+ */
+export async function syncPushRegistrationIfEnabled() {
+  try {
+    if (!(await isNotificationsEnabled())) return;
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return;
+    const token = await getFcmDeviceToken();
+    if (token) {
+      await apiClient.notifications.register(token);
+    }
+  } catch (e) {
+    console.warn('[notifications] sync registrasi gagal:', e);
+  }
 }
 
 /** Kirim notifikasi lokal untuk testing (debug). */

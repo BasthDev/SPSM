@@ -16,6 +16,7 @@ import { FALLBACK_DEPARTMENTS, isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
 import { settingsService, type SystemSettings } from '@/services/settingsService';
+import { syncPushRegistrationIfEnabled } from '@/services/notificationService';
 import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -62,6 +63,7 @@ export default function DashboardScreen() {
       }
 
       setUser(profile);
+      void syncPushRegistrationIfEnabled();
 
       // Fetch submissions, master departments, and system settings simultaneously
       const [subs, depts, sysSettings] = await Promise.all([

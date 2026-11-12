@@ -41,3 +41,8 @@ example
 # generated native folders
 /ios
 /android
+
+# Firebase service account (SECRET - jangan commit)
+service-account*.json
+*-firebase-adminsdk*.json
+server/service-account*.json
