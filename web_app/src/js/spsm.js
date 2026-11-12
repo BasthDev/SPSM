@@ -1,18 +1,32 @@
 import { apiClient } from './apiClient.js';
 
+const PRODI_CODE_MAP = {
+  'ILMU HUKUM': 'IH',
+  'AKUNTANSI': 'AKT',
+  'MANAJEMEN': 'MNJ',
+  'BISNIS DIGITAL': 'BD',
+  'KEWIRAUSAHAAN': 'KWU',
+  'AGRIBISNIS': 'AGB',
+  'ARSITEKTUR': 'ARS',
+  'TEKNIK SIPIL': 'TSI',
+  'MANAJEMEN BENCANA': 'MBN',
+  'PENDIDIKAN AGAMA ISLAM': 'PAI',
+  'TADRIS BAHASA INGGRIS': 'TBI',
+  'TADRIS BIOLOGI': 'TBO',
+  'TADRIS MATEMATIKA': 'TMK',
+  'PERBANKAN SYARIAH': 'PBS',
+  'ILMU KESEHATAN MASYARAKAT': 'IKM',
+  'PSIKOLOGI': 'PSI',
+  'PERHOTELAN': 'PHO',
+  'FISIOTERAPI': 'FIS',
+};
+
 export function extractProdiCode(dept) {
-  if (!dept) return 'TI';
+  if (!dept) return 'UNM';
   const clean = dept.trim().toUpperCase();
-  if (clean.includes('BISNIS DIGITAL') || clean.startsWith('BD')) return 'BD';
-  if (clean.includes('INFORMATIKA') || clean.startsWith('TI')) return 'TI';
-  if (clean.includes('SISTEM INFORMASI') || clean.startsWith('SI')) return 'SI';
-  if (clean.includes('ELEKTRO') || clean.startsWith('TE')) return 'TE';
-  if (clean.includes('MESIN') || clean.startsWith('TM')) return 'TM';
-  if (clean.includes('SIPIL') || clean.startsWith('TS')) return 'TS';
-  if (clean.includes('MANAJEMEN') || clean.startsWith('MN')) return 'MN';
-  if (clean.includes('AKUNTANSI') || clean.startsWith('AK')) return 'AK';
+  if (PRODI_CODE_MAP[clean]) return PRODI_CODE_MAP[clean];
   if (clean.length <= 4) return clean;
-  return clean.split(' ').map((w) => w[0]).join('').slice(0, 4) || 'TI';
+  return clean.split(' ').map((w) => w[0]).join('').slice(0, 4) || 'UNM';
 }
 
 export function extractAngkatan(batchYear) {
@@ -122,6 +136,33 @@ export const authService = {
 // ============ MEMOIZATION LAYER ============
 const _lecCache = new Map();
 let _subsCache = new Map();
+let _deptNameMap = null;
+
+async function getDeptNameMap() {
+  if (_deptNameMap) return _deptNameMap;
+  _deptNameMap = new Map();
+  try {
+    const depts = await masterDataService.getDepartments();
+    for (const d of depts || []) {
+      const name = d.name;
+      if (!name) continue;
+      for (const key of [d.code, d.$id, d.id, name]) {
+        if (key) _deptNameMap.set(String(key).trim().toLowerCase(), name);
+      }
+    }
+  } catch (e) {
+    console.warn('department name map failed:', e);
+  }
+  return _deptNameMap;
+}
+
+export function resolveDeptName(dept, deptMap) {
+  if (!dept) return dept || '';
+  const raw = String(dept).trim();
+  if (!raw) return raw;
+  const hit = deptMap?.get(raw.toLowerCase());
+  return hit || raw;
+}
 
 export const lecturerService = {
   async getLecturers() {
@@ -253,7 +294,7 @@ function resolvePreferredAdvisor(dto, id, lecById) {
   return found ? lecturerDtoToLegacy(found) : { $id: id, name: `Dosen ID: ${id}` };
 }
 
-function mapSubmissionDtoToLegacy(sub, lecById) {
+function mapSubmissionDtoToLegacy(sub, lecById, deptMap) {
   if (!sub) return null;
   const surat = sub.surat || null;
   return {
@@ -305,7 +346,9 @@ function mapSubmissionDtoToLegacy(sub, lecById) {
           user_id: sub.student.userId,
           nim_or_nip: sub.student.nimOrNip || sub.student.nim,
           nim: sub.student.nim,
-          department: sub.student.department,
+          department: resolveDeptName(sub.student.department, deptMap),
+          department_code: sub.student.department || '',
+          department_name: resolveDeptName(sub.student.department, deptMap),
           batch_year: sub.student.batchYear,
           has_uploaded_thesis: sub.student.thesisUploaded ?? sub.student.hasUploadedThesis ?? false,
           current_sks: sub.student.currentSks,
@@ -375,7 +418,8 @@ export const submissionService = {
             console.warn('lecturer lookup for preferred advisors failed:', e);
           }
         }
-        let submissions = apiSubs.map((s) => mapSubmissionDtoToLegacy(s, lecById));
+        const deptMap = await getDeptNameMap();
+        let submissions = apiSubs.map((s) => mapSubmissionDtoToLegacy(s, lecById, deptMap));
         if (advisorIdFilter && advisorIdFilter !== 'all') {
           submissions = submissions.filter((sub) => {
             const parts = [

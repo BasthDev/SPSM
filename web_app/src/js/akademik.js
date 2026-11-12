@@ -147,7 +147,7 @@ if (submissions === null) {
         <td class="py-3 px-4">
           <div class="font-bold text-default">${student?.name || 'Mahasiswa'}</div>
           <div class="font-mono text-muted text-[11px]">${student?.nim_or_nip || sub.student_id}</div>
-          <div class="text-[10px] text-muted">${student?.department || 'TI'} (Angkatan ${student?.batch_year || 2026})</div>
+          <div class="text-[10px] text-muted">${student?.department || '-'} (Angkatan ${student?.batch_year || 2026})</div>
         </td>
         <td class="py-3 px-4">
           <div class="font-mono font-bold text-xs text-primary">${nomorSuratDisplay}</div>
@@ -351,7 +351,7 @@ window.openPrintableSk = (submissionId) => {
       <tr>
         <td><strong>Program Studi</strong></td>
         <td>:</td>
-        <td>${sub.student?.department || 'Teknik Informatika'} (Angkatan ${sub.student?.batch_year || 2026})</td>
+        <td>${sub.student?.department || '-'} (Angkatan ${sub.student?.batch_year || 2026})</td>
       </tr>
       <tr>
         <td><strong>Judul Skripsi Disahkan</strong></td>

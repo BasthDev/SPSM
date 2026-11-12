@@ -1,12 +1,6 @@
-/**
- * PeriodInfoCard
- *
- * Solid card displaying thesis submission period status at the top of the dashboard.
- * Pure solid white surface, solid accent indicators, solid badges, and crisp contrast.
- */
 import { type PeriodDisplayStatus } from '@/services/settingsService';
 import { Colors } from '@/theme/theme';
-import { AlertTriangle, Calendar, Clock } from 'lucide-react-native';
+import { Calendar, Clock } from 'lucide-react-native';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 interface Props {
@@ -18,11 +12,8 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
     switch (status) {
       case 'open':
         return {
-          MainIcon: Calendar,
           ScheduleIcon: Clock,
           accentColor: '#059669',
-          iconBg: '#ECFDF5',
-          iconBorder: '#A7F3D0',
           badgeBg: '#059669',
           badgeText: '#FFFFFF',
           badgeLabel: 'PENDAFTARAN DIBUKA',
@@ -30,11 +21,8 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
         };
       case 'upcoming':
         return {
-          MainIcon: Clock,
           ScheduleIcon: Calendar,
           accentColor: Colors.primary,
-          iconBg: Colors.primaryMuted,
-          iconBorder: '#BAE6FD',
           badgeBg: Colors.primary,
           badgeText: '#FFFFFF',
           badgeLabel: 'AKAN DATANG',
@@ -43,11 +31,8 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
       case 'closed':
       default:
         return {
-          MainIcon: AlertTriangle,
           ScheduleIcon: Calendar,
           accentColor: '#D97706',
-          iconBg: '#FFFBEB',
-          iconBorder: '#FDE68A',
           badgeBg: '#D97706',
           badgeText: '#FFFFFF',
           badgeLabel: 'PENDAFTARAN DITUTUP',
@@ -57,21 +42,11 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
   };
 
   const theme = getTheme(periodDisplay.status);
-  const { MainIcon, ScheduleIcon } = theme;
+  const { ScheduleIcon } = theme;
 
   return (
     <View style={[styles.solidCard, { borderLeftColor: theme.accentColor }]}>
       <View style={styles.cardInner}>
-        {/* Left Icon with solid contrast circle */}
-        <View
-          style={[
-            styles.iconBox,
-            { backgroundColor: theme.iconBg, borderColor: theme.iconBorder },
-          ]}
-        >
-          <MainIcon size={22} color={theme.accentColor} strokeWidth={2.4} />
-        </View>
-
         {/* Content Column */}
         <View style={styles.contentCol}>
           {/* Header Row: Solid Pill Badge + Academic Year */}
@@ -132,16 +107,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-  },
-  iconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: 2,
   },
   contentCol: {
     flex: 1,

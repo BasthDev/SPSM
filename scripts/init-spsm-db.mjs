@@ -225,6 +225,7 @@ async function setupCollections() {
   await createIntegerAttribute('users', 'current_sks', false, 120);
   await createStringAttribute('users', 'academic_requirements', 2000, false);
   await createStringAttribute('users', 'avatar_url', 1000, false);
+  await createStringAttribute('users', 'phone', 30, false);
   await createBooleanAttribute('users', 'has_uploaded_thesis', false, false);
   await createStringAttribute('users', 'created_at', 100, false);
   await waitForAttributes('users');
@@ -395,7 +396,24 @@ async function seedData() {
     academic_year: '2025/2026 Ganjil',
     min_sks: 100,
     required_title_count: 3,
-    required_courses: ['Metodologi Penelitian', 'Kerja Praktik', 'Bahasa Inggris Ilmiah'],
+    // Mata kuliah prasyarat nyata UNMUHA (umum lintas prodi + yang umum jadi prasyarat skripsi)
+    required_courses: [
+      'Pendidikan Agama Islam',
+      'Pancasila',
+      'Kewarganegaraan',
+      'Bahasa Indonesia dan Penulisan Ilmiah',
+      'Bahasa Inggris',
+      'Kemuhammadiyahan',
+      'AIK (Al Islam dan Kemuhammadiyahan)',
+      'Metodologi Penelitian Kuantitatif',
+      'Metodologi Penelitian Kualitatif',
+      'Statistika',
+      'Kerja Praktek (KP)',
+      'Kuliah Kerja Nyata (KKN)',
+      'Stadium General',
+      'Manajemen Proyek',
+      'Kewirausahaan',
+    ],
   };
   await api(`/databases/${DATABASE_ID}/collections/system_settings/documents`, {
     method: 'POST',
@@ -403,13 +421,34 @@ async function seedData() {
   });
   console.log('✓ OK');
 
-  // B. departments
+  // B. departments — Program Studi asli UNMUHA (universitas muhammadiyah aceh, unmuha.ac.id)
   process.stdout.write('Seeding departments... ');
   const depts = [
-    { code: 'TI', name: 'Teknik Informatika', faculty: 'Fakultas Ilmu Komputer', is_active: true },
-    { code: 'SI', name: 'Sistem Informasi', faculty: 'Fakultas Ilmu Komputer', is_active: true },
-    { code: 'BD', name: 'Bisnis Digital', faculty: 'Fakultas Ekonomi dan Bisnis', is_active: true },
-    { code: 'TE', name: 'Teknik Elektro', faculty: 'Fakultas Teknik', is_active: true },
+    // Fakultas Hukum
+    { code: 'IH',  name: 'Ilmu Hukum',                          faculty: 'Fakultas Hukum',               is_active: true },
+    // Fakultas Ekonomi
+    { code: 'AKT', name: 'Akuntansi',                           faculty: 'Fakultas Ekonomi',             is_active: true },
+    { code: 'MNJ', name: 'Manajemen',                           faculty: 'Fakultas Ekonomi',             is_active: true },
+    { code: 'BD',  name: 'Bisnis Digital',                      faculty: 'Fakultas Ekonomi',             is_active: true },
+    { code: 'KWU', name: 'Kewirausahaan',                       faculty: 'Fakultas Ekonomi',             is_active: true },
+    { code: 'AGB', name: 'Agribisnis',                          faculty: 'Fakultas Ekonomi',             is_active: true },
+    // Fakultas Teknik
+    { code: 'ARS', name: 'Arsitektur',                          faculty: 'Fakultas Teknik',              is_active: true },
+    { code: 'TSI', name: 'Teknik Sipil',                        faculty: 'Fakultas Teknik',              is_active: true },
+    { code: 'MBN', name: 'Manajemen Bencana',                   faculty: 'Fakultas Teknik',              is_active: true },
+    // Fakultas Agama Islam
+    { code: 'PAI', name: 'Pendidikan Agama Islam',             faculty: 'Fakultas Agama Islam',         is_active: true },
+    { code: 'TBI', name: 'Tadris Bahasa Inggris',              faculty: 'Fakultas Agama Islam',         is_active: true },
+    { code: 'TBO', name: 'Tadris Biologi',                      faculty: 'Fakultas Agama Islam',         is_active: true },
+    { code: 'TMK', name: 'Tadris Matematika',                   faculty: 'Fakultas Agama Islam',         is_active: true },
+    { code: 'PBS', name: 'Perbankan Syariah',                  faculty: 'Fakultas Agama Islam',         is_active: true },
+    // Fakultas Kesehatan Masyarakat
+    { code: 'IKM', name: 'Ilmu Kesehatan Masyarakat',          faculty: 'Fakultas Kesehatan Masyarakat', is_active: true },
+    // Fakultas Psikologi
+    { code: 'PSI', name: 'Psikologi',                          faculty: 'Fakultas Psikologi',           is_active: true },
+    // Fakultas Vokasi (D-3)
+    { code: 'PHO', name: 'Perhotelan',                         faculty: 'Fakultas Vokasi',              is_active: true },
+    { code: 'FIS', name: 'Fisioterapi',                        faculty: 'Fakultas Vokasi',              is_active: true },
   ];
   for (const d of depts) {
     await api(`/databases/${DATABASE_ID}/collections/departments/documents`, {
@@ -441,8 +480,8 @@ async function seedData() {
     {
       nip: '197805122003121001',
       name: 'Dr. Ir. Hendra Saputra, M.T.',
-      email: 'hendra.saputra@univ.ac.id',
-      department_id: 'TI',
+      email: 'reviewer@unmuha.ac.id',
+      department_id: 'BD',
       expertise: 'Kecerdasan Buatan, NLP, Computer Vision',
       quota: 8,
       current_students: 2,
@@ -452,8 +491,8 @@ async function seedData() {
     {
       nip: '198203152008122003',
       name: 'Dr. Ratna Dewi, S.Kom., M.Cs.',
-      email: 'ratna.dewi@univ.ac.id',
-      department_id: 'TI',
+      email: 'ratna.dewi@unmuha.ac.id',
+      department_id: 'BD',
       expertise: 'Software Engineering, Cloud Computing, Microservices',
       quota: 10,
       current_students: 3,
@@ -463,8 +502,8 @@ async function seedData() {
     {
       nip: '198511202010121002',
       name: 'Budi Santoso, S.T., M.Kom.',
-      email: 'budi.santoso@univ.ac.id',
-      department_id: 'TI',
+      email: 'budi.santoso@unmuha.ac.id',
+      department_id: 'BD',
       expertise: 'Mobile Application, IoT, Cyber Security',
       quota: 8,
       current_students: 1,
@@ -474,8 +513,8 @@ async function seedData() {
     {
       nip: '199002142018032001',
       name: 'Siti Rahmawati, S.Kom., M.T.',
-      email: 'siti.rahmawati@univ.ac.id',
-      department_id: 'SI',
+      email: 'siti.rahmawati@unmuha.ac.id',
+      department_id: 'MNJ',
       expertise: 'Data Warehouse, Enterprise Architecture, UI/UX',
       quota: 8,
       current_students: 0,
@@ -491,27 +530,17 @@ async function seedData() {
   }
   console.log('✓ OK');
 
-  // E. Seed test users (to test login across roles)
-  process.stdout.write('Seeding test user profiles... ');
+  // E. Seed staff test users only — data mahasiswa sengaja dikosongkan,
+  //    mahasiswa asli akan dibuat otomatis saat sign up (onboarding).
+  process.stdout.write('Seeding staff test user profiles... ');
   const testUsers = [
-    {
-      user_id: 'student_test_1',
-      name: 'Ahmad Faiz Pratama',
-      email: 'ahmad.faiz@student.univ.ac.id',
-      role: 'student',
-      nim_or_nip: '21051204011',
-      department: 'Teknik Informatika',
-      batch_year: 2021,
-      current_sks: 126,
-      created_at: new Date().toISOString(),
-    },
     {
       user_id: 'reviewer_test_1',
       name: 'Dr. Ir. Hendra Saputra, M.T.',
-      email: 'hendra.saputra@univ.ac.id',
+      email: 'reviewer@unmuha.ac.id',
       role: 'lecturer',
       nim_or_nip: '197805122003121001',
-      department: 'Teknik Informatika',
+      department: 'Bisnis Digital',
       batch_year: 2003,
       current_sks: 0,
       created_at: new Date().toISOString(),
@@ -519,10 +548,10 @@ async function seedData() {
     {
       user_id: 'kaprodi_test_1',
       name: 'Dr. Ratna Dewi, S.Kom., M.Cs.',
-      email: 'ratna.dewi@univ.ac.id',
+      email: 'kaprodi@unmuha.ac.id',
       role: 'kaprodi',
       nim_or_nip: '198203152008122003',
-      department: 'Teknik Informatika',
+      department: 'Bisnis Digital',
       batch_year: 2008,
       current_sks: 0,
       created_at: new Date().toISOString(),
@@ -530,10 +559,10 @@ async function seedData() {
     {
       user_id: 'akademik_test_1',
       name: 'Biro Administrasi Akademik (TU)',
-      email: 'akademik.fikom@univ.ac.id',
+      email: 'akademik@unmuha.ac.id',
       role: 'akademik',
       nim_or_nip: '198904012015041001',
-      department: 'Fakultas Ilmu Komputer',
+      department: 'Fakultas Ekonomi',
       batch_year: 2015,
       current_sks: 0,
       created_at: new Date().toISOString(),

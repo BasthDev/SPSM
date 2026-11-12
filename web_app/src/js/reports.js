@@ -194,7 +194,11 @@ function renderLecturersReport() {
           <div class="font-mono text-muted text-[11px]">NIP: ${lec.nip}</div>
         </td>
         <td class="py-3 px-4">
-          <span class="badge badge-neutral text-xs px-2 py-0.5">${lec.department_id || 'TI'}</span>
+          <span class="badge badge-neutral text-xs px-2 py-0.5">${(() => {
+            const raw = lec.department_id || '';
+            const hit = reportDepartments.find((d) => d.code === raw || (d.$id || d.id) === raw || d.name === raw);
+            return hit ? hit.name : (raw || 'TI');
+          })()}</span>
         </td>
         <td class="py-3 px-4 font-semibold text-muted text-xs">
           ${roleLabels[lec.role] || lec.role}
@@ -250,7 +254,7 @@ function renderFinishedStudentsReport() {
     const isApproved = statusNorm(sub.status) === 'sk_issued' || Boolean(sub.nomor_surat);
     if (!isApproved) return false;
 
-    const dept = sub.student?.department || 'TI';
+    const dept = sub.student?.department || '-';
     if (!deptMatches(selectedDept, dept)) return false;
 
     if (q) {
@@ -352,7 +356,7 @@ function renderFinishedStudentsReport() {
           <div class="font-mono text-muted text-[11px]">NIM: ${sub.student?.nim_or_nip || sub.student_id}</div>
         </td>
         <td class="py-3 px-4">
-          <div class="font-semibold text-default">${sub.student?.department || 'TI'}</div>
+          <div class="font-semibold text-default">${sub.student?.department || '-'}</div>
           <div class="text-muted text-[11px]">Angkatan ${sub.student?.batch_year || 2026}</div>
         </td>
         <td class="py-3 px-4 max-w-xs">

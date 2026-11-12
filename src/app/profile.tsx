@@ -9,24 +9,35 @@ import {
   LoadingScreen,
 } from '@/components';
 import { authService } from '@/services/authService';
+import { academicService } from '@/services/academicService';
 import type { UserProfile } from '@/models/types';
 import { Colors } from '@/theme/theme';
-import { BookOpen, Hash, Calendar, Shield, LogOut } from 'lucide-react-native';
+import { BookOpen, Hash, Calendar, Shield, LogOut, Phone } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [deptName, setDeptName] = useState('');
 
   useEffect(() => {
     let active = true;
     const load = async () => {
       try {
         const acct = await authService.getCurrentAccount();
-        const profile = await authService.getUserProfile(acct.$id);
-        if (active) {
-          setUser(profile);
-        }
+        const [profile, depts] = await Promise.all([
+          authService.getUserProfile(acct.$id),
+          academicService.getDepartments().catch(() => []),
+        ]);
+        if (!active) return;
+        setUser(profile);
+        const code = (profile?.department || '').trim();
+        const found = depts.find(
+          (d) =>
+            d.code.toLowerCase() === code.toLowerCase() ||
+            d.name.toLowerCase() === code.toLowerCase()
+        );
+        setDeptName(found ? found.name : code || '');
       } catch {
         if (active) {
           router.replace('/login');
@@ -59,7 +70,7 @@ export default function ProfileScreen() {
 
   if (loading) return <LoadingScreen message="Memuat profil..." />;
 
-  const deptLabel = user?.department ?? '-';
+  const deptLabel = deptName || user?.department || '-';
 
   return (
     <View style={styles.flex}>
@@ -103,6 +114,14 @@ export default function ProfileScreen() {
             label="Program Studi"
             value={deptLabel}
           />
+
+          {user?.phone ? (
+            <InfoRow
+              icon={<Phone size={16} color={Colors.primary} strokeWidth={2.2} />}
+              label="WhatsApp / Telepon"
+              value={user.phone}
+            />
+          ) : null}
 
           <InfoRow
             icon={<Calendar size={16} color={Colors.primary} strokeWidth={2.2} />}

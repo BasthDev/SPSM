@@ -2,19 +2,17 @@
  * EligibilityCard
  *
  * Solid card component for displaying academic prerequisite evaluation results.
- * Pure solid white background, high contrast borders, solid badges, and crisp indicators.
- *
- * Automatically skips prerequisite course checks if no courses are required by admin.
+ * Clean, minimal layout with no large floating icons.
  */
 import { type EligibilityResult, type PeriodDisplayStatus } from '@/services/settingsService';
 import { Colors } from '@/theme/theme';
+import { useState } from 'react';
 import {
-  BookOpen,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Lock,
-  PlusCircle,
-  ShieldAlert,
   XCircle,
 } from 'lucide-react-native';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -27,111 +25,96 @@ interface EligibilityCardProps {
 }
 
 export function EligibilityCard({ eligibility }: EligibilityCardProps) {
+  const [expanded, setExpanded] = useState(true);
   const hasRequiredCourses =
     Array.isArray(eligibility.requiredCourses) && eligibility.requiredCourses.length > 0;
 
   return (
     <View style={styles.solidIneligibleCard}>
       <View style={styles.cardPadding}>
-        {/* Header Row: Shield Icon + Solid Pill + Title */}
-        <View style={styles.headerRow}>
-          <View style={styles.shieldIconBox}>
-            <ShieldAlert size={22} color="#DC2626" strokeWidth={2.4} />
-          </View>
-          <View style={styles.headerTextCol}>
+        {/* Header Row — tappable to expand/collapse */}
+        <TouchableOpacity
+          style={styles.headerContainer}
+          onPress={() => setExpanded((v) => !v)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.headerTopRow}>
             <View style={styles.solidDangerBadge}>
               <Text style={styles.solidDangerBadgeText}>PRASYARAT AKADEMIK</Text>
             </View>
-            <Text style={styles.cardHeading}>Anda Belum Memenuhi Syarat</Text>
-            <Text style={styles.cardSubtitle}>
-              Sistem mendeteksi kriteria minimal pendaftaran judul skripsi belum terpenuhi:
-            </Text>
-          </View>
-        </View>
-
-        {/* Checklist Box — Solid background, crisp borders */}
-        <View style={styles.checklistBox}>
-          {/* SKS Check */}
-          <View style={styles.checkItemRow}>
-            {eligibility.sksSatisfied ? (
-              <CheckCircle2 size={18} color="#059669" strokeWidth={2.4} />
+            {expanded ? (
+              <ChevronUp size={18} color={Colors.textTertiary} strokeWidth={2.2} />
             ) : (
-              <XCircle size={18} color="#DC2626" strokeWidth={2.4} />
+              <ChevronDown size={18} color={Colors.textTertiary} strokeWidth={2.2} />
             )}
-            <View style={styles.checkItemTextCol}>
-              <Text style={styles.checkItemTitle}>
-                Total SKS Kumulatif ({eligibility.studentSks} / minimal {eligibility.minSks} SKS)
+          </View>
+          <Text style={styles.cardHeading}>Belum Memenuhi Syarat</Text>
+          <Text style={styles.cardSubtitle}>
+            Kriteria minimal pengajuan skripsi belum terpenuhi.
+            {!expanded ? ' Ketuk untuk melihat detail.' : ''}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Minimalist Checklist Box */}
+        {expanded && (
+        <View style={styles.checklistBox}>
+          
+          {/* SKS Check */}
+          <View style={styles.checkRow}>
+            <Text style={styles.checkLabel}>Total SKS</Text>
+            <View style={styles.checkValueBox}>
+              <Text style={[styles.checkValueText, eligibility.sksSatisfied ? styles.textSuccess : styles.textDanger]}>
+                {eligibility.studentSks} / {eligibility.minSks}
               </Text>
-              <Text style={eligibility.sksSatisfied ? styles.successText : styles.dangerText}>
-                {eligibility.sksSatisfied
-                  ? '✓ Terpenuhi (Syarat perolehan SKS mencukupi)'
-                  : `✗ Belum Terpenuhi (Kurang ${Math.max(
-                      0,
-                      eligibility.minSks - eligibility.studentSks
-                    )} SKS untuk mengajukan skripsi)`}
-              </Text>
+              {eligibility.sksSatisfied ? (
+                <CheckCircle2 size={18} color="#059669" strokeWidth={2.5} />
+              ) : (
+                <XCircle size={18} color="#DC2626" strokeWidth={2.5} />
+              )}
             </View>
           </View>
 
-          {/* Prerequisite Courses — Only render when admin sets required courses! */}
+          {/* Informational GPA if present */}
+          {typeof eligibility.gpa === 'number' && (
+            <View style={styles.checkRow}>
+              <Text style={styles.checkLabel}>IPK</Text>
+              <Text style={styles.checkValueText}>{eligibility.gpa.toFixed(2)}</Text>
+            </View>
+          )}
+
+          {/* Prerequisite Courses */}
           {hasRequiredCourses && (
             <>
-              <View style={styles.checklistDivider}>
-                <Text style={styles.checklistDividerLabel}>
-                  Status Kelulusan Mata Kuliah Prasyarat Wajib:
-                </Text>
-              </View>
-
+              <View style={styles.divider} />
               {eligibility.requiredCourses.map((reqCourse, idx) => {
                 const isPassed = eligibility.completedCourses.some(
                   (c) => c.trim().toLowerCase() === reqCourse.trim().toLowerCase()
                 );
                 return (
-                  <View key={idx} style={styles.checkItemRow}>
+                  <View key={idx} style={styles.checkRow}>
+                    <Text style={[styles.checkLabel, { flex: 1 }]} numberOfLines={1}>
+                      {reqCourse}
+                    </Text>
                     {isPassed ? (
-                      <CheckCircle2 size={18} color="#059669" strokeWidth={2.4} />
+                      <CheckCircle2 size={18} color="#059669" strokeWidth={2.5} />
                     ) : (
-                      <XCircle size={18} color="#DC2626" strokeWidth={2.4} />
+                      <XCircle size={18} color="#DC2626" strokeWidth={2.5} />
                     )}
-                    <View style={styles.checkItemTextCol}>
-                      <Text style={styles.checkItemTitle}>{reqCourse}</Text>
-                      <Text style={isPassed ? styles.successText : styles.dangerText}>
-                        {isPassed
-                          ? '✓ Terpenuhi (Lulus)'
-                          : '✗ Belum Terpenuhi (Mata kuliah belum diselesaikan)'}
-                      </Text>
-                    </View>
                   </View>
                 );
               })}
             </>
           )}
-
-          {/* Informational GPA if present */}
-          {typeof eligibility.gpa === 'number' && (
-            <View style={styles.checkItemRow}>
-              <BookOpen size={18} color={Colors.primary} strokeWidth={2.2} />
-              <View style={styles.checkItemTextCol}>
-                <Text style={styles.checkItemTitle}>Indeks Prestasi Kumulatif (IPK)</Text>
-                <Text style={styles.infoText}>IPK Tercatat: {eligibility.gpa.toFixed(2)}</Text>
-              </View>
-            </View>
-          )}
         </View>
+        )}
 
-        {/* Lock Action & Advisory Note */}
-        <View style={styles.actionSection}>
-          <TouchableOpacity disabled activeOpacity={1} style={styles.solidLockedButton}>
-            <Lock size={15} color="#64748B" strokeWidth={2.4} />
-            <Text style={styles.solidLockedButtonText}>
-              Pengajuan Terkunci (Belum Memenuhi Syarat)
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.advisoryNote}>
-            Silakan hubungi Bagian Tata Usaha atau Ketua Program Studi jika terdapat pembaharuan
-            data akademik Anda.
+        {/* Lock Action */}
+        <TouchableOpacity disabled activeOpacity={1} style={styles.solidLockedButton}>
+          <Lock size={15} color="#64748B" strokeWidth={2.4} />
+          <Text style={styles.solidLockedButtonText}>
+            Pengajuan Terkunci
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -148,28 +131,20 @@ export function ClosedPeriodCard({ periodDisplay }: ClosedPeriodCardProps) {
   return (
     <View style={styles.solidClosedCard}>
       <View style={styles.cardPadding}>
-        <View style={styles.headerRow}>
-          <View style={styles.lockIconBox}>
-            <Lock size={22} color="#64748B" strokeWidth={2.4} />
+        <View style={styles.headerContainer}>
+          <View style={styles.solidMutedBadge}>
+            <Text style={styles.solidMutedBadgeText}>PENDAFTARAN DITUTUP</Text>
           </View>
-          <View style={styles.headerTextCol}>
-            <View style={styles.solidMutedBadge}>
-              <Text style={styles.solidMutedBadgeText}>PENDAFTARAN DITUTUP</Text>
-            </View>
-            <Text style={styles.cardHeadingMuted}>Ajukan Judul Skripsi</Text>
-            <Text style={styles.cardSubtitle}>
-              {periodDisplay.description ||
-                'Pendaftaran judul skripsi saat ini sedang ditutup sesuai jadwal kalender akademik.'}
-            </Text>
-          </View>
+          <Text style={styles.cardHeadingMuted}>Ajukan Judul Skripsi</Text>
+          <Text style={styles.cardSubtitle}>
+            {periodDisplay.description || 'Pendaftaran judul saat ini sedang ditutup.'}
+          </Text>
         </View>
-
-        <View style={styles.closedDivider} />
 
         <TouchableOpacity disabled activeOpacity={1} style={styles.solidLockedButton}>
           <Lock size={15} color="#64748B" strokeWidth={2.4} />
           <Text style={styles.solidLockedButtonText}>
-            Tombol Pengajuan Sedang Dinonaktifkan
+            Tombol Pengajuan Dinonaktifkan
           </Text>
         </TouchableOpacity>
       </View>
@@ -191,18 +166,13 @@ export function HeroSubmitCard({ onPress, titleCount = 3 }: HeroSubmitCardProps)
       <View style={styles.solidHeroCard}>
         <View style={styles.cardPadding}>
           <View style={styles.heroRow}>
-            <View style={styles.plusIconBox}>
-              <PlusCircle size={26} color={Colors.primary} strokeWidth={2.4} />
-            </View>
             <View style={styles.heroTextCol}>
               <Text style={styles.heroTitle}>Ajukan Judul Skripsi</Text>
               <Text style={styles.heroSubtitle}>
-                Kirimkan {titleCount} opsi judul skripsi untuk direview oleh Dosen Penilai &amp; Kaprodi
+                Kirimkan {titleCount} opsi judul untuk direview oleh Dosen & Kaprodi
               </Text>
             </View>
-            <View style={styles.heroChevronBox}>
-              <ChevronRight size={20} color={Colors.primary} strokeWidth={2.5} />
-            </View>
+            <ChevronRight size={22} color={Colors.primary} strokeWidth={2.5} />
           </View>
         </View>
       </View>
@@ -211,7 +181,7 @@ export function HeroSubmitCard({ onPress, titleCount = 3 }: HeroSubmitCardProps)
 }
 
 // ─────────────────────────────────────────────────────────────
-// Styles — 100% Solid Cards, No Transparent/Translucent Layouts
+// Styles
 // ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   // --- Ineligible Card ---
@@ -224,43 +194,22 @@ const styles = StyleSheet.create({
     borderLeftColor: '#DC2626',
     marginBottom: 24,
     ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-      web: {
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+      web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)' },
     }),
   },
   cardPadding: {
     padding: 16,
   },
-  headerRow: {
+  headerContainer: {
+    marginBottom: 16,
+  },
+  headerTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    marginBottom: 12,
-  },
-  shieldIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: 2,
-  },
-  headerTextCol: {
-    flex: 1,
+    marginBottom: 8,
   },
   solidDangerBadge: {
     backgroundColor: '#DC2626',
@@ -268,7 +217,6 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
-    marginBottom: 6,
   },
   solidDangerBadgeText: {
     fontSize: 9.5,
@@ -277,82 +225,65 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   cardHeading: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
-    marginBottom: 3,
+    marginBottom: 4,
   },
   cardHeadingMuted: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#334155',
     letterSpacing: -0.2,
-    marginBottom: 3,
+    marginBottom: 4,
   },
   cardSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
-    lineHeight: 17,
+    lineHeight: 18,
   },
 
-  // --- Checklist ---
+  // --- Checklist List (Minimalist) ---
   checklistBox: {
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 12,
-    gap: 10,
-    marginBottom: 12,
+    borderColor: '#F1F5F9',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
+    marginBottom: 16,
   },
-  checkItemRow: {
+  checkRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
-  checkItemTextCol: {
-    flex: 1,
-  },
-  checkItemTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  successText: {
-    fontSize: 11.5,
-    color: '#059669',
+  checkLabel: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#334155',
   },
-  dangerText: {
-    fontSize: 11.5,
-    color: '#DC2626',
-    fontWeight: '600',
-  },
-  infoText: {
-    fontSize: 11.5,
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  checklistDivider: {
-    paddingTop: 8,
-    paddingBottom: 2,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  checklistDividerLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#475569',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-
-  // --- Actions ---
-  actionSection: {
+  checkValueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
+  checkValueText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  textSuccess: { color: '#059669' },
+  textDanger: { color: '#DC2626' },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 2,
+  },
+
+  // --- Buttons / Actions ---
   solidLockedButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -360,21 +291,15 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E2E8F0',
     borderRadius: 10,
     paddingVertical: 11,
     paddingHorizontal: 14,
   },
   solidLockedButtonText: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#475569',
-  },
-  advisoryNote: {
-    fontSize: 11,
     color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 16,
   },
 
   // --- Closed Period Card ---
@@ -387,31 +312,10 @@ const styles = StyleSheet.create({
     borderLeftColor: '#64748B',
     marginBottom: 24,
     ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-      web: {
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6 },
+      android: { elevation: 2 },
+      web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)' },
     }),
-  },
-  lockIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: 2,
   },
   solidMutedBadge: {
     backgroundColor: '#64748B',
@@ -419,18 +323,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   solidMutedBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.6,
-  },
-  closedDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginBottom: 12,
   },
 
   // --- Hero Submit Card ---
@@ -443,34 +342,16 @@ const styles = StyleSheet.create({
     borderLeftColor: Colors.primary,
     marginBottom: 24,
     ...Platform.select({
-      ios: {
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-      web: {
-        boxShadow: '0 3px 12px rgba(10, 76, 143, 0.08)',
-      },
+      ios: { shadowColor: Colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8 },
+      android: { elevation: 3 },
+      web: { boxShadow: '0 3px 12px rgba(10, 76, 143, 0.08)' },
     }),
   },
   heroRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
-  },
-  plusIconBox: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: Colors.primaryMuted,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   heroTextCol: {
     flex: 1,
@@ -482,12 +363,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   heroSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
-    marginTop: 2,
-    lineHeight: 16,
-  },
-  heroChevronBox: {
-    paddingLeft: 4,
+    marginTop: 4,
+    lineHeight: 18,
   },
 });

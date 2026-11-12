@@ -91,6 +91,7 @@ export interface UserProfile {
   current_sks?: number;
   academic_requirements?: string; // JSON string of AcademicRequirements
   avatar_url?: string | null;
+  phone?: string;
   has_uploaded_thesis?: boolean;
   created_at?: string;
 }
@@ -209,20 +210,31 @@ export interface OnboardingFormData {
   nim: string;
   department: string;
   batchYear: string;
+  phone?: string;
   currentSks?: string;
   avatarUrl?: string | null;
 }
 
-/** Fallback Departments if offline or loading */
+/** Fallback Departments (prodi UNMUHA) if offline or loading */
 export const FALLBACK_DEPARTMENTS = [
-  { label: 'Teknik Informatika (TI)', value: 'TI' },
-  { label: 'Sistem Informasi (SI)', value: 'SI' },
+  { label: 'Ilmu Hukum (IH)', value: 'IH' },
+  { label: 'Akuntansi (AKT)', value: 'AKT' },
+  { label: 'Manajemen (MNJ)', value: 'MNJ' },
   { label: 'Bisnis Digital (BD)', value: 'BD' },
-  { label: 'Teknik Elektro (TE)', value: 'TE' },
-  { label: 'Teknik Mesin (TM)', value: 'TM' },
-  { label: 'Teknik Sipil (TS)', value: 'TS' },
-  { label: 'Manajemen (MN)', value: 'MN' },
-  { label: 'Akuntansi (AK)', value: 'AK' },
+  { label: 'Kewirausahaan (KWU)', value: 'KWU' },
+  { label: 'Agribisnis (AGB)', value: 'AGB' },
+  { label: 'Arsitektur (ARS)', value: 'ARS' },
+  { label: 'Teknik Sipil (TSI)', value: 'TSI' },
+  { label: 'Manajemen Bencana (MBN)', value: 'MBN' },
+  { label: 'Pendidikan Agama Islam (PAI)', value: 'PAI' },
+  { label: 'Tadris Bahasa Inggris (TBI)', value: 'TBI' },
+  { label: 'Tadris Biologi (TBO)', value: 'TBO' },
+  { label: 'Tadris Matematika (TMK)', value: 'TMK' },
+  { label: 'Perbankan Syariah (PBS)', value: 'PBS' },
+  { label: 'Ilmu Kesehatan Masyarakat (IKM)', value: 'IKM' },
+  { label: 'Psikologi (PSI)', value: 'PSI' },
+  { label: 'Perhotelan (PHO)', value: 'PHO' },
+  { label: 'Fisioterapi (FIS)', value: 'FIS' },
 ];
 
 /** Fallback Batch Years if offline or loading */

@@ -49,13 +49,16 @@ export const settingsService = {
       const data = await apiClient.settings.get();
       if (data) {
         return {
-          is_active: data.submissionOpen ?? true,
-          start_date: DEFAULT_SETTINGS.start_date,
-          end_date: DEFAULT_SETTINGS.end_date,
+          is_active: data.isActive ?? data.submissionOpen ?? true,
+          start_date: data.startDate || DEFAULT_SETTINGS.start_date,
+          end_date: data.endDate || DEFAULT_SETTINGS.end_date,
           academic_year: data.academicYear || DEFAULT_SETTINGS.academic_year,
-          min_sks: DEFAULT_SETTINGS.min_sks,
-          required_title_count: data.maxOptions || DEFAULT_SETTINGS.required_title_count,
-          required_courses: [],
+          min_sks: typeof data.minSks === 'number' ? data.minSks : DEFAULT_SETTINGS.min_sks,
+          required_title_count:
+            data.requiredTitleCount ?? data.maxOptions ?? DEFAULT_SETTINGS.required_title_count,
+          required_courses: Array.isArray(data.requiredCourses)
+            ? data.requiredCourses
+            : [],
         };
       }
     } catch (err) {

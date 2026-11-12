@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import { AppHeader, Avatar, Button, Dropdown, Input, Section, Stepper } from '@/components';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
+  FALLBACK_BATCH_YEARS,
+  FALLBACK_DEPARTMENTS,
+} from '@/models/types';
+import { academicService } from '@/services/academicService';
+import { authService } from '@/services/authService';
+import { Colors } from '@/theme/theme';
+import { useRouter } from 'expo-router';
+import { BookOpen, CheckCircle2, LogOut, User } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { AppHeader, Section, Input, Dropdown, Button, Stepper, Avatar } from '@/components';
-import { authService } from '@/services/authService';
-import { academicService } from '@/services/academicService';
-import {
-  FALLBACK_DEPARTMENTS,
-  FALLBACK_BATCH_YEARS,
-} from '@/models/types';
-import { Colors } from '@/theme/theme';
-import { User, BookOpen, CheckCircle2, LogOut } from 'lucide-react-native';
 
 const STEPS = ['Data Pribadi', 'Akademik', 'Konfirmasi'];
 
@@ -33,6 +33,7 @@ export default function OnboardingScreen() {
   const [email, setEmail] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [nim, setNim] = useState('');
+  const [phone, setPhone] = useState('');
   const [department, setDepartment] = useState('');
   const [batchYear, setBatchYear] = useState('');
 
@@ -63,7 +64,7 @@ export default function OnboardingScreen() {
         if (active && depts.length > 0) {
           setDepartmentOptions(
             depts.map((d) => ({
-              label: `${d.name} (${d.code})`,
+              label: d.name,
               value: d.code,
             }))
           );
@@ -134,6 +135,7 @@ export default function OnboardingScreen() {
         name: name.trim(),
         email: email.trim(),
         nim: nim.trim(),
+        phone: phone.trim() || undefined,
         department,
         batchYear,
         avatarUrl: avatarUrl.trim() || undefined,
@@ -203,6 +205,14 @@ export default function OnboardingScreen() {
               autoCapitalize="none"
               error={errors.email}
             />
+
+            <Input
+              label="Nomor WhatsApp / Telepon"
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Contoh: 081234567890"
+              keyboardType="phone-pad"
+            />
           </Section>
         );
 
@@ -266,6 +276,12 @@ export default function OnboardingScreen() {
               <Text style={styles.summaryLabel}>NIM</Text>
               <Text style={styles.summaryValue}>{nim}</Text>
             </View>
+            {phone ? (
+              <View style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>WhatsApp / Telepon</Text>
+                <Text style={styles.summaryValue}>{phone}</Text>
+              </View>
+            ) : null}
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>Program Studi</Text>
               <Text style={styles.summaryValue}>{selectedDeptLabel}</Text>
@@ -291,13 +307,13 @@ export default function OnboardingScreen() {
         title="Registrasi Profil"
         showBack={currentStep > 0}
         onBack={handleBack}
-        rightAction={
-          <View style={styles.logoutHeaderBtn}>
-            <LogOut size={16} color={Colors.error} strokeWidth={2.2} />
-            <Text style={styles.logoutHeaderText}>Keluar</Text>
-          </View>
-        }
-        onRightAction={handleSignOut}
+        // rightAction={
+        //   <View style={styles.logoutHeaderBtn}>
+        //     <LogOut size={16} color={Colors.error} strokeWidth={2.2} />
+        //     {/* <Text style={styles.logoutHeaderText}>Keluar</Text> */}
+        //   </View>
+        // }
+        // onRightAction={handleSignOut}
       />
 
       <ScrollView
@@ -345,8 +361,8 @@ export default function OnboardingScreen() {
           onPress={handleSignOut}
           activeOpacity={0.7}
         >
+          <Text style={styles.bottomSignOutText}>Ganti Akun / Keluar</Text>
           <LogOut size={15} color={Colors.textTertiary} strokeWidth={2} />
-          <Text style={styles.bottomSignOutText}>Ganti Akun Google / Keluar</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

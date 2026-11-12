@@ -62,6 +62,14 @@ window.switchAdminTab = (tabName, btn) => {
 
 // ============ LECTURERS ============
 
+function deptDisplayName(code) {
+  if (!code) return '-';
+  const hit = departments.find(
+    (d) => d.code === code || (d.$id || d.id) === code || d.name === code
+  );
+  return hit ? hit.name : code;
+}
+
 function renderLecturersTable() {
   const tbody = document.getElementById('lecturers-table-body');
   const countBadge = document.getElementById('lecturer-total-badge');
@@ -100,7 +108,7 @@ function renderLecturersTable() {
         </td>
         <td class="py-3 px-4 text-muted">${lec.email || '-'}</td>
         <td class="py-3 px-4">
-          <span class="badge badge-neutral text-xs px-2 py-0.5">${lec.department_id || 'TI'}</span>
+          <span class="badge badge-neutral text-xs px-2 py-0.5">${deptDisplayName(lec.department_id) || 'TI'}</span>
           <div class="text-[11px] text-muted mt-0.5 line-clamp-1">${lec.expertise || '-'}</div>
         </td>
         <td class="py-3 px-4">
@@ -349,17 +357,40 @@ window.editBatchYear = (id) => {
 
 // ============ SETTINGS & PREREQUISITES SELECTOR ============
 
+// Mata kuliah umum UNMUHA (universitas muhammadiyah aceh) — dasar untuk prasyarat skripsi
 const DEFAULT_CURRICULUM_COURSES = [
-  'Metodologi Penelitian',
-  'Kerja Praktik',
-  'Bahasa Inggris Ilmiah',
-  'Seminar Proposal',
-  'Rekayasa Perangkat Lunak',
-  'Algoritma & Struktur Data',
-  'Basis Data Lanjut',
-  'Tata Tulis Karya Ilmiah',
-  'Statistika & Probabilitas',
+  'Pendidikan Agama Islam',
+  'Pancasila',
+  'Kewarganegaraan',
+  'Bahasa Indonesia dan Penulisan Ilmiah',
+  'Bahasa Inggris',
+  'Kemuhammadiyahan',
+  'AIK (Al Islam dan Kemuhammadiyahan)',
+  'Metodologi Penelitian Kuantitatif',
+  'Metodologi Penelitian Kualitatif',
+  'Statistika',
+  'Statistika Psikologi',
+  'Kerja Praktek (KP)',
+  'Praktek Profesi (PP)',
+  'Kuliah Kerja Nyata (KKN)',
+  'Stadium General',
+  'Manajemen Proyek',
+  'Kewirausahaan',
   'Etika Profesi',
+  'Filsafat Ilmu dan Logika',
+  'Pengantar Manajemen Bencana',
+  'Manajemen Konstruksi',
+  'Perencanaan Struktur',
+  'Teknologi Bahan',
+  'Kesehatan Masyarakat',
+  'Gizi Masyarakat',
+  'Ilmu Perilaku dan Promosi Kesehatan',
+  'Psikologi Umum',
+  'Psikologi Perkembangan',
+  'Pengantar Akuntansi',
+  'Pengantar Manajemen',
+  'Pengantar Bisnis Digital',
+  'Dasar-Dasar Hukum',
 ];
 
 let availableCourses = [...DEFAULT_CURRICULUM_COURSES];

@@ -116,7 +116,7 @@ if (submissions === null) {
           <div class="font-mono text-muted text-[11px]">${student?.nim_or_nip || sub.student_id}</div>
         </td>
         <td class="py-3 px-4">
-          <span class="badge badge-neutral text-xs px-2 py-0.5">${student?.department || 'TI'}</span>
+          <span class="badge badge-neutral text-xs px-2 py-0.5">${student?.department || '-'}</span>
           <div class="text-[11px] text-muted mt-0.5">Letting ${student?.batch_year || 2026}</div>
         </td>
         <td class="py-3 px-4 max-w-sm">
@@ -173,7 +173,7 @@ window.openReviewDrawer = (idx) => {
 
   document.getElementById('review-modal-student-info').innerText = `${sub.student?.name || 'Mahasiswa'} • NIM: ${
     sub.student?.nim_or_nip || sub.student_id
-  } • ${sub.student?.department || 'TI'}`;
+  } • ${sub.student?.department || '-'}`;
 
   // Populate options
   const container = document.getElementById('review-options-container');

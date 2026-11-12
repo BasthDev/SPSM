@@ -7,19 +7,34 @@ import {
   SuratDto,
 } from '../database/types';
 
+const PRODI_CODE_MAP: Record<string, string> = {
+  'ILMU HUKUM': 'IH',
+  'AKUNTANSI': 'AKT',
+  'MANAJEMEN': 'MNJ',
+  'BISNIS DIGITAL': 'BD',
+  'KEWIRAUSAHAAN': 'KWU',
+  'AGRIBISNIS': 'AGB',
+  'ARSITEKTUR': 'ARS',
+  'TEKNIK SIPIL': 'TSI',
+  'MANAJEMEN BENCANA': 'MBN',
+  'PENDIDIKAN AGAMA ISLAM': 'PAI',
+  'TADRIS BAHASA INGGRIS': 'TBI',
+  'TADRIS BIOLOGI': 'TBO',
+  'TADRIS MATEMATIKA': 'TMK',
+  'PERBANKAN SYARIAH': 'PBS',
+  'ILMU KESEHATAN MASYARAKAT': 'IKM',
+  'PSIKOLOGI': 'PSI',
+  'PERHOTELAN': 'PHO',
+  'FISIOTERAPI': 'FIS',
+};
+
 export function extractProdiCode(dept?: string): string {
-  if (!dept) return 'TI';
+  if (!dept) return 'UNM';
   const clean = dept.trim().toUpperCase();
-  if (clean.includes('BISNIS DIGITAL') || clean.startsWith('BD')) return 'BD';
-  if (clean.includes('INFORMATIKA') || clean.startsWith('TI')) return 'TI';
-  if (clean.includes('SISTEM INFORMASI') || clean.startsWith('SI')) return 'SI';
-  if (clean.includes('ELEKTRO') || clean.startsWith('TE')) return 'TE';
-  if (clean.includes('MESIN') || clean.startsWith('TM')) return 'TM';
-  if (clean.includes('SIPIL') || clean.startsWith('TS')) return 'TS';
-  if (clean.includes('MANAJEMEN') || clean.startsWith('MN')) return 'MN';
-  if (clean.includes('AKUNTANSI') || clean.startsWith('AK')) return 'AK';
+  const mapped = PRODI_CODE_MAP[clean];
+  if (mapped) return mapped;
   if (clean.length <= 4) return clean;
-  return clean.split(' ').map((w) => w[0]).join('').slice(0, 4) || 'TI';
+  return clean.split(' ').map((w) => w[0]).join('').slice(0, 4) || 'UNM';
 }
 
 export function extractAngkatan(batchYear?: number | string): string {

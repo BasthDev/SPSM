@@ -209,7 +209,8 @@ export class MasterDataController {
     }
     if (body.role !== undefined) patch.role = body.role;
     if (body.createdAt !== undefined) patch.createdAt = body.createdAt;
-    // NOTE: phone/whatsapp have no columns in the users collection — dropped.
+    const phone = body.phone ?? body.whatsapp ?? body.phone_number ?? body.phoneNumber;
+    if (phone !== undefined) patch.phone = phone;
     return patch;
   }
 
@@ -288,6 +289,7 @@ export class MasterDataController {
           currentSks: patch.currentSks,
           academicRequirements: patch.academicRequirements,
           avatarUrl: patch.avatarUrl ?? null,
+          phone: patch.phone,
           thesisUploaded: patch.thesisUploaded,
           hasUploadedThesis: patch.hasUploadedThesis,
           createdAt: new Date().toISOString(),

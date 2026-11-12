@@ -42,7 +42,7 @@ window.openDossierModal = (sub) => {
   if (submittedAtEl) submittedAtEl.innerText = formatDateShort(sub.submitted_at || sub.$createdAt);
 
   const deptEl = document.getElementById('modal-department');
-  if (deptEl) deptEl.innerText = `${sub.student?.department || 'Teknik Informatika'} (Angkatan ${sub.student?.batch_year || 2026})`;
+  if (deptEl) deptEl.innerText = `${sub.student?.department || '-'} (Angkatan ${sub.student?.batch_year || 2026})`;
 
   const noSuratEl = document.getElementById('modal-nomor-surat');
   if (noSuratEl) noSuratEl.innerText = sub.nomor_surat ? `${sub.nomor_surat} (#${sub.urutan_surat || '01'})` : 'Belum Terbit';

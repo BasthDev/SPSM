@@ -414,6 +414,7 @@ export class AppwriteAdapter implements IDatabaseAdapter {
         current_sks: toInt(data.currentSks, 0),
         academic_requirements: data.academicRequirements || '',
         avatar_url: data.avatarUrl || null,
+        phone: data.phone || '',
         has_uploaded_thesis: Boolean(data.thesisUploaded ?? data.hasUploadedThesis),
         created_at: data.createdAt || new Date().toISOString(),
       }
@@ -432,6 +433,7 @@ export class AppwriteAdapter implements IDatabaseAdapter {
     if (patch.currentSks !== undefined) payload.current_sks = toInt(patch.currentSks, 0);
     if (patch.academicRequirements !== undefined) payload.academic_requirements = patch.academicRequirements;
     if (patch.avatarUrl !== undefined) payload.avatar_url = patch.avatarUrl;
+    if (patch.phone !== undefined) payload.phone = String(patch.phone).trim();
     const thesisFlag = patch.thesisUploaded ?? patch.hasUploadedThesis ?? (patch as any).has_uploaded_thesis;
     if (thesisFlag !== undefined) payload.has_uploaded_thesis = Boolean(thesisFlag);
     if (patch.role !== undefined) payload.role = patch.role;

@@ -54,6 +54,7 @@ export const authService = {
           typeof prof.currentSks === 'number' ? prof.currentSks : undefined,
         academic_requirements: prof.academicRequirements ?? undefined,
         avatar_url: prof.avatarUrl || null,
+        phone: prof.phone || undefined,
         has_uploaded_thesis: Boolean(prof.hasUploadedThesis ?? prof.thesisUploaded),
         created_at: prof.createdAt || '',
       } as unknown as UserProfile;
@@ -76,6 +77,7 @@ export const authService = {
         department: data.department,
         batchYear: parseInt(data.batchYear, 10),
         avatarUrl: data.avatarUrl || null,
+        phone: data.phone,
       });
       return {
         $id: updated.id,
@@ -91,6 +93,7 @@ export const authService = {
           typeof updated.currentSks === 'number' ? updated.currentSks : undefined,
         academic_requirements: updated.academicRequirements ?? undefined,
         avatar_url: updated.avatarUrl || null,
+        phone: updated.phone || undefined,
         has_uploaded_thesis: Boolean(
           updated.hasUploadedThesis ?? updated.thesisUploaded
         ),
