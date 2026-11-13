@@ -1,0 +1,48 @@
+# Backend SPSM-KU — jalan di server yang sama dengan Appwrite self-hosted.
+#
+# PRASYARAT: Appwrite sudah diinstall via installer resmi
+#   docker run -it --rm --publish 20080:20080 \
+#     --volume /var/run/docker.sock:/var/run/docker.sock \
+#     --volume "$(pwd)"/appwrite:/usr/src/code/appwrite:rw \
+#     --entrypoint="install" appwrite/appwrite:2.7.2
+# Installer menghasilkan folder ./appwrite berisi docker-compose.yml + .env
+#
+# Backend ini join ke network eksternal Traefik Appwrite supaya domain API
+# ikut di-route oleh Traefik yang sama (port 80/443 sudah dipakai Appwrite).
+#
+# SEBELUM `docker compose up`:
+#   1. Cek nama network:  docker network ls | grep appwrite
+#   2. Sesuaikan APPWRITE_NETWORK di bawah (default: appwrite_appwrite).
+#   3. Copy .env.example -> .env lalu isi nilainya.
+
+services:
+  api:
+    build: .
+    container_name: spsm-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+    networks:
+      - appwrite_net
+    labels:
+      # --- Traefik (memakai instance Traefik bawaan Appwrite) ---
+      - traefik.enable=true
+      - traefik.constraint-label-stack=appwrite
+      - traefik.docker.network=${APPWRITE_NETWORK:-appwrite_appwrite}
+      # Router HTTP -> HTTPS redirect ditangani Traefik file provider Appwrite;
+      # di sini cukup expose service di port 5000.
+      - traefik.http.services.spsm_api.loadbalancer.server.port=5000
+      - traefik.http.routers.spsm_api_http.entrypoints=appwrite_web
+      - traefik.http.routers.spsm_api_http.rule=Host(`${API_DOMAIN:-api.example.com}`)
+      - traefik.http.routers.spsm_api_http.service=spsm_api
+      - traefik.http.routers.spsm_api_https.entrypoints=appwrite_websecure
+      - traefik.http.routers.spsm_api_https.rule=Host(`${API_DOMAIN:-api.example.com}`)
+      - traefik.http.routers.spsm_api_https.service=spsm_api
+      - traefik.http.routers.spsm_api_https.tls=true
+
+networks:
+  appwrite_net:
+    external: true
+    name: ${APPWRITE_NETWORK:-appwrite_appwrite}
