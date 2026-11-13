@@ -272,4 +272,11 @@ export interface IDatabaseAdapter {
   // System Settings
   getSystemSettings(): Promise<SystemSettingsDto>;
   updateSystemSettings(patch: Partial<SystemSettingsDto>): Promise<SystemSettingsDto>;
+
+  /**
+   * Realtime bridge support: fetch the most recently updated RAW documents
+   * of a collection (ordered by $updatedAt desc). Used by the internal
+   * delta-poller — not exposed via REST.
+   */
+  listRecentDocuments(collectionId: string, limit?: number): Promise<any[]>;
 }

@@ -6,6 +6,7 @@ import {
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
 import { prefetchUserData, userDataCache } from '@/services/userDataCache';
+import { disconnectRealtime } from '@/services/realtimeService';
 import { Colors } from '@/theme/theme';
 import { useRouter } from 'expo-router';
 import { BookOpen, CheckCircle2, LogOut, User } from 'lucide-react-native';
@@ -158,6 +159,7 @@ export default function OnboardingScreen() {
         style: 'destructive',
         onPress: async () => {
           await authService.logout();
+          disconnectRealtime();
           void userDataCache.clear();
           router.replace('/login');
         },

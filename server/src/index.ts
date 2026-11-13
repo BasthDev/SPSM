@@ -1,15 +1,18 @@
 import { app } from './app';
 import { config } from './config';
 import { startPeriodWatcher } from './services/periodWatcher';
+import { attachRealtimeBridge } from './services/realtimeBridge';
 
 const PORT = config.port;
 
 startPeriodWatcher();
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
   console.log(`🚀 SPSM-KU Backend API Server running on port ${PORT}`);
   console.log(`📍 Health Check: http://localhost:${PORT}/health`);
   console.log(`📍 Base API URL: http://localhost:${PORT}/api`);
   console.log(`===============================================`);
 });
+
+attachRealtimeBridge(server);

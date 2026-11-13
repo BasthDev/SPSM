@@ -4,6 +4,7 @@ import { isActiveSubmissionStatus } from '@/models/types';
 import { authService } from '@/services/authService';
 import { submissionService } from '@/services/submissionService';
 import { apiClient } from '@/services/apiClient';
+import { onRealtimeEvent } from '@/services/realtimeService';
 import { Colors } from '@/theme/theme';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,7 +27,7 @@ import {
   X,
   XCircle
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -85,6 +86,40 @@ export default function SubmissionDetailScreen() {
       active = false;
     };
   }, [id, router]);
+
+  // Realtime: refetch detail secara silent saat ada perubahan pada pengajuan ini
+  // (status, options, logs persetujuan, data surat/SK, atau settings global).
+  const rtTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshSubmission = useCallback(async () => {
+    if (!id) return;
+    try {
+      const sub = await submissionService.getSubmissionWithDetails(id);
+      setSubmission(sub);
+    } catch {
+      // biarkan data lama tetap tampil saat fetch gagal
+    }
+  }, [id]);
+
+  useEffect(() => {
+    const unsubscribe = onRealtimeEvent((event) => {
+      if (event.type === 'ready' || event.type === 'pong') return;
+      const relevant =
+        event.type === 'settings' ||
+        event.submissionId === id ||
+        event.id === id ||
+        (event.collection === 'users' && event.ownerId != null);
+      if (!relevant) return;
+      if (rtTimer.current) clearTimeout(rtTimer.current);
+      rtTimer.current = setTimeout(() => {
+        rtTimer.current = null;
+        void refreshSubmission();
+      }, 800);
+    });
+    return () => {
+      unsubscribe();
+      if (rtTimer.current) clearTimeout(rtTimer.current);
+    };
+  }, [id, refreshSubmission]);
 
   if (loading) return <LoadingScreen message="Memuat detail pengajuan..." />;
 

@@ -18,6 +18,7 @@ import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
 import { settingsService, type SystemSettings } from '@/services/settingsService';
 import { syncPushRegistrationIfEnabled } from '@/services/notificationService';
+import { disconnectRealtime, onRealtimeEvent } from '@/services/realtimeService';
 import { submissionService } from '@/services/submissionService';
 import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
@@ -26,7 +27,7 @@ import {
   FileText,
   GraduationCap,
 } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -119,6 +120,25 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }, [loadDashboardData]);
 
+  // Realtime: silent refetch (debounced) saat ada perubahan data relevan.
+  // Server sudah memfilter event per user, jadi semua event yang sampai
+  // di socket ini memang milik user yang sedang login.
+  const realtimeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const unsubscribe = onRealtimeEvent((event) => {
+      if (event.type === 'ready' || event.type === 'pong') return;
+      if (realtimeTimer.current) clearTimeout(realtimeTimer.current);
+      realtimeTimer.current = setTimeout(() => {
+        realtimeTimer.current = null;
+        void loadDashboardData(false);
+      }, 800);
+    });
+    return () => {
+      unsubscribe();
+      if (realtimeTimer.current) clearTimeout(realtimeTimer.current);
+    };
+  }, [loadDashboardData]);
+
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Apakah Anda yakin ingin keluar dari akun ini?', [
       { text: 'Batal', style: 'cancel' },
@@ -128,6 +148,7 @@ export default function DashboardScreen() {
         onPress: async () => {
           const acct = await authService.getCurrentAccount().catch(() => null);
           if (acct) void userDataCache.clear(acct.$id);
+          disconnectRealtime();
           await authService.logout();
           router.replace('/login');
         },

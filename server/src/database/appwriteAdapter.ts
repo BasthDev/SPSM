@@ -679,6 +679,14 @@ export class AppwriteAdapter implements IDatabaseAdapter {
     return this.mapSettingsDoc(doc);
   }
 
+  async listRecentDocuments(collectionId: string, limit = 50): Promise<any[]> {
+    const res = await this.databases.listDocuments(this.dbId, collectionId, [
+      Query.orderDesc('$updatedAt'),
+      Query.limit(Math.min(Math.max(limit, 1), 200)),
+    ]);
+    return res.documents;
+  }
+
   // --- Mappers (DTO Boundary) ---
 
   private mapSubmission(doc: any): SubmissionDto {

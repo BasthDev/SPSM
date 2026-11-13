@@ -1,4 +1,5 @@
 import { authService } from '@/services/authService';
+import { disconnectRealtime } from '@/services/realtimeService';
 import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ export default function LogoutScreen() {
     (async () => {
       try {
         await authService.logout();
+        disconnectRealtime();
         void userDataCache.clear();
         router.replace('/login');
       } catch (e) {
