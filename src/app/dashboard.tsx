@@ -26,7 +26,7 @@ import {
   FileText,
   GraduationCap,
 } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -105,16 +105,12 @@ export default function DashboardScreen() {
   }, [router]);
 
   // useFocusEffect automatically refetches the latest status every time the screen is displayed
+  const didInitialLoad = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      if (active) {
-        loadDashboardData(loading);
-      }
-      return () => {
-        active = false;
-      };
-    }, [loadDashboardData, loading])
+      loadDashboardData(!didInitialLoad.current);
+      didInitialLoad.current = true;
+    }, [loadDashboardData])
   );
 
   const onRefresh = useCallback(async () => {
