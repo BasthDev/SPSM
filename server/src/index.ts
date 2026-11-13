@@ -1,7 +1,10 @@
 import { app } from './app';
 import { config } from './config';
+import { startPeriodWatcher } from './services/periodWatcher';
 
 const PORT = config.port;
+
+startPeriodWatcher();
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);

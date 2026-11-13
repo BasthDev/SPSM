@@ -273,6 +273,11 @@ export default function DashboardScreen() {
                         activeSubmission.surat?.noDokumen ||
                         `SPSM_${activeSubmission.$id.toUpperCase().slice(0, 12)}`}
                     </Text>
+                    {activeSubmission.nomor_surat && (
+                      <Text style={styles.headerSkId} numberOfLines={1} ellipsizeMode="middle">
+                        NO. SK: {activeSubmission.nomor_surat}
+                      </Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -338,13 +343,6 @@ export default function DashboardScreen() {
                 </View>
               </View>
 
-              {activeSubmission.nomor_surat && (
-                <View style={styles.activeSkNumberRow}>
-                  <Text style={styles.activeSkNumberText} numberOfLines={1}>
-                    No. SK: {activeSubmission.nomor_surat}
-                  </Text>
-                </View>
-              )}
             </Section>
           </TouchableOpacity>
         ) : !eligibility.isEligible ? (
@@ -532,6 +530,13 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     color: Colors.textSecondary,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  headerSkId: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#059669',
+    fontWeight: '700',
     marginTop: 2,
   },
   headerBadgeWrap: {

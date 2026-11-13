@@ -1,4 +1,5 @@
 import { db } from '../database';
+import type { SystemSettingsDto } from '../database/types';
 import { sendFcmNotification } from './fcmService';
 
 /**
@@ -108,5 +109,91 @@ export async function notifySubmissionStatus(
     }
   } catch (e) {
     console.warn('[push] notifySubmissionStatus error:', e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Broadcast notifications (mis. perubahan status masa pengajuan)
+// ---------------------------------------------------------------------------
+
+/** Kirim push ke SEMUA user yang punya FCM token terdaftar. */
+export async function broadcastPush(payload: PushPayload): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+  try {
+    const users = await db.listUsers(1000);
+    const tokens = users.map((u) => u.pushToken).filter((t): t is string => Boolean(t));
+    // Kirim paralel terbatas agar tidak membanjiri FCM
+    for (let i = 0; i < tokens.length; i += 10) {
+      const chunk = tokens.slice(i, i + 10);
+      const results = await Promise.all(
+        chunk.map((token) =>
+          sendFcmNotification({
+            token,
+            title: payload.title,
+            body: payload.body,
+            data: payload.data,
+            color: '#0A4C8F',
+          })
+        )
+      );
+      for (const r of results) {
+        if (r.ok) sent++;
+        else failed++;
+      }
+    }
+  } catch (e) {
+    console.warn('[push] broadcastPush error:', e);
+  }
+  return { sent, failed };
+}
+
+export type PeriodStatus = 'open' | 'upcoming' | 'closed';
+
+/**
+ * Hitung status masa pengajuan — mirror logika
+ * settingsService.getPeriodDisplayStatus di mobile.
+ */
+export function getPeriodStatus(settings: SystemSettingsDto): PeriodStatus {
+  const isActive = settings.isActive ?? settings.submissionOpen ?? true;
+  if (!isActive) return 'closed';
+
+  const now = Date.now();
+  const start = settings.startDate ? new Date(settings.startDate).getTime() : NaN;
+  const end = settings.endDate ? new Date(settings.endDate).getTime() : NaN;
+
+  if (!isNaN(start) && now < start) return 'upcoming';
+  if (!isNaN(end) && now > end) return 'closed';
+  return 'open';
+}
+
+const PERIOD_NOTIFICATIONS: Record<PeriodStatus, { title: string; body: string }> = {
+  open: {
+    title: 'Pengajuan Dibuka',
+    body: 'Masa pengajuan judul skripsi telah dibuka. Segera ajukan usulan judul Anda.',
+  },
+  upcoming: {
+    title: 'Pengajuan Akan Datang',
+    body: 'Masa pengajuan judul skripsi akan segera dibuka. Pantau tanggal mulai pengajuan.',
+  },
+  closed: {
+    title: 'Pengajuan Ditutup',
+    body: 'Masa pengajuan judul skripsi telah ditutup. Terima kasih atas partisipasi Anda.',
+  },
+};
+
+/** Broadcast notifikasi perubahan status masa pengajuan ke semua user. */
+export async function notifyPeriodStatusChange(status: PeriodStatus): Promise<void> {
+  const tpl = PERIOD_NOTIFICATIONS[status];
+  if (!tpl) return;
+  try {
+    const res = await broadcastPush({
+      title: tpl.title,
+      body: tpl.body,
+      data: { type: 'period_status', status },
+    });
+    console.log(`[push] period_status=${status} → sent=${res.sent} failed=${res.failed}`);
+  } catch (e) {
+    console.warn('[push] notifyPeriodStatusChange error:', e);
   }
 }

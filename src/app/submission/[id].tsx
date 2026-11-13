@@ -248,7 +248,7 @@ export default function SubmissionDetailScreen() {
     if (!submission) return;
     const content = `SURAT KEPUTUSAN PENGESAHAN JUDUL & DOSEN PEMBIMBING SKRIPSI
 Nomor Surat: ${submission.nomor_surat || '-'}
-No. Dokumen: SPSM-${submission.$id.toUpperCase()}
+No. Dokumen: ${submission.surat?.no_dokumen || submission.surat?.noDokumen || `SPSM-${submission.$id.toUpperCase()}`}
 Urutan Pengesahan: ke-${submission.urutan_surat || '01'}
 
 Judul Skripsi Disahkan:
@@ -450,8 +450,16 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               <View style={styles.headerTexts}>
                 <Text style={styles.headerTitle} numberOfLines={1}>Pengajuan Skripsi</Text>
                 <Text style={styles.headerId} numberOfLines={1} ellipsizeMode="middle">
-                  NO. DOKUMEN: SPSM_{submission.$id.toUpperCase().slice(0, 12)}
+                  NO. DOKUMEN:{' '}
+                  {submission.surat?.no_dokumen ||
+                    submission.surat?.noDokumen ||
+                    `SPSM_${submission.$id.toUpperCase().slice(0, 12)}`}
                 </Text>
+                {submission.nomor_surat && (
+                  <Text style={styles.headerSkId} numberOfLines={1} ellipsizeMode="middle">
+                    NO. SK: {submission.nomor_surat}
+                  </Text>
+                )}
               </View>
             </View>
           </View>
@@ -483,31 +491,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
             </View>
           </View>
 
-          {/* Quick Download SK Action in Header when issued by akademik */}
-          {isSkReady && (
-            <View style={styles.headerSkActionContainer}>
-              <TouchableOpacity
-                style={styles.headerSkDownloadBtn}
-                onPress={handleDownloadSk}
-                activeOpacity={0.8}
-              >
-                <Download size={16} color="#FFFFFF" strokeWidth={2.4} />
-                <Text style={styles.headerSkDownloadBtnText}>
-                  {submission.surat?.scannedSkId || submission.surat?.scanned_sk_id
-                    ? 'Unduh SK Resmi Dekan (PDF)'
-                    : 'Unduh Lembar SK Pembimbing'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerSkPreviewBtn}
-                onPress={() => setShowSkModal(true)}
-                activeOpacity={0.8}
-              >
-                <FileCheck size={16} color={Colors.primary} strokeWidth={2.2} />
-                <Text style={styles.headerSkPreviewBtnText}>Pratinjau SK</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </Section>
 
         {/* SK PENGESAHAN RESMI CARD */}
@@ -522,11 +505,6 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                     : 'SURAT KEPUTUSAN DALAM PENERBITAN'}
                 </Text>
               </View>
-              {submission.urutan_surat && (
-                <View style={styles.skUrutanBadge}>
-                  <Text style={styles.skUrutanBadgeText}>Urutan #{submission.urutan_surat}</Text>
-                </View>
-              )}
             </View>
 
             <View style={styles.skNumberBox}>
@@ -1341,7 +1319,11 @@ Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                 <Text style={styles.skDocSectionTitle}>I. IDENTITAS PENGAJUAN</Text>
                 <View style={styles.skDocRow}>
                   <Text style={styles.skDocColLabel}>No. Dokumen:</Text>
-                  <Text style={styles.skDocColValue}>SPSM-{submission.$id.toUpperCase()}</Text>
+                  <Text style={styles.skDocColValue}>
+                    {submission.surat?.no_dokumen ||
+                      submission.surat?.noDokumen ||
+                      `SPSM-${submission.$id.toUpperCase()}`}
+                  </Text>
                 </View>
                 <View style={styles.skDocRow}>
                   <Text style={styles.skDocColLabel}>Tanggal Pengajuan:</Text>
@@ -1582,6 +1564,13 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     color: Colors.textSecondary,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  headerSkId: {
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#059669',
+    fontWeight: '700',
     marginTop: 2,
   },
   headerBadgeAbsolute: {
@@ -2234,9 +2223,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     marginBottom: 16,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1.5,
-    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   skOfficialTop: {
     flexDirection: 'row',
@@ -2251,29 +2240,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#F1F5F9',
   },
   skOfficialBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: Colors.primary,
+    color: Colors.textSecondary,
     letterSpacing: 0.5,
   },
   skUrutanBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#E2E8F0',
   },
   skUrutanBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.primary,
+    color: Colors.textSecondary,
   },
   skNumberBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,

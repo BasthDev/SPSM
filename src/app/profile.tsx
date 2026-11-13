@@ -12,7 +12,7 @@ import { authService } from '@/services/authService';
 import { academicService } from '@/services/academicService';
 import type { UserProfile } from '@/models/types';
 import { Colors } from '@/theme/theme';
-import { BookOpen, Hash, Calendar, Shield, LogOut, Phone, Settings, ChevronRight } from 'lucide-react-native';
+import { BookOpen, Hash, Calendar, Shield, LogOut, Phone, Settings, ChevronRight, Pencil } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -136,6 +136,22 @@ export default function ProfileScreen() {
             value="Terverifikasi SSO Google"
           />
         </Section>
+
+        {/* Edit Profil shortcut */}
+        <TouchableOpacity
+          style={styles.settingsRow}
+          onPress={() => router.push('/profile-edit')}
+          activeOpacity={0.7}
+        >
+          <View style={infoStyles.iconCircle}>
+            <Pencil size={16} color={Colors.primary} strokeWidth={2.2} />
+          </View>
+          <View style={infoStyles.textCol}>
+            <Text style={infoStyles.label}>Edit Profil</Text>
+            <Text style={infoStyles.value}>Perbarui nama, NIM, prodi & angkatan</Text>
+          </View>
+          <ChevronRight size={18} color={Colors.textTertiary} strokeWidth={2.2} />
+        </TouchableOpacity>
 
         {/* Pengaturan shortcut */}
         <TouchableOpacity

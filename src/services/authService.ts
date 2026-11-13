@@ -104,6 +104,33 @@ export const authService = {
     }
   },
 
+  /** Update field profil yang boleh diedit mahasiswa (nama, NIM, prodi, angkatan, telepon, avatar). */
+  async updateProfile(
+    userId: string,
+    patch: {
+      name?: string;
+      nim?: string;
+      department?: string;
+      batchYear?: number | string;
+      phone?: string;
+      avatarUrl?: string | null;
+    }
+  ): Promise<UserProfile | null> {
+    const payload: Record<string, any> = {};
+    if (patch.name !== undefined) payload.name = patch.name;
+    if (patch.nim !== undefined) {
+      payload.nim = patch.nim;
+      payload.nimOrNip = patch.nim;
+    }
+    if (patch.department !== undefined) payload.department = patch.department;
+    if (patch.batchYear !== undefined) payload.batchYear = Number(patch.batchYear);
+    if (patch.phone !== undefined) payload.phone = patch.phone;
+    if (patch.avatarUrl !== undefined) payload.avatarUrl = patch.avatarUrl;
+
+    await apiClient.users.updateProfile(userId, payload);
+    return this.getUserProfile(userId);
+  },
+
   async fetchGoogleAvatar(accountName?: string): Promise<string> {
     return `https://sgp.cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(
       accountName || 'User'
