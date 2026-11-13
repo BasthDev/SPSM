@@ -11,6 +11,7 @@ import {
   Section,
   StatusBadge
 } from '@/components';
+import { DashboardSubmissionCard } from '@/components/DashboardSubmissionCard';
 import type { DepartmentItem, ThesisSubmission, UserProfile } from '@/models/types';
 import { FALLBACK_DEPARTMENTS, isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
@@ -18,18 +19,14 @@ import { authService } from '@/services/authService';
 import { settingsService, type SystemSettings } from '@/services/settingsService';
 import { syncPushRegistrationIfEnabled } from '@/services/notificationService';
 import { submissionService } from '@/services/submissionService';
+import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
   FileText,
   GraduationCap,
-  RefreshCcw,
 } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -51,10 +48,22 @@ export default function DashboardScreen() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
-  // Function to load all dashboard data freshly from Appwrite
+  // Load dashboard data: render from local cache instantly, then refresh from API
   const loadDashboardData = useCallback(async (isInitial = false) => {
     try {
       const acct = await authService.getCurrentAccount();
+
+      // 1. Serve cached snapshot immediately so UI renders without network wait
+      const cached = await userDataCache.get(acct.$id);
+      if (cached) {
+        setUser(cached.profile);
+        setSubmissions(cached.submissions);
+        if (cached.departments?.length) setDepartments(cached.departments);
+        if (cached.settings) setSettings(cached.settings);
+        if (isInitial) setLoading(false);
+      }
+
+      // 2. Fetch fresh data from API
       const profile = await authService.getUserProfile(acct.$id);
 
       if (!profile) {
@@ -76,6 +85,14 @@ export default function DashboardScreen() {
       if (depts && depts.length > 0) {
         setDepartments(depts);
       }
+
+      // 3. Persist fresh snapshot for next app open
+      void userDataCache.set(acct.$id, {
+        profile,
+        submissions: subs,
+        departments: depts || [],
+        settings: sysSettings,
+      });
     } catch {
       if (isInitial) {
         router.replace('/login');
@@ -113,6 +130,8 @@ export default function DashboardScreen() {
         text: 'Keluar',
         style: 'destructive',
         onPress: async () => {
+          const acct = await authService.getCurrentAccount().catch(() => null);
+          if (acct) void userDataCache.clear(acct.$id);
           await authService.logout();
           router.replace('/login');
         },
@@ -120,17 +139,16 @@ export default function DashboardScreen() {
     ]);
   };
 
-  const toggleCardExpansion = (cardId: string) => {
+  const toggleCardExpansion = useCallback((cardId: string) => {
     setExpandedCards((prev) => ({
       ...prev,
       [cardId]: !prev[cardId],
     }));
-  };
-
-  if (loading) return <LoadingScreen message="Memuat dashboard..." />;
+  }, []);
 
   // Resolve full department name (not code)
-  const getDepartmentFullName = (deptCodeOrName?: string) => {
+  const departmentFullName = useMemo(() => {
+    const deptCodeOrName = user?.department;
     if (!deptCodeOrName) return 'Program Studi Mahasiswa';
     const found = departments.find(
       (d) =>
@@ -145,46 +163,63 @@ export default function DashboardScreen() {
       return fallback.label.split('(')[0].trim();
     }
     return deptCodeOrName.replace(/_/g, ' ');
-  };
-
-  const departmentFullName = getDepartmentFullName(user?.department);
+  }, [user?.department, departments]);
 
   // Evaluate Period Display Status & Student Academic Eligibility
-  const periodDisplay = settings
-    ? settingsService.getPeriodDisplayStatus(settings)
-    : {
-        status: 'open' as const,
-        title: 'Masa Pengajuan Dibuka',
-        description: 'Pendaftaran judul skripsi aktif.',
-        dateRangeText: '',
-        academicYear: '2025/2026 Ganjil',
-        isOpen: true,
-      };
+  const periodDisplay = useMemo(
+    () =>
+      settings
+        ? settingsService.getPeriodDisplayStatus(settings)
+        : {
+            status: 'open' as const,
+            title: 'Masa Pengajuan Dibuka',
+            description: 'Pendaftaran judul skripsi aktif.',
+            dateRangeText: '',
+            academicYear: '2025/2026 Ganjil',
+            isOpen: true,
+          },
+    [settings]
+  );
 
-  const eligibility = settings
-    ? settingsService.evaluateStudentEligibility(settings, user)
-    : {
-        isEligible: true,
-        studentSks: 0,
-        minSks: 100,
-        sksSatisfied: true,
-        requiredCourses: [],
-        completedCourses: [],
-        missingCourses: [],
-        coursesSatisfied: true,
-        reasons: [],
-      };
+  const eligibility = useMemo(
+    () =>
+      settings
+        ? settingsService.evaluateStudentEligibility(settings, user)
+        : {
+            isEligible: true,
+            studentSks: 0,
+            minSks: 100,
+            sksSatisfied: true,
+            requiredCourses: [],
+            completedCourses: [],
+            missingCourses: [],
+            coursesSatisfied: true,
+            reasons: [],
+          },
+    [settings, user]
+  );
 
   // Guard: Hide submission button if there is an active / non-rejected submission
-  const activeSubmission = submissions.find((s) => isActiveSubmissionStatus(s.status));
+  const activeSubmission = useMemo(
+    () => submissions.find((s) => isActiveSubmissionStatus(s.status)),
+    [submissions]
+  );
 
   // Exemption check: student whose previous submission is revision or rejected can ALWAYS submit
   const latestSub = submissions[0];
-  const hasExemption =
-    latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected');
+  const hasExemption = useMemo(
+    () =>
+      latestSub && (latestSub.status === 'revision' || latestSub.status === 'rejected'),
+    [latestSub]
+  );
 
-  const canSubmitNew =
-    !activeSubmission && eligibility.isEligible && (periodDisplay.isOpen || hasExemption);
+  const canSubmitNew = useMemo(
+    () =>
+      !activeSubmission && eligibility.isEligible && (periodDisplay.isOpen || hasExemption),
+    [activeSubmission, eligibility.isEligible, periodDisplay.isOpen, hasExemption]
+  );
+
+  if (loading) return <LoadingScreen message="Memuat dashboard..." />;
 
   return (
     <View style={styles.flex}>
@@ -233,7 +268,10 @@ export default function DashboardScreen() {
                   <View style={styles.headerTexts}>
                     <Text style={styles.headerTitle} numberOfLines={1}>Pengajuan Skripsi</Text>
                     <Text style={styles.headerId} numberOfLines={1} ellipsizeMode="middle">
-                      NO. DOKUMEN: SPSM_{activeSubmission.$id.toUpperCase().slice(0, 12)}
+                      NO. DOKUMEN:{' '}
+                      {activeSubmission.surat?.no_dokumen ||
+                        activeSubmission.surat?.noDokumen ||
+                        `SPSM_${activeSubmission.$id.toUpperCase().slice(0, 12)}`}
                     </Text>
                   </View>
                 </View>
@@ -299,6 +337,14 @@ export default function DashboardScreen() {
                   </Text>
                 </View>
               </View>
+
+              {activeSubmission.nomor_surat && (
+                <View style={styles.activeSkNumberRow}>
+                  <Text style={styles.activeSkNumberText} numberOfLines={1}>
+                    No. SK: {activeSubmission.nomor_surat}
+                  </Text>
+                </View>
+              )}
             </Section>
           </TouchableOpacity>
         ) : !eligibility.isEligible ? (
@@ -349,226 +395,16 @@ export default function DashboardScreen() {
             }
           />
         ) : (
-          submissions.map((sub, index) => {
-            const dateStr = new Date(sub.submitted_at).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-
-            return (
-              <TouchableOpacity
-                key={sub.$id}
-                onPress={() => router.push(`/submission/${sub.$id}` as any)}
-                activeOpacity={0.7}
-              >
-                <Section style={styles.submissionCard}>
-                  {/* Status Badge - Absolute Position */}
-                  <View style={styles.cardBadgeAbsolute}>
-                    <StatusBadge status={sub.status} size="sm" />
-                  </View>
-
-                  {/* Top Row: Title and Status */}
-                  <View style={styles.cardTopRow}>
-                    <Text style={styles.cardTitle}>
-                      Pengajuan Skripsi #{submissions.length - index}
-                    </Text>
-                    <View style={styles.cardHeaderRight}>
-                      <TouchableOpacity
-                        onPress={() => toggleCardExpansion(sub.$id)}
-                        activeOpacity={0.7}
-                        style={styles.expandButton}
-                      >
-                        {/* <Text style={styles.expandLabel}>Lihat</Text> */}
-                        {expandedCards[sub.$id] ? (
-                          <ChevronUp
-                            size={18}
-                            color={Colors.primary}
-                            strokeWidth={2.5}
-                          />
-                        ) : (
-                          <ChevronDown
-                            size={18}
-                            color={Colors.textTertiary}
-                            strokeWidth={2.5}
-                          />
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  {/* Document Info Section (always visible) */}
-                  <View style={styles.infoSection}>
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>No. Dokumen:</Text>
-                      <Text style={[styles.infoValue, styles.infoValueMono]}>
-                        SPSM_{sub.$id.toUpperCase().slice(0, 12)}
-                      </Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Tanggal Diajukan:</Text>
-                      <Text style={styles.infoValue}>{dateStr}</Text>
-                    </View>
-                    {sub.kaprodiApprovalDate && (
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Tanggal Disahkan:</Text>
-                        <Text style={styles.infoValue}>
-                          {new Date(sub.kaprodiApprovalDate).toLocaleDateString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
-                      </View>
-                    )}
-                    {(sub.status === 'sk_issued' || sub.status === 'approved') && sub.nomor_surat && (
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>No. SK:</Text>
-                        <Text style={[styles.infoValue, styles.infoValueSuccess, styles.infoValueMono]}>
-                          {sub.nomor_surat}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Collapsible Section: Title & Advisor */}
-                  {expandedCards[sub.$id] && (
-                    <>
-                      <View style={styles.cardDivider} />
-
-                      {/* Title Display Section */}
-                      <View style={styles.titleSection}>
-                        {sub.status === 'pending_lecturer' && sub.options && sub.options.length > 0 ? (
-                          /* Case 1: Show all 3 titles when pending review */
-                          <View>
-                            <Text style={styles.sectionLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
-                            {sub.options.map((opt) => (
-                              <View key={opt.$id} style={styles.listCardOptRow}>
-                                <View style={styles.listCardOptBadge}>
-                                  <Text style={styles.listCardOptBadgeText}>#{opt.option_number}</Text>
-                                </View>
-                                <Text style={styles.listCardOptText} numberOfLines={2}>
-                                  {opt.title}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        ) : sub.status === 'revision' || sub.status === 'rejected' ? (
-                          /* Case 3: Show which title has revision/rejection notes */
-                          <View>
-                            <Text style={styles.sectionLabel}>Usulan Judul & Catatan Evaluasi:</Text>
-                            {sub.options && sub.options.length > 0 ? (
-                              sub.options.map((opt) => (
-                                <View key={opt.$id} style={styles.revisionOptionRow}>
-                                  <View style={styles.revisionBadge}>
-                                    <Text style={styles.revisionBadgeText}>#{opt.option_number}</Text>
-                                  </View>
-                                  <View style={styles.revisionContent}>
-                                    <Text style={styles.revisionTitle} numberOfLines={2}>
-                                      {opt.title}
-                                    </Text>
-                                    {opt.revision_note && (
-                                      <View style={styles.revisionNoteBox}>
-                                        <AlertTriangle size={11} color="#D97706" strokeWidth={2} />
-                                        <Text style={styles.revisionNoteText} numberOfLines={2}>
-                                          {opt.revision_note}
-                                        </Text>
-                                      </View>
-                                    )}
-                                  </View>
-                                </View>
-                              ))
-                            ) : (
-                              <Text style={styles.infoValue}>Judul tidak tersedia</Text>
-                            )}
-                          </View>
-                        ) : (
-                          /* Case 2: Show 1 selected title if approved or waiting kaprodi */
-                          <View>
-                            <Text style={styles.sectionLabel}>Judul Yang Disetujui:</Text>
-                            <Text style={styles.titleValue}>
-                              {sub.selectedOption?.title || sub.options?.[0]?.title || 'Judul Skripsi'}
-                            </Text>
-                          </View>
-                        )}
-
-                        {/* Dosen Pembimbing Section */}
-                        {sub.status !== 'revision' && sub.status !== 'rejected' && (
-                          <View style={styles.advisorSection}>
-                            <Text style={styles.sectionLabel}>Dosen Pembimbing:</Text>
-                            {sub.advisor ? (
-                              <View style={styles.advisorInfoRow}>
-                                <View style={styles.advisorBadge}>
-                                  <Text style={styles.advisorBadgeText}>P1</Text>
-                                </View>
-                                <View style={styles.advisorDetails}>
-                                  <Text style={styles.advisorName}>{sub.advisor.name}</Text>
-                                  <Text style={styles.advisorNip}>NIP: {sub.advisor.nip}</Text>
-                                </View>
-                              </View>
-                            ) : (
-                              <Text style={[styles.infoValue, { color: Colors.warning }]}>
-                                Sedang Menunggu Plotting
-                              </Text>
-                            )}
-                            {sub.advisor2 && (
-                              <View style={[styles.advisorInfoRow, { marginTop: 8 }]}>
-                                <View style={styles.advisorBadge}>
-                                  <Text style={styles.advisorBadgeText}>P2</Text>
-                                </View>
-                                <View style={styles.advisorDetails}>
-                                  <Text style={styles.advisorName}>{sub.advisor2.name}</Text>
-                                  <Text style={styles.advisorNip}>NIP: {sub.advisor2.nip}</Text>
-                                </View>
-                              </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                    </>
-                  )}
-
-                  {/* Resubmit shortcut — disabled jika ada pengajuan aktif lain */}
-                  {(sub.status === 'revision' || sub.status === 'rejected') && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        !activeSubmission &&
-                        router.push(`/submission/create?resubmit=${sub.$id}` as any)
-                      }
-                      activeOpacity={0.7}
-                      disabled={Boolean(activeSubmission)}
-                      style={[
-                        styles.resubmitButton,
-                        activeSubmission && styles.resubmitButtonDisabled,
-                      ]}
-                    >
-                      <RefreshCcw size={14} color="#FFFFFF" strokeWidth={2.4} />
-                      <Text style={styles.resubmitButtonText}>
-                        {activeSubmission
-                          ? 'Pengajuan Aktif Berjalan'
-                          : 'Ajukan Ulang dengan Data Sama'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Card Action Link */}
-                  <TouchableOpacity
-                    onPress={() => router.push(`/submission/${sub.$id}` as any)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.cardFooter}>
-                      <Text style={styles.detailLinkText}>Buka Detail Pengajuan & SK</Text>
-                      <ChevronRight size={15} color={Colors.primary} strokeWidth={2.4} />
-                    </View>
-                  </TouchableOpacity>
-                </Section>
-              </TouchableOpacity>
-            );
-          })
+          submissions.map((sub, index) => (
+            <DashboardSubmissionCard
+              key={sub.$id}
+              sub={sub}
+              number={submissions.length - index}
+              expanded={Boolean(expandedCards[sub.$id])}
+              resubmitDisabled={Boolean(activeSubmission)}
+              onToggleExpand={toggleCardExpansion}
+            />
+          ))
         )}
       </ScrollView>
     </View>

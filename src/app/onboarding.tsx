@@ -5,6 +5,7 @@ import {
 } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
+import { prefetchUserData, userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useRouter } from 'expo-router';
 import { BookOpen, CheckCircle2, LogOut, User } from 'lucide-react-native';
@@ -140,6 +141,7 @@ export default function OnboardingScreen() {
         batchYear,
         avatarUrl: avatarUrl.trim() || undefined,
       });
+      void prefetchUserData(accountData.$id);
       router.replace('/dashboard');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Gagal menyimpan data.');
@@ -156,6 +158,7 @@ export default function OnboardingScreen() {
         style: 'destructive',
         onPress: async () => {
           await authService.logout();
+          void userDataCache.clear();
           router.replace('/login');
         },
       },

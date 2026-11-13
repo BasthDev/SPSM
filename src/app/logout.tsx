@@ -1,4 +1,5 @@
 import { authService } from '@/services/authService';
+import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
@@ -18,6 +19,7 @@ export default function LogoutScreen() {
     (async () => {
       try {
         await authService.logout();
+        void userDataCache.clear();
         router.replace('/login');
       } catch (e) {
         Alert.alert('Logout gagal', (e as any).message ?? 'Tidak dapat keluar');

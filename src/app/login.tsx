@@ -1,5 +1,6 @@
 import { Button, GoogleIcon, LoadingScreen } from '@/components';
 import { authService } from '@/services/authService';
+import { prefetchUserData } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -47,6 +48,8 @@ export default function LoginScreen() {
                   // ignore
                 }
               }
+              // Prefetch all dashboard data into local cache in the background
+              void prefetchUserData(acct.$id);
               router.replace('/dashboard');
             } else {
               router.replace('/onboarding');
