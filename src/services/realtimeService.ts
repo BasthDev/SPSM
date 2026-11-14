@@ -8,7 +8,7 @@ import { API_BASE_URL, getAuthToken } from './apiClient';
 
 export interface RealtimeEvent {
   v: 1;
-  type: 'ready' | 'entity' | 'settings' | 'pong';
+  type: 'ready' | 'entity' | 'settings' | 'pong' | 'auth_error';
   collection?: string;
   id?: string;
   action?: 'create' | 'update' | 'delete';
@@ -25,9 +25,11 @@ let reconnectAttempts = 0;
 let intentionalClose = false;
 let connecting = false;
 
-function wsUrl(token: string): string {
+function wsUrl(): string {
+  // Token TIDAK di query param (supaya tidak tercatat di access log) —
+  // dikirim sebagai pesan pertama setelah connect.
   const base = API_BASE_URL.replace(/^http/, 'ws').replace(/\/+$/, '');
-  return `${base}/realtime?token=${encodeURIComponent(token)}`;
+  return `${base}/realtime`;
 }
 
 function scheduleReconnect() {
@@ -42,8 +44,8 @@ function scheduleReconnect() {
 
 export function onRealtimeEvent(listener: Listener): () => void {
   listeners.add(listener);
-  // Pastikan socket hidup saat ada subscriber pertama
-  void connectRealtime();
+  // Subscribe = intent eksplisit untuk connect (reset flag pasca-logout).
+  resetRealtimeForLogin();
   return () => {
     listeners.delete(listener);
   };
@@ -58,18 +60,25 @@ export async function connectRealtime(): Promise<void> {
 
   connecting = true;
   try {
-    const socket = new WebSocket(wsUrl(token));
+    const socket = new WebSocket(wsUrl());
     ws = socket;
 
     socket.onopen = () => {
       connecting = false;
       reconnectAttempts = 0;
+      // Auth via pesan pertama — token tidak ikut di URL
+      socket.send(JSON.stringify({ type: 'auth', token }));
     };
 
     socket.onmessage = (e) => {
       try {
         const event = JSON.parse(String(e.data)) as RealtimeEvent;
         if (event.type === 'pong' || event.type === 'ready') return;
+        if (event.type === 'auth_error') {
+          // Token ditolak — tutup socket, reconnect akan mencoba lagi
+          socket.close();
+          return;
+        }
         listeners.forEach((l) => {
           try {
             l(event);

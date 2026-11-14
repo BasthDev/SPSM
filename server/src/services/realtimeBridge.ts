@@ -25,6 +25,8 @@ interface ClientSocket {
   user: AuthUser;
 }
 
+const AUTH_TIMEOUT_MS = 10_000;
+
 interface RealtimeEvent {
   v: 1;
   type: 'ready' | 'entity' | 'settings';
@@ -38,12 +40,16 @@ interface RealtimeEvent {
 }
 
 const sockets = new Set<ClientSocket>();
+// socket yang sudah upgrade tapi belum kirim auth — belum menerima event apa pun
+const pendingAuth = new Set<WebSocket>();
 const wss = new WebSocketServer({ noServer: true });
 
 // watermark per koleksi: docId -> $updatedAt terakhir terlihat
 const seen = new Map<string, Map<string, string>>();
 // cache submissionId -> studentId (untuk koleksi detail)
 const submissionOwners = new Map<string, string>();
+// koleksi yang sudah punya baseline — poll pertama hanya mencatat watermark
+const initialized = new Set<string>();
 let pollTimer: NodeJS.Timeout | null = null;
 let pingTimer: NodeJS.Timeout | null = null;
 
@@ -117,6 +123,8 @@ async function pollOnce() {
         map = new Map();
         seen.set(collection, map);
       }
+      const isBaseline = !initialized.has(collection);
+      initialized.add(collection);
 
       for (const doc of docs) {
         const docId = doc.$id;
@@ -134,7 +142,11 @@ async function pollOnce() {
 
         // Update dokument lama yang tidak ada di 50 terbaru diabaikan —
         // watermark tetap maju sehingga tidak ada event dobel.
-        void handleDocEvent(key, collection, doc, isNew ? 'create' : 'update');
+        // Poll pertama (baseline) tidak emit event — hanya membangun watermark,
+        // supaya restart server tidak memicu flood 'create' ke semua client.
+        if (!isBaseline) {
+          void handleDocEvent(key, collection, doc, isNew ? 'create' : 'update');
+        }
       }
     } catch (e) {
       console.warn(`[rt] poll ${collection} gagal:`, (e as Error).message);
@@ -178,6 +190,11 @@ async function handleDocEvent(
   });
 }
 
+function rejectUpgrade(socket: any, status: number, reason: string) {
+  socket.write(`HTTP/1.1 ${status} ${reason}\r\n\r\n`);
+  socket.destroy();
+}
+
 function handleUpgrade(request: any, socket: any, head: any) {
   const url = new URL(request.url || '', 'http://localhost');
   if (url.pathname !== '/api/realtime') {
@@ -185,44 +202,72 @@ function handleUpgrade(request: any, socket: any, head: any) {
     return;
   }
 
-  const token = url.searchParams.get('token');
-  if (!token) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-    return;
-  }
-
-  let user: AuthUser;
-  try {
-    user = authService.verifyToken(token);
-  } catch {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    socket.destroy();
-    return;
-  }
-
+  // Token TIDAK diterima via query param — dikirim sebagai pesan pertama
+  // setelah connect ({type:'auth', token}) supaya tidak tercatat di access log.
   wss.handleUpgrade(request, socket, head, (ws) => {
-    const client: ClientSocket = { ws, user };
-    sockets.add(client);
-    send(client, { v: 1, type: 'ready' });
-    console.log(`[rt] client connected: ${user.email} (${sockets.size} total)`);
+    pendingAuth.add(ws);
+
+    const authTimer = setTimeout(() => {
+      if (pendingAuth.has(ws)) {
+        try {
+          ws.send(JSON.stringify({ v: 1, type: 'auth_error', reason: 'timeout' }));
+          ws.close();
+        } catch {}
+      }
+    }, AUTH_TIMEOUT_MS);
+    authTimer.unref?.();
 
     ws.on('message', (raw) => {
+      let msg: any;
       try {
-        const msg = JSON.parse(raw.toString());
-        if (msg?.type === 'ping') ws.send(JSON.stringify({ v: 1, type: 'pong' }));
+        msg = JSON.parse(raw.toString());
       } catch {
-        // ignore
+        return;
       }
+
+      // Pesan pertama WAJIB auth — socket belum terdaftar di `sockets`
+      // jadi tidak menerima event apapun sebelum terverifikasi.
+      if (!pendingAuth.has(ws)) {
+        if (msg?.type === 'ping') ws.send(JSON.stringify({ v: 1, type: 'pong' }));
+        return;
+      }
+
+      const token = typeof msg?.token === 'string' ? msg.token : null;
+      let user: AuthUser | null = null;
+      try {
+        if (token) user = authService.verifyToken(token) as AuthUser;
+      } catch {
+        user = null;
+      }
+
+      pendingAuth.delete(ws);
+      clearTimeout(authTimer);
+
+      if (!user) {
+        try {
+          ws.send(JSON.stringify({ v: 1, type: 'auth_error', reason: 'invalid_token' }));
+          ws.close();
+        } catch {}
+        return;
+      }
+
+      const client: ClientSocket = { ws, user };
+      sockets.add(client);
+      send(client, { v: 1, type: 'ready' });
+      console.log(`[rt] client connected: ${user.email} (${sockets.size} total)`);
+
+      ws.on('close', () => {
+        sockets.delete(client);
+        console.log(`[rt] client disconnected: ${user.email} (${sockets.size} total)`);
+      });
+
+      ws.on('error', () => {
+        sockets.delete(client);
+      });
     });
 
     ws.on('close', () => {
-      sockets.delete(client);
-      console.log(`[rt] client disconnected: ${user.email} (${sockets.size} total)`);
-    });
-
-    ws.on('error', () => {
-      sockets.delete(client);
+      pendingAuth.delete(ws);
     });
   });
 }
