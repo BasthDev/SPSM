@@ -8,8 +8,8 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_SECRET || 'default_spsm_secret_jwt_change_in_prod',
   appwrite: {
-    endpoint: process.env.APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1',
-    projectId: process.env.APPWRITE_PROJECT_ID || '6af1b3b200056ab6bc1d',
+    endpoint: process.env.APPWRITE_ENDPOINT || 'https://spsm.basthstudio.my.id/v1',
+    projectId: process.env.APPWRITE_PROJECT_ID || '6af9b97e002cf5c78067',
     apiKey: process.env.APPWRITE_API_KEY || '',
     databaseId: process.env.APPWRITE_DATABASE_ID || 'spsm_db',
     collections: {

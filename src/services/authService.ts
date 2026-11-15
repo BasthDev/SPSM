@@ -6,9 +6,9 @@ import {
 
 export const authService = {
   createGoogleToken(successUrl: string, failureUrl: string): string {
-    const base = `https://sgp.cloud.appwrite.io/v1/account/tokens/oauth2/google`;
+    const base = `https://spsm.basthstudio.my.id/v1/account/tokens/oauth2/google`;
     const params = new URLSearchParams({
-      project: '6af1b3b200056ab6bc1d',
+      project: '6af9b97e002cf5c78067',
       success: successUrl,
       failure: failureUrl,
     });
@@ -132,9 +132,9 @@ export const authService = {
   },
 
   async fetchGoogleAvatar(accountName?: string): Promise<string> {
-    return `https://sgp.cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(
+    return `https://spsm.basthstudio.my.id/v1/avatars/initials?name=${encodeURIComponent(
       accountName || 'User'
-    )}&project=6af1b3b200056ab6bc1d`;
+    )}&project=6af9b97e002cf5c78067`;
   },
 
   async updateAvatarUrl(docId: string, avatarUrl: string): Promise<void> {

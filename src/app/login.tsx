@@ -11,8 +11,8 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const SUCCESS_URL = 'appwrite-callback-6af1b3b200056ab6bc1d://auth/success';
-const FAILURE_URL = 'appwrite-callback-6af1b3b200056ab6bc1d://auth/failure';
+const SUCCESS_URL = 'appwrite-callback-6af9b97e002cf5c78067://auth/success';
+const FAILURE_URL = 'appwrite-callback-6af9b97e002cf5c78067://auth/failure';
 
 export default function LoginScreen() {
   const router = useRouter();
