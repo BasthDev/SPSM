@@ -155,6 +155,91 @@ export class SubmissionController {
     }
   }
 
+  /** GET /api/submissions/:id/options */
+  async listOptions(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const options = await db.getOptionsBySubmissionId(req.params.id);
+      res.json({ success: true, data: options });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** PATCH /api/submissions/options/:optionId — update opsi (mis. is_selected_by_lecturer). */
+  async updateOption(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { optionId } = req.params;
+      const { isSelected, isSelectedByLecturer, reviewNotes, lecturerNotes, title, background } = req.body || {};
+      const patch: any = {};
+      if (isSelected !== undefined) patch.isSelected = Boolean(isSelected);
+      if (isSelectedByLecturer !== undefined) patch.isSelectedByLecturer = Boolean(isSelectedByLecturer);
+      if (reviewNotes !== undefined) patch.reviewNotes = reviewNotes;
+      if (lecturerNotes !== undefined) patch.lecturerNotes = lecturerNotes;
+      if (title !== undefined) patch.title = title;
+      if (background !== undefined) patch.background = background;
+      const updated = await db.updateSubmissionOption(optionId, patch);
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** GET /api/submissions/:id/logs */
+  async listLogs(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const logs = await db.getApprovalLogsBySubmissionId(req.params.id);
+      res.json({ success: true, data: logs });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** POST /api/submissions/:id/logs — {actorId?, action, notes?} */
+  async createLog(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { action, notes, actorId } = req.body || {};
+      if (!action) {
+        res.status(400).json({ success: false, error: 'action wajib diisi.' });
+        return;
+      }
+      const log = await db.createApprovalLog({
+        submissionId: req.params.id,
+        actorId: actorId || req.user?.userId || 'system',
+        action: String(action),
+        notes: notes ?? undefined,
+        createdAt: new Date().toISOString(),
+      });
+      res.status(201).json({ success: true, data: log });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /** PATCH /api/submissions/:id — update field umum (status, advisorId, notes). */
+  async updateSubmission(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { status, advisorId, advisor1Id, advisor2Id, reviewerNotes, kaprodiNotes } = req.body || {};
+      const patch: any = {};
+      if (status !== undefined) {
+        const norm = normalizeSubmissionStatus(status);
+        if (!norm) {
+          res.status(400).json({ success: false, error: `Status tidak valid: ${status}` });
+          return;
+        }
+        patch.status = norm;
+      }
+      if (advisorId !== undefined) patch.advisorId = advisorId;
+      if (advisor1Id !== undefined) patch.advisor1Id = advisor1Id;
+      if (advisor2Id !== undefined) patch.advisor2Id = advisor2Id;
+      if (reviewerNotes !== undefined) patch.reviewerNotes = reviewerNotes;
+      if (kaprodiNotes !== undefined) patch.kaprodiNotes = kaprodiNotes;
+      const updated = await db.updateSubmission(req.params.id, patch);
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   /**
    * GET /api/submissions/comparable-titles
    * Returns deduped list of active titles for client-side similarity prefetch

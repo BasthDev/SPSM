@@ -14,8 +14,8 @@ interface Props {
 }
 
 export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
-  const [email, setEmail] = useState('ws.basithachmed@gmail.com');
-  const [password, setPassword] = useState('@Maulidia05');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -39,13 +39,15 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     setErrorMsg(null);
     try {
-      authService.loginWithGoogle();
+      await authService.loginWithGoogle();
+      onLoginSuccess();
     } catch (err: any) {
-      setErrorMsg('Gagal menginisiasi login Google: ' + err.message);
+      setErrorMsg(err?.message || 'Gagal login dengan Google.');
+    } finally {
       setGoogleLoading(false);
     }
   };
@@ -125,7 +127,7 @@ export const LoginView: React.FC<Props> = ({ onLoginSuccess }) => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ws.basithachmed@gmail.com"
+              placeholder="admin@spsm.local"
               className="login-input"
               required
             />

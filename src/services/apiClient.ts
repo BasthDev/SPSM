@@ -396,6 +396,15 @@ export const apiClient = {
     async generate(data: { submissionId: string; department?: string; batchYear?: string | number }) {
       return request<any>('/surat/generate', { method: 'POST', body: JSON.stringify(data) });
     },
+    /** File SK dokumen hasil generate dari template (placeholder terisi). */
+    async getSkFile(submissionId: string) {
+      return request<{ url: string; name: string; reused: boolean }>(
+        `/surat/${submissionId}/sk-file`
+      );
+    },
+    async getTemplate() {
+      return request<{ name: string; url: string | null }>('/sk-template');
+    },
   },
 
   // --- Notifications (push via Appwrite Messaging/FCM) ---

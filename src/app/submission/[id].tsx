@@ -266,6 +266,16 @@ export default function SubmissionDetailScreen() {
         return;
       }
     }
+    // Template SK dari backend: file documen dengan payload terisi.
+    try {
+      const skFile = await apiClient.surat.getSkFile(id);
+      if (skFile?.url) {
+        Linking.openURL(skFile.url).catch((err) => console.warn('Cannot open SK file URL', err));
+        return;
+      }
+    } catch (err) {
+      console.warn('Generated SK file unavailable:', err);
+    }
     const templateSkId = submission.surat?.templateSkId || submission.surat?.template_sk_id;
     if (templateSkId) {
       const url = await submissionService.getFileViewUrlForBucket('sk', templateSkId);
@@ -274,7 +284,7 @@ export default function SubmissionDetailScreen() {
         return;
       }
     }
-    // Jika belum ada file upload tapi data SK digital ada, tampilkan modal SK
+    // Fallback: tampilkan modal SK digital
     setShowSkModal(true);
   };
 

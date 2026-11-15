@@ -1,5 +1,4 @@
-import { storage, APPWRITE_CONFIG, Query } from '../lib/appwrite';
-import type { Models } from 'appwrite';
+import { apiClient } from './apiClient';
 
 export interface RepoFile {
   $id: string;
@@ -13,58 +12,45 @@ const PAGE_SIZE = 50;
 const MAX_PAGES = 20;
 
 /**
- * List all files in the journal_files bucket (paginated).
- * Owner prefix `owner_<userId>__` is preserved in `name`.
+ * List semua file di bucket 'journals' (repo) via backend API.
+ * Nama file `owner_<userId>__` / `refopt_<optionId>__` dipertahankan.
  */
 export const storageService = {
   async listAllFiles(): Promise<RepoFile[]> {
     const files: RepoFile[] = [];
-    let cursor: string | undefined;
-
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const queries = [Query.limit(PAGE_SIZE), Query.orderDesc('$createdAt')];
-      if (cursor) queries.push(Query.cursorAfter(cursor));
-
-      const res = await storage.listFiles(APPWRITE_CONFIG.storageBucketId, queries);
-      const docs = res.files as unknown as Models.File[];
-      if (docs.length === 0) break;
-
-      files.push(
-        ...docs.map((f) => ({
-          $id: f.$id,
-          name: f.name,
-          sizeOriginal: f.sizeOriginal,
-          $createdAt: f.$createdAt,
-          mimeType: (f as unknown as { mimeType?: string }).mimeType,
-        }))
-      );
-
-      if (docs.length < PAGE_SIZE) break;
-      cursor = docs[docs.length - 1].$id;
+    try {
+      const list = await apiClient.files.list('journals');
+      return (list || []).map((f: any) => ({
+        $id: f.$id || f.id || f.fileId,
+        name: f.name || f.originalName || f.$id || f.id,
+        sizeOriginal: f.sizeOriginal ?? f.size ?? 0,
+        $createdAt: f.$createdAt || f.createdAt || '',
+        mimeType: f.mimeType,
+      }));
+    } catch (err) {
+      console.error('Error listing repo files:', err);
+      return files;
     }
-
-    return files;
   },
 
   getFileViewUrl(fileId: string): string {
     if (!fileId) return '#';
-    try {
-      return storage
-        .getFileView(APPWRITE_CONFIG.storageBucketId, fileId)
-        .toString();
-    } catch {
-      return '#';
-    }
+    return apiClient.files.getViewUrl('journals', fileId);
   },
 
   getFileDownloadUrl(fileId: string): string {
     if (!fileId) return '#';
-    try {
-      return storage
-        .getFileDownload(APPWRITE_CONFIG.storageBucketId, fileId)
-        .toString();
-    } catch {
-      return '#';
-    }
+    return apiClient.files.getDownloadUrl('journals', fileId);
+  },
+
+  /** SK/surat bucket */
+  getSkFileViewUrl(fileId: string): string {
+    if (!fileId) return '#';
+    return apiClient.files.getViewUrl('sk', fileId);
+  },
+
+  getSkFileDownloadUrl(fileId: string): string {
+    if (!fileId) return '#';
+    return apiClient.files.getDownloadUrl('sk', fileId);
   },
 };

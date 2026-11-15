@@ -1,4 +1,5 @@
-import { databases, APPWRITE_CONFIG, ID, Query } from '../lib/appwrite';
+import { apiClient } from './apiClient';
+import { mapSettings } from '../lib/mappers';
 
 export interface SystemSettings {
   is_active: boolean;
@@ -20,147 +21,48 @@ const DEFAULT_SETTINGS: SystemSettings = {
   required_courses: [],
 };
 
-const SETTINGS_DOC_CODE = 'SETTINGS_SYS';
-
 export const settingsService = {
   /**
-   * Fetch system settings. First tries `system_settings` collection.
-   * If not found, falls back to the special document in `departments`.
+   * Fetch system settings dari backend /settings.
    */
   async getSettings(): Promise<SystemSettings> {
-    // 1. Try dedicated system_settings collection if exists
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        'system_settings',
-        [Query.limit(1)]
-      );
-      if (res.documents.length > 0) {
-        const doc = res.documents[0] as any;
-        return {
-          is_active: Boolean(doc.is_active),
-          start_date: doc.start_date || DEFAULT_SETTINGS.start_date,
-          end_date: doc.end_date || DEFAULT_SETTINGS.end_date,
-          academic_year: doc.academic_year || DEFAULT_SETTINGS.academic_year,
-          min_sks: typeof doc.min_sks === 'number' ? doc.min_sks : DEFAULT_SETTINGS.min_sks,
-          required_title_count:
-            typeof doc.required_title_count === 'number'
-              ? doc.required_title_count
-              : DEFAULT_SETTINGS.required_title_count,
-          required_courses: Array.isArray(doc.required_courses)
-            ? doc.required_courses
-            : DEFAULT_SETTINGS.required_courses,
-        };
-      }
-    } catch {
-      // system_settings collection might not exist; proceed to fallback
-    }
-
-    // 2. Fallback to departments collection document
-    try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        [Query.equal('code', SETTINGS_DOC_CODE), Query.limit(1)]
-      );
-
-      if (res.documents.length > 0) {
-        const rawJson = res.documents[0].name;
-        const parsed = JSON.parse(rawJson);
-        return {
-          is_active: Boolean(parsed.is_active),
-          start_date: parsed.start_date || DEFAULT_SETTINGS.start_date,
-          end_date: parsed.end_date || DEFAULT_SETTINGS.end_date,
-          academic_year: parsed.academic_year || DEFAULT_SETTINGS.academic_year,
-          min_sks: typeof parsed.min_sks === 'number' ? parsed.min_sks : DEFAULT_SETTINGS.min_sks,
-          required_title_count:
-            typeof parsed.required_title_count === 'number'
-              ? parsed.required_title_count
-              : DEFAULT_SETTINGS.required_title_count,
-          required_courses: Array.isArray(parsed.required_courses)
-            ? parsed.required_courses
-            : DEFAULT_SETTINGS.required_courses,
-        };
-      }
-
-      // If document doesn't exist yet, create it
-      await databases.createDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        ID.unique(),
-        {
-          name: JSON.stringify(DEFAULT_SETTINGS),
-          code: SETTINGS_DOC_CODE,
-          faculty: 'SYSTEM',
-          is_active: true,
-        }
-      );
-
-      return DEFAULT_SETTINGS;
+      const res = await apiClient.settings.get();
+      if (!res) return DEFAULT_SETTINGS;
+      const mapped = mapSettings(res);
+      return {
+        ...DEFAULT_SETTINGS,
+        ...mapped,
+        min_sks: mapped.min_sks ?? DEFAULT_SETTINGS.min_sks,
+        required_title_count: mapped.required_title_count ?? DEFAULT_SETTINGS.required_title_count,
+        required_courses: mapped.required_courses ?? DEFAULT_SETTINGS.required_courses,
+      };
     } catch (err) {
-      console.warn('Failed to load system settings from database, using defaults:', err);
+      console.warn('Failed to load system settings, using defaults:', err);
       return DEFAULT_SETTINGS;
     }
   },
 
   /**
-   * Update system settings. Writes to both system_settings (if available)
-   * and the fallback document in departments.
+   * Update system settings via PATCH /settings.
    */
   async updateSettings(settings: SystemSettings): Promise<SystemSettings> {
-    // 1. Try update in system_settings collection
-    try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        'system_settings',
-        [Query.limit(1)]
-      );
-      if (res.documents.length > 0) {
-        await databases.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          'system_settings',
-          res.documents[0].$id,
-          settings
-        );
-      }
-    } catch {
-      // ignore
-    }
+    const payload = {
+      isActive: settings.is_active,
+      submissionOpen: settings.is_active,
+      startDate: settings.start_date,
+      endDate: settings.end_date,
+      academicYear: settings.academic_year,
+      minSks: settings.min_sks,
+      requiredTitleCount: settings.required_title_count,
+      requiredCourses: settings.required_courses,
+    };
 
-    // 2. Persist in departments fallback document
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        [Query.equal('code', SETTINGS_DOC_CODE), Query.limit(1)]
-      );
-
-      if (res.documents.length > 0) {
-        await databases.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.departments,
-          res.documents[0].$id,
-          {
-            name: JSON.stringify(settings),
-            is_active: settings.is_active,
-          }
-        );
-      } else {
-        await databases.createDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.departments,
-          ID.unique(),
-          {
-            name: JSON.stringify(settings),
-            code: SETTINGS_DOC_CODE,
-            faculty: 'SYSTEM',
-            is_active: settings.is_active,
-          }
-        );
-      }
+      await apiClient.settings.update(payload);
     } catch (err: any) {
-      console.error('Failed to update system settings in departments fallback:', err);
-      throw new Error(`Gagal menyimpan pengaturan: ${err.message}`);
+      console.error('Failed to update system settings:', err);
+      throw new Error(`Gagal menyimpan pengaturan: ${err?.message || err}`);
     }
 
     return settings;

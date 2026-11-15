@@ -1,5 +1,5 @@
-import { account, databases, APPWRITE_CONFIG, ID, Query } from '../lib/appwrite';
-import { OAuthProvider } from 'appwrite';
+import { apiClient } from './apiClient';
+import { mapLecturer, mapUserProfile } from '../lib/mappers';
 import type { UserProfile, Lecturer, UserRole } from '../types';
 
 export interface AuthState {
@@ -11,189 +11,112 @@ export interface AuthState {
   avatarUrl?: string | null;
 }
 
+const OAUTH_POPUP_NAME = 'spsm_oauth';
+const OAUTH_POLL_MS = 2000;
+const OAUTH_TIMEOUT_MS = 3 * 60 * 1000;
+
 export const authService = {
   /**
-   * Initiate Google OAuth2 login for Web.
-   */
-  loginWithGoogle() {
-    const successUrl = window.location.origin + window.location.pathname;
-    const failureUrl = window.location.origin + window.location.pathname + '?error=oauth_failed';
-
-    account.createOAuth2Session(
-      OAuthProvider.Google,
-      successUrl,
-      failureUrl
-    );
-  },
-
-  /**
-   * Login with email & password (used by Admin and registered staff).
+   * Login with email & password (admin & staff terdaftar).
    */
   async loginWithEmail(email: string, pass: string) {
     try {
-      return await account.createEmailPasswordSession(email.trim(), pass);
+      const res = await apiClient.auth.login(email.trim(), pass);
+      return res?.user ?? res;
     } catch (err: any) {
-      throw new Error(err.message || 'Gagal masuk dengan email & password.');
+      throw new Error(err?.message || 'Gagal masuk dengan email & password.');
     }
   },
 
   /**
-   * Get the current authenticated user with auto-registration for lecturers.
+   * Google OAuth via backend (PocketBase). Membuka popup Google,
+   * lalu polling /auth/oauth/status sampai selesai.
+   */
+  async loginWithGoogle(): Promise<any> {
+    const { url, key } = await apiClient.request<any>('/auth/oauth/start', {
+      method: 'POST',
+      body: JSON.stringify({ provider: 'google' }),
+    });
+    if (!url || !key) throw new Error('Gagal memulai login Google.');
+
+    const popup = window.open(url, OAUTH_POPUP_NAME, 'width=520,height=680');
+    if (!popup) throw new Error('Popup diblokir browser. Izinkan popup untuk login.');
+
+    const deadline = Date.now() + OAUTH_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      if (popup.closed) {
+        // User menutup popup manual — cek status terakhir kali.
+        await new Promise((r) => setTimeout(r, 800));
+        const last = await apiClient
+          .request<any>(`/auth/oauth/status?key=${encodeURIComponent(key)}`)
+          .catch(() => null);
+        if (last?.status === 'done' && last?.token) {
+          localStorage.setItem('spsm_token', last.token);
+          return last.user;
+        }
+        throw new Error('Login dibatalkan.');
+      }
+
+      const status = await apiClient
+        .request<any>(`/auth/oauth/status?key=${encodeURIComponent(key)}`)
+        .catch(() => null);
+
+      if (status?.status === 'done' && status?.token) {
+        try {
+          popup.close();
+        } catch {}
+        localStorage.setItem('spsm_token', status.token);
+        return status.user;
+      }
+      if (status?.status === 'error') {
+        try {
+          popup.close();
+        } catch {}
+        throw new Error(status.error || 'Login Google gagal.');
+      }
+      if (status?.status === 'expired') {
+        try {
+          popup.close();
+        } catch {}
+        throw new Error(status.error || 'Sesi login kedaluwarsa. Coba lagi.');
+      }
+
+      await new Promise((r) => setTimeout(r, OAUTH_POLL_MS));
+    }
+
+    try {
+      popup.close();
+    } catch {}
+    throw new Error('Waktu login habis. Coba lagi.');
+  },
+
+  /**
+   * Get the current authenticated user (profile, lecturer, role, isAdmin)
+   * dari backend /auth/me.
    */
   async getCurrentUser(): Promise<AuthState | null> {
     try {
-      const acct = await account.get();
-      if (!acct || !acct.$id) return null;
+      const me = await apiClient.auth.getCurrentUser();
+      if (!me) return null;
 
-      const isAdminEmail = acct.email.toLowerCase() === 'ws.basithachmed@gmail.com';
-
-      // 1. Fetch UserProfile from 'users' collection
-      let profile: UserProfile | null = null;
-      try {
-        const userRes = await databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.users,
-          [Query.equal('user_id', acct.$id), Query.limit(1)]
-        );
-        if (userRes.documents.length > 0) {
-          profile = userRes.documents[0] as unknown as UserProfile;
-        }
-      } catch (e) {
-        console.warn('Error fetching user profile doc:', e);
-      }
-
-      // 2. Fetch Lecturer record from 'lecturers' collection
-      let lecturer: Lecturer | null = null;
-      try {
-        const lecRes = await databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.lecturers,
-          [Query.equal('email', acct.email), Query.limit(1)]
-        );
-        if (lecRes.documents.length > 0) {
-          lecturer = lecRes.documents[0] as unknown as Lecturer;
-          // Link user_id if not linked yet
-          if (!lecturer.user_id) {
-            await databases.updateDocument(
-              APPWRITE_CONFIG.databaseId,
-              APPWRITE_CONFIG.collections.lecturers,
-              lecturer.$id,
-              { user_id: acct.$id }
-            );
-            lecturer.user_id = acct.$id;
-          }
-        }
-      } catch (e) {
-        console.warn('Error fetching lecturer doc:', e);
-      }
-
-      // 3. Retrieve Google profile picture if available
-      let avatarUrl: string | null = profile?.avatar_url || null;
-      try {
-        const session = await account.getSession('current');
-        if (session && session.providerAccessToken) {
-          const googleRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-            headers: { Authorization: `Bearer ${session.providerAccessToken}` },
-          });
-          if (googleRes.ok) {
-            const googleData = await googleRes.json();
-            if (googleData.picture) {
-              avatarUrl = googleData.picture;
-            }
-          }
-        }
-      } catch {
-        // fallback
-      }
-
-      if (!avatarUrl) {
-        avatarUrl = `https://sgp.cloud.appwrite.io/v1/avatars/initials?name=${encodeURIComponent(
-          acct.name || 'User'
-        )}&project=${APPWRITE_CONFIG.projectId}`;
-      }
-
-      // 4. Handle Auto-Registration for new Google users or Missing Docs
-      const defaultRole: UserRole = isAdminEmail ? 'admin' : (lecturer?.role || 'lecturer');
-
-      if (!profile) {
-        try {
-          const newDoc = await databases.createDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.users,
-            ID.unique(),
-            {
-              user_id: acct.$id,
-              name: acct.name || (isAdminEmail ? 'Admin Utama SPSM' : 'Dosen'),
-              email: acct.email,
-              role: defaultRole,
-              nim_or_nip: lecturer?.nip || ('DOSEN-' + acct.$id.substring(0, 6).toUpperCase()),
-              department: lecturer?.department_id || 'TI',
-              batch_year: 2026,
-              avatar_url: avatarUrl,
-              created_at: new Date().toISOString(),
-            }
-          );
-          profile = newDoc as unknown as UserProfile;
-        } catch (e) {
-          console.warn('Could not auto-create user profile doc:', e);
-        }
-      } else if (avatarUrl && profile.avatar_url !== avatarUrl) {
-        // Sync new avatar URL if changed
-        try {
-          await databases.updateDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.users,
-            profile.$id,
-            { avatar_url: avatarUrl }
-          );
-          profile.avatar_url = avatarUrl;
-        } catch (e) {
-          console.warn('Could not update avatar URL in profile doc:', e);
-        }
-      }
-
-      if (!lecturer) {
-        try {
-          const newLec = await databases.createDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.lecturers,
-            ID.unique(),
-            {
-              user_id: acct.$id,
-              nip: profile?.nim_or_nip || ('DOSEN-' + acct.$id.substring(0, 6).toUpperCase()),
-              name: acct.name || (isAdminEmail ? 'Admin Utama SPSM' : 'Dosen'),
-              email: acct.email,
-              department_id: profile?.department || 'TI',
-              expertise: isAdminEmail ? 'Administrator Sistem' : 'Dosen Pembimbing Skripsi',
-              quota: 10,
-              current_students: 0,
-              role: defaultRole,
-              is_active: true,
-            }
-          );
-          lecturer = newLec as unknown as Lecturer;
-        } catch (e) {
-          console.warn('Could not auto-create lecturer doc:', e);
-        }
-      }
-
-      // Determine final active role
-      let finalRole: UserRole = defaultRole;
-      if (isAdminEmail) {
-        finalRole = 'admin';
-      } else if (lecturer?.role) {
-        finalRole = lecturer.role as UserRole;
-      } else if (profile?.role) {
-        finalRole = profile.role;
-      }
+      const profile: UserProfile | null = me.profile ? mapUserProfile(me.profile) : null;
+      const lecturer: Lecturer | null = me.lecturer ? mapLecturer(me.lecturer) : null;
+      const role: UserRole = (me.role as UserRole) || profile?.role || 'student';
+      const isAdmin = Boolean(me.isAdmin) || role === 'admin';
 
       return {
-        account: acct,
+        account: {
+          $id: me.userId || me.id,
+          email: me.email,
+          name: me.name,
+        },
         profile,
         lecturer,
-        role: finalRole,
-        isAdmin: finalRole === 'admin',
-        avatarUrl,
+        role: isAdmin ? 'admin' : role,
+        isAdmin,
+        avatarUrl: profile?.avatar_url || lecturer?.email
+          ? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(me.name || me.email)}`
+          : null,
       };
     } catch {
       return null;
@@ -205,9 +128,9 @@ export const authService = {
    */
   async logout() {
     try {
-      await account.deleteSession('current');
+      await apiClient.auth.logout();
     } catch (e: any) {
-      console.warn('Logout warning:', e.message);
+      console.warn('Logout warning:', e?.message);
     }
   },
 };

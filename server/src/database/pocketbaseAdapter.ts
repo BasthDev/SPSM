@@ -47,10 +47,17 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
   constructor() {
     this.pb = new PocketBase(config.pocketbase.url);
     this.pb.autoCancellation(false);
-    // Retry admin auth sebelum setiap request (token bisa expired / boot-time gagal)
+    // Retry admin auth sebelum setiap request (token bisa expired / boot-time gagal).
+    // CATATAN: override beforeSend menimpa built-in SDK yang menyuntik header
+    // Authorization — jadi token harus disuntik manual di sini.
     this.pb.beforeSend = async (url: string, options: any) => {
       if (!url.includes('/auth-with-password')) {
         await this.ensureAuth().catch(() => {});
+      }
+      const token = this.pb.authStore.token;
+      if (token) {
+        options = options || {};
+        options.headers = { ...(options.headers || {}), Authorization: token };
       }
       return { url, options };
     };
@@ -69,7 +76,11 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
   }
 
   private async ensureAuth(): Promise<void> {
-    if (this.pb.authStore.isValid) return;
+    // authStore dipakai bersama dengan record-auth (login user) — token record
+    // user juga "valid" tapi BUKAN admin, jadi query koleksi kena rule '' →
+    // data kosong. Wajib pastikan token yang tersimpan adalah superuser.
+    const rec: any = this.pb.authStore.record;
+    if (this.pb.authStore.isValid && rec?.collectionName === '_superusers') return;
     if (!this.authPromise) {
       this.authPromise = this.pb
         .admins.authWithPassword(config.pocketbase.adminEmail, config.pocketbase.adminPassword)

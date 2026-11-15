@@ -110,31 +110,51 @@ export class AuthService {
     error?: string;
   }>();
   private oauthRealtimeStarted = false;
+  private oauthSubscribed = false;
+  private oauthResubscribeTimer: NodeJS.Timeout | null = null;
 
   private oauthEventHandler: ((event: any) => Promise<void>) | null = null;
 
+  private subscribeOAuthTopic(pb: any): Promise<void> {
+    const handler = async (event: any) => {
+      await this.processOAuth2Event(pb, event);
+      // PB menjalankan `defer client.Unsubscribe('@oauth2')` SETELAH event
+      // dikirim — resubscribe langsung bisa didahului unsubscribe tsb.
+      // Jadi: tandai unsubscribed + resubscribe dengan delay.
+      this.oauthSubscribed = false;
+      if (this.oauthResubscribeTimer) clearTimeout(this.oauthResubscribeTimer);
+      this.oauthResubscribeTimer = setTimeout(() => {
+        void this.resubscribeOAuth(pb);
+      }, 1000);
+    };
+    this.oauthEventHandler = handler;
+    return pb.realtime.subscribe('@oauth2', handler).then(() => {
+      this.oauthSubscribed = true;
+    });
+  }
+
+  private async resubscribeOAuth(pb: any): Promise<void> {
+    if (this.oauthSubscribed) return;
+    try {
+      await pb.realtime.unsubscribe('@oauth2').catch(() => {});
+      await this.subscribeOAuthTopic(pb);
+      console.log('[auth] @oauth2 subscription dipulihkan');
+    } catch (e) {
+      console.warn('[auth] Gagal resubscribe @oauth2:', (e as Error).message);
+      // Coba lagi dalam 2 detik
+      this.oauthResubscribeTimer = setTimeout(() => void this.resubscribeOAuth(pb), 2000);
+    }
+  }
+
   private async ensureOAuthRealtime(pb: any): Promise<void> {
-    if (this.oauthRealtimeStarted) return;
+    if (this.oauthRealtimeStarted && this.oauthSubscribed) return;
     this.oauthRealtimeStarted = true;
     try {
-      // PB oauth2-redirect melakukan `defer client.Unsubscribe('@oauth2')`
-      // setelah SETIAP redirect — jadi harus subscribe ulang setelah tiap
-      // event diproses, kalau tidak attempt login berikutnya = "Auth failed".
-      const handler = async (event: any) => {
-        await this.processOAuth2Event(pb, event);
-        try {
-          await pb.realtime.unsubscribe('@oauth2');
-          await pb.realtime.subscribe('@oauth2', handler);
-          console.log('[auth] @oauth2 subscription dipulihkan');
-        } catch (e) {
-          console.warn('[auth] Gagal resubscribe @oauth2:', (e as Error).message);
-        }
-      };
-      this.oauthEventHandler = handler;
-      await pb.realtime.subscribe('@oauth2', handler);
+      await this.subscribeOAuthTopic(pb);
       console.log('[auth] PocketBase OAuth realtime listener aktif');
     } catch (e) {
       this.oauthRealtimeStarted = false;
+      this.oauthSubscribed = false;
       console.warn('[auth] OAuth realtime subscribe gagal:', (e as Error).message);
     }
   }
@@ -148,38 +168,53 @@ export class AuthService {
     // Jadi state = pb.realtime.clientId (bukan state dari auth-methods).
     for (const p of this.oauthPending.values()) {
       if (p.state !== state) continue;
-      try {
-        if (event.error || !event.code) throw new Error(event.error || 'OAuth2 code missing');
-        const res = await pb.collection('users').authWithOAuth2Code(
-          p.provider, event.code, p.codeVerifier, p.redirectUrl
-        );
-        const record = res.record;
-        console.log(`[auth] OAuth exchange OK: ${record?.email}`);
-        const identity: UserIdentity = {
-          providerUserId: record.id,
-          email: (record.email || '').toLowerCase(),
-          name: record.name || undefined,
-          avatarUrl: record.avatar || undefined,
-          source: 'pocketbase',
-        };
-        if (identity.email) {
-          await userDirectory.syncProfile(identity);
-          const user = await this.resolveUserData(record.id, identity.email);
-          p.result = {
-            token: jwt.sign(
-              { id: user.id, userId: user.userId, email: user.email, name: user.name, role: user.role, isAdmin: user.isAdmin },
-              config.jwtSecret,
-              { expiresIn: '30d' }
-            ),
-            user,
-          };
-        } else {
-          p.error = 'Email tidak ditemukan dari provider.';
-        }
-      } catch (e: any) {
-        console.warn('[auth] OAuth exchange failed:', e?.message || e, JSON.stringify(e?.response || '').slice(0, 300));
-        p.error = e?.message || 'Gagal menyelesaikan OAuth.';
+      if (event.error || !event.code) {
+        p.error = event.error || 'OAuth2 code missing';
+        continue;
       }
+      await this.completeOAuthExchange(p, event.code);
+    }
+  }
+
+  /** Exchange OAuth code → PB auth record → resolve user → simpan JWT di pending. */
+  private async completeOAuthExchange(p: {
+    provider: string;
+    codeVerifier: string;
+    redirectUrl: string;
+    result?: { token: string; user: AuthUser };
+    error?: string;
+  }, code: string): Promise<void> {
+    const pb = this.pb();
+    try {
+      const res = await pb.collection('users').authWithOAuth2Code(
+        p.provider, code, p.codeVerifier, p.redirectUrl
+      );
+      const record = res.record;
+      console.log(`[auth] OAuth exchange OK: ${record?.email}`);
+      const identity: UserIdentity = {
+        providerUserId: record.id,
+        email: (record.email || '').toLowerCase(),
+        name: record.name || undefined,
+        avatarUrl: record.avatar || undefined,
+        source: 'pocketbase',
+      };
+      if (identity.email) {
+        await userDirectory.syncProfile(identity);
+        const user = await this.resolveUserData(record.id, identity.email);
+        p.result = {
+          token: jwt.sign(
+            { id: user.id, userId: user.userId, email: user.email, name: user.name, role: user.role, isAdmin: user.isAdmin },
+            config.jwtSecret,
+            { expiresIn: '30d' }
+          ),
+          user,
+        };
+      } else {
+        p.error = 'Email tidak ditemukan dari provider.';
+      }
+    } catch (e: any) {
+      console.warn('[auth] OAuth exchange failed:', e?.message || e, JSON.stringify(e?.response || '').slice(0, 300));
+      p.error = e?.message || 'Gagal menyelesaikan OAuth.';
     }
   }
 
@@ -191,7 +226,19 @@ export class AuthService {
     const pb = this.pb();
     if (!pb?.collection) throw new Error('PocketBase belum terkonfigurasi.');
 
+    // Force reconnect SSE supaya clientId SELALU fresh dan subscription
+    // @oauth2 dijamin ada di koneksi yang hidup — PB oauth2-redirect
+    // mencari client via ClientById(state) dan gagal ("Auth failed") bila
+    // koneksi lama sudah putus/di-resume dengan ID baru.
+    try {
+      await pb.realtime.disconnect();
+    } catch {}
+    this.oauthSubscribed = false;
+    this.oauthRealtimeStarted = false;
     await this.ensureOAuthRealtime(pb);
+    if (!this.oauthSubscribed) {
+      throw new Error('Realtime PocketBase belum siap. Coba lagi.');
+    }
 
     const methods: any = await pb.collection('users').listAuthMethods();
     const prov = methods?.oauth2?.providers?.find((p: any) => p.name === provider);
@@ -251,6 +298,26 @@ export class AuthService {
       return { status: 'expired', error: 'Waktu login habis. Coba lagi.' };
     }
     return { status: 'pending' };
+  }
+
+  /**
+   * Callback Google → backend (flow redirect_uri backend, nonaktif saat ini
+   * karena Google Console belum mendaftarkan URI tsb). Lookup pending by
+   * state(=key), exchange code via PocketBase, return key utk redirect app.
+   */
+  async handleOAuthCallback(query: { code?: string; state?: string; error?: string }): Promise<string> {
+    const key = typeof query?.state === 'string' ? query.state : '';
+    const p = key ? this.oauthPending.get(key) : undefined;
+    if (!p) {
+      console.warn(`[auth] OAuth callback dengan state tidak dikenal: ${key || '-'}`);
+      return key;
+    }
+    if (query.error || !query.code) {
+      p.error = query.error || 'Authorization code tidak ditemukan.';
+      return key;
+    }
+    await this.completeOAuthExchange(p, query.code);
+    return key;
   }
 
   /**
@@ -403,7 +470,7 @@ export class AuthService {
       email: cleanEmail,
       name: profile?.name || lecturer?.name || cleanEmail.split('@')[0],
       role,
-      isAdmin,
+      isAdmin: isAdmin || role === 'admin',
       profile,
       lecturer,
     };

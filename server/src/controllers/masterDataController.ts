@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { masterDataService } from '../services/masterDataService';
+import { skTemplateService } from '../services/skTemplateService';
 import { db } from '../database';
 
 export class MasterDataController {
@@ -164,6 +165,35 @@ export class MasterDataController {
       const { submissionId, department, batchYear } = req.body;
       const data = await masterDataService.generateSurat(submissionId, department, batchYear);
       res.status(201).json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /surat/:submissionId/sk-file
+   * Generate (atau ambil ulang) file SK documen dari template dengan
+   * payload submission terisi. Return { url, name, reused }.
+   */
+  async getSkFile(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await skTemplateService.generateSkFile(req.params.submissionId);
+      res.json({ success: true, data });
+    } catch (err: any) {
+      const status = /tidak ditemukan/i.test(err?.message || '') ? 404 : 400;
+      res.status(status).json({ success: false, error: err?.message || 'Gagal membuat file SK.' });
+    }
+  }
+
+  /** GET /sk-template — info template SK yang tersedia. */
+  async getSkTemplate(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await skTemplateService.getTemplateInfo();
+      if (!data) {
+        res.status(404).json({ success: false, error: 'Template SK belum diupload.' });
+        return;
+      }
+      res.json({ success: true, data });
     } catch (err) {
       next(err);
     }

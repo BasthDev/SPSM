@@ -12,6 +12,16 @@ export interface UploadedFileDto {
   viewUrl: string;
   downloadUrl: string;
   createdAt?: string;
+  /** Jenis file (mis. 'scan' | 'template' | 'generated' | 'file'). */
+  kind?: string;
+  /** Nomor record submission terkait (file SK hasil generate). */
+  submissionId?: string;
+}
+
+/** Metadata opsional saat upload (PB-only fields). */
+export interface UploadMeta {
+  kind?: string;
+  submissionId?: string;
 }
 
 export interface IStorageAdapter {
@@ -19,7 +29,8 @@ export interface IStorageAdapter {
     bucket: StorageBucket,
     fileBuffer: Buffer,
     fileName: string,
-    mimeType: string
+    mimeType: string,
+    meta?: UploadMeta
   ): Promise<UploadedFileDto>;
 
   getFileViewUrl(bucket: StorageBucket, fileId: string): string;

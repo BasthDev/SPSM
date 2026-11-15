@@ -34,6 +34,10 @@ router.patch('/settings', authenticate, requireRole('admin'), (req, res, next) =
 router.get('/surat/:submissionId', (req, res, next) => masterDataController.getSurat(req, res, next));
 router.post('/surat/generate', authenticate, requireRole('admin', 'kaprodi', 'akademik'), (req, res, next) => masterDataController.generateSurat(req, res, next));
 
+// SK document dari template (placeholder terisi payload submission)
+router.get('/surat/:submissionId/sk-file', authenticate, (req, res, next) => masterDataController.getSkFile(req, res, next));
+router.get('/sk-template', (req, res, next) => masterDataController.getSkTemplate(req, res, next));
+
 // Users & Profile
 router.get('/users', authenticate, requireRole('admin'), (req, res, next) => masterDataController.listUsers(req, res, next));
 router.get('/users/profile/:userId', authenticate, (req, res, next) => masterDataController.getProfile(req, res, next));

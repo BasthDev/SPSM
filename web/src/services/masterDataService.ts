@@ -1,18 +1,15 @@
-import { databases, APPWRITE_CONFIG, ID, Query } from '../lib/appwrite';
+import { apiClient } from './apiClient';
+import { mapDepartment, mapBatchYear } from '../lib/mappers';
 import type { Department, BatchYear } from '../types';
 
 export const masterDataService = {
   // Departments
   async getDepartments(): Promise<Department[]> {
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.departments,
-        [Query.orderAsc('name'), Query.limit(100)]
-      );
-      return (res.documents as unknown as Department[]).filter(
-        (d) => d.code !== 'SETTINGS_SYS'
-      );
+      const list = await apiClient.departments.list();
+      return (list || [])
+        .map(mapDepartment)
+        .filter((d) => d.code !== 'SETTINGS_SYS');
     } catch (err) {
       console.error('Error fetching departments:', err);
       return [];
@@ -20,43 +17,27 @@ export const masterDataService = {
   },
 
   async createDepartment(data: Omit<Department, '$id'>): Promise<Department> {
-    const res = await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      ID.unique(),
-      data
-    );
-    return res as unknown as Department;
+    const res = await apiClient.departments.create(toPayload(data));
+    return mapDepartment(res);
   },
 
   async updateDepartment(id: string, data: Partial<Department>): Promise<Department> {
-    const res = await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      id,
-      data
-    );
-    return res as unknown as Department;
+    const res = await apiClient.departments.update(id, toPayload(data));
+    return mapDepartment(res);
   },
 
   async deleteDepartment(id: string): Promise<boolean> {
-    await databases.deleteDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.departments,
-      id
-    );
+    await apiClient.departments.remove(id);
     return true;
   },
 
   // Batch Years (Letting)
   async getBatchYears(): Promise<BatchYear[]> {
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.batchYears,
-        [Query.orderDesc('year'), Query.limit(100)]
-      );
-      return res.documents as unknown as BatchYear[];
+      const list = await apiClient.batchYears.list();
+      return (list || [])
+        .map(mapBatchYear)
+        .sort((a, b) => Number(b.year) - Number(a.year));
     } catch (err) {
       console.error('Error fetching batch years:', err);
       return [];
@@ -64,31 +45,24 @@ export const masterDataService = {
   },
 
   async createBatchYear(data: Omit<BatchYear, '$id'>): Promise<BatchYear> {
-    const res = await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.batchYears,
-      ID.unique(),
-      data
-    );
-    return res as unknown as BatchYear;
+    const res = await apiClient.batchYears.create(toPayload(data));
+    return mapBatchYear(res);
   },
 
   async updateBatchYear(id: string, data: Partial<BatchYear>): Promise<BatchYear> {
-    const res = await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.batchYears,
-      id,
-      data
-    );
-    return res as unknown as BatchYear;
+    const res = await apiClient.batchYears.update(id, toPayload(data));
+    return mapBatchYear(res);
   },
 
   async deleteBatchYear(id: string): Promise<boolean> {
-    await databases.deleteDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.batchYears,
-      id
-    );
+    await apiClient.batchYears.remove(id);
     return true;
   },
 };
+
+function toPayload(d: any): any {
+  const out = { ...d };
+  if (out.is_active !== undefined) { out.isActive = out.is_active; delete out.is_active; }
+  delete out.$id; delete out.$createdAt; delete out.$updatedAt;
+  return out;
+}

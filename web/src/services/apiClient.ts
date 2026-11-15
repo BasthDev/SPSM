@@ -1,8 +1,6 @@
 const API_BASE_URL =
-  (typeof window !== 'undefined' && (window as any).API_BASE_URL) ||
-  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:5000/api'
-    : 'http://localhost:5000/api');
+  (import.meta.env.VITE_API_URL as string | undefined) ||
+  'https://spsmapi.basthstudio.my.id/api';
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -64,6 +62,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const apiClient = {
+  request,
   auth: {
     async login(email: string, pass: string) {
       const res = await request<{ token: string; user: any }>('/auth/login', {
@@ -115,11 +114,38 @@ export const apiClient = {
       const q = params.toString() ? `?${params.toString()}` : '';
       return request<any[]>(`/submissions${q}`);
     },
-    async updateStatus(id: string, status: string, action = 'STATUS_UPDATE', notes = '', patch = null) {
+    async updateStatus(id: string, status: string, action = 'STATUS_UPDATE', notes = '', patch: any = null) {
       return request<any>(`/submissions/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, action, notes, patch }),
       });
+    },
+    async update(id: string, patch: any) {
+      return request<any>(`/submissions/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    },
+    async getOptions(id: string) {
+      return request<any[]>(`/submissions/${id}/options`);
+    },
+    async updateOption(optionId: string, patch: any) {
+      return request<any>(`/submissions/options/${optionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
+    },
+    async getLogs(id: string) {
+      return request<any[]>(`/submissions/${id}/logs`);
+    },
+    async createLog(id: string, data: { actorId?: string; action: string; notes?: string }) {
+      return request<any>(`/submissions/${id}/logs`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    async comparableTitles() {
+      return request<any[]>('/submissions/comparable-titles');
     },
   },
 
@@ -154,6 +180,13 @@ export const apiClient = {
     getDownloadUrl(bucket: 'journals' | 'sk', fileId: string) {
       return `${API_BASE_URL}/files/${bucket}/${fileId}/download`;
     },
+    async list(bucket: 'journals' | 'sk', search?: string) {
+      const q = search ? `?search=${encodeURIComponent(search)}` : '';
+      return request<any[]>(`/files/${bucket}${q}`);
+    },
+    async remove(bucket: 'journals' | 'sk', fileId: string) {
+      return request<any>(`/files/${bucket}/${fileId}`, { method: 'DELETE' });
+    },
   },
 
   lecturers: {
@@ -166,6 +199,60 @@ export const apiClient = {
     },
     async getById(id: string) {
       return request<any>(`/lecturers/${id}`);
+    },
+    async create(data: any) {
+      return request<any>('/lecturers', { method: 'POST', body: JSON.stringify(data) });
+    },
+    async update(id: string, data: any) {
+      return request<any>(`/lecturers/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    async remove(id: string) {
+      return request<any>(`/lecturers/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  departments: {
+    async list() {
+      return request<any[]>('/departments');
+    },
+    async create(data: any) {
+      return request<any>('/departments', { method: 'POST', body: JSON.stringify(data) });
+    },
+    async update(id: string, data: any) {
+      return request<any>(`/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    async remove(id: string) {
+      return request<any>(`/departments/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  batchYears: {
+    async list() {
+      return request<any[]>('/batch-years');
+    },
+    async create(data: any) {
+      return request<any>('/batch-years', { method: 'POST', body: JSON.stringify(data) });
+    },
+    async update(id: string, data: any) {
+      return request<any>(`/batch-years/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+    async remove(id: string) {
+      return request<any>(`/batch-years/${id}`, { method: 'DELETE' });
+    },
+  },
+
+  users: {
+    async list() {
+      return request<any[]>('/users');
+    },
+    async getProfile(userId: string) {
+      return request<any>(`/users/profile/${userId}`);
+    },
+    async updateProfile(userId: string, patch: any) {
+      return request<any>(`/users/profile/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(patch),
+      });
     },
   },
 

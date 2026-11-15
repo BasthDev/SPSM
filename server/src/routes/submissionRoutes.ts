@@ -14,10 +14,19 @@ router.get('/comparable-titles', (req, res, next) => submissionController.compar
 router.get('/', (req, res, next) => submissionController.list(req, res, next));
 router.get('/:id', (req, res, next) => submissionController.getById(req, res, next));
 router.patch(
+  '/:id',
+  requireRole('admin', 'kaprodi', 'akademik', 'lecturer'),
+  (req, res, next) => submissionController.updateSubmission(req, res, next)
+);
+router.patch(
   '/:id/status',
   requireRole('admin', 'kaprodi', 'akademik', 'lecturer'),
   (req, res, next) => submissionController.updateStatus(req, res, next)
 );
+router.get('/:id/options', (req, res, next) => submissionController.listOptions(req, res, next));
+router.patch('/options/:optionId', requireRole('admin', 'kaprodi', 'akademik', 'lecturer'), (req, res, next) => submissionController.updateOption(req, res, next));
+router.get('/:id/logs', (req, res, next) => submissionController.listLogs(req, res, next));
+router.post('/:id/logs', requireRole('admin', 'kaprodi', 'akademik', 'lecturer'), (req, res, next) => submissionController.createLog(req, res, next));
 router.post('/:id/revision', (req, res, next) => submissionController.resubmitRevision(req, res, next));
 
 export default router;

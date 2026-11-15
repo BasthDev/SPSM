@@ -2,7 +2,7 @@ import { Client, Storage, ID, Query } from 'node-appwrite';
 // @ts-ignore
 import { InputFile } from 'node-appwrite/file';
 import { config } from '../config';
-import { IStorageAdapter, UploadedFileDto, StorageBucket } from './types';
+import { IStorageAdapter, UploadedFileDto, StorageBucket, UploadMeta } from './types';
 
 export class AppwriteStorageAdapter implements IStorageAdapter {
   private client: Client;
@@ -42,7 +42,8 @@ export class AppwriteStorageAdapter implements IStorageAdapter {
     bucket: StorageBucket,
     fileBuffer: Buffer,
     fileName: string,
-    mimeType: string
+    mimeType: string,
+    _meta?: UploadMeta
   ): Promise<UploadedFileDto> {
     const bucketId = this.getBucketId(bucket);
     const fileId = ID.unique();

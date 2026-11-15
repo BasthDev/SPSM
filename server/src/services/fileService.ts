@@ -1,4 +1,4 @@
-import { storageAdapter, UploadedFileDto, StorageBucket } from '../storage';
+import { storageAdapter, UploadedFileDto, StorageBucket, UploadMeta } from '../storage';
 
 /**
  * Map client-facing bucket names to internal storage buckets.
@@ -23,12 +23,13 @@ export class FileService {
     bucket: StorageBucket,
     buffer: Buffer,
     fileName: string,
-    mimeType: string
+    mimeType: string,
+    meta?: UploadMeta
   ): Promise<UploadedFileDto> {
-    const prefixedName = bucket === 'sk' && !fileName.startsWith('skscan_')
+    const prefixedName = bucket === 'sk' && !fileName.startsWith('skscan_') && meta?.kind !== 'template' && meta?.kind !== 'generated'
       ? `skscan_${fileName}`
       : fileName;
-    return storageAdapter.uploadFile(bucket, buffer, prefixedName, mimeType);
+    return storageAdapter.uploadFile(bucket, buffer, prefixedName, mimeType, meta);
   }
 
   getViewUrl(bucket: StorageBucket, fileId: string): string {
@@ -53,6 +54,17 @@ export class FileService {
 
   async listFiles(bucket: StorageBucket, search?: string): Promise<UploadedFileDto[]> {
     return storageAdapter.listFiles(bucket, search);
+  }
+
+  /** Resolve URL view/download yang sebenarnya (PB butuh lookup record async). */
+  async resolveFileUrl(bucket: StorageBucket, fileId: string, disposition: 'inline' | 'attachment' = 'inline'): Promise<string | null> {
+    const adapter = storageAdapter as any;
+    if (typeof adapter.resolveFileUrl === 'function') {
+      return adapter.resolveFileUrl(bucket, fileId, disposition);
+    }
+    return disposition === 'attachment'
+      ? this.getDownloadUrl(bucket, fileId)
+      : this.getViewUrl(bucket, fileId);
   }
 }
 

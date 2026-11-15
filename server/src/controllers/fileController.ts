@@ -18,11 +18,25 @@ export class FileController {
       }
 
       const bucket = resolveBucket(req.body.bucket) || 'journals';
+      // kind='template'|'generated' khusus admin — file SK internal.
+      const requestedKind = typeof req.body.kind === 'string' ? req.body.kind : undefined;
+      const isAdmin = Boolean(req.user?.isAdmin) || req.user?.role === 'admin';
+      let meta: { kind?: string } | undefined;
+      if (requestedKind === 'template' || requestedKind === 'generated') {
+        if (!isAdmin) {
+          res.status(403).json({ success: false, error: 'Hanya admin yang dapat mengatur file template SK.' });
+          return;
+        }
+        meta = { kind: requestedKind };
+      } else if (requestedKind === 'scan') {
+        meta = { kind: 'scan' };
+      }
       const uploaded = await fileService.uploadFile(
         bucket,
         req.file.buffer,
         req.file.originalname,
-        req.file.mimetype
+        req.file.mimetype,
+        meta
       );
 
       res.status(201).json({
@@ -45,7 +59,12 @@ export class FileController {
       badBucket(res);
       return;
     }
-    const url = fileService.getViewUrl(bucket, req.params.id);
+    const url = (await fileService.resolveFileUrl(bucket, req.params.id, 'inline'))
+      || fileService.getViewUrl(bucket, req.params.id);
+    if (!url) {
+      res.status(404).json({ success: false, error: 'File tidak ditemukan.' });
+      return;
+    }
     res.redirect(302, url);
   }
 
@@ -58,7 +77,12 @@ export class FileController {
       badBucket(res);
       return;
     }
-    const url = fileService.getDownloadUrl(bucket, req.params.id);
+    const url = (await fileService.resolveFileUrl(bucket, req.params.id, 'attachment'))
+      || fileService.getDownloadUrl(bucket, req.params.id);
+    if (!url) {
+      res.status(404).json({ success: false, error: 'File tidak ditemukan.' });
+      return;
+    }
     res.redirect(302, url);
   }
 
@@ -72,12 +96,16 @@ export class FileController {
       badBucket(res);
       return;
     }
+    const viewUrl = (await fileService.resolveFileUrl(bucket, req.params.id, 'inline'))
+      || fileService.getViewUrl(bucket, req.params.id);
+    const downloadUrl = (await fileService.resolveFileUrl(bucket, req.params.id, 'attachment'))
+      || fileService.getDownloadUrl(bucket, req.params.id);
     res.json({
       success: true,
       data: {
-        url: fileService.getViewUrl(bucket, req.params.id),
-        viewUrl: fileService.getViewUrl(bucket, req.params.id),
-        downloadUrl: fileService.getDownloadUrl(bucket, req.params.id),
+        url: viewUrl,
+        viewUrl,
+        downloadUrl,
       },
     });
   }

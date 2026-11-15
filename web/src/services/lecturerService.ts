@@ -1,19 +1,13 @@
-import { databases, APPWRITE_CONFIG, ID, Query } from '../lib/appwrite';
+import { apiClient } from './apiClient';
+import { mapLecturer } from '../lib/mappers';
 import type { Lecturer } from '../types';
 
 export const lecturerService = {
   async getLecturers(role?: string): Promise<Lecturer[]> {
     try {
-      const queries = [Query.orderAsc('name'), Query.limit(100)];
-      if (role) {
-        queries.push(Query.equal('role', role));
-      }
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.lecturers,
-        queries
-      );
-      return res.documents as unknown as Lecturer[];
+      const list = await apiClient.lecturers.list({});
+      const mapped = (list || []).map(mapLecturer);
+      return role ? mapped.filter((l) => l.role === role) : mapped;
     } catch (err) {
       console.error('Error fetching lecturers:', err);
       return [];
@@ -22,12 +16,8 @@ export const lecturerService = {
 
   async getLecturerById(id: string): Promise<Lecturer | null> {
     try {
-      const res = await databases.getDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.lecturers,
-        id
-      );
-      return res as unknown as Lecturer;
+      const res = await apiClient.lecturers.getById(id);
+      return res ? mapLecturer(res) : null;
     } catch (err) {
       console.error('Error getting lecturer:', err);
       return null;
@@ -36,69 +26,42 @@ export const lecturerService = {
 
   async getLecturerByUserId(userId: string): Promise<Lecturer | null> {
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.lecturers,
-        [Query.equal('user_id', userId), Query.limit(1)]
-      );
-      return res.documents.length > 0 ? (res.documents[0] as unknown as Lecturer) : null;
+      const list = await apiClient.lecturers.list({});
+      const found = (list || []).find((l: any) => (l.user_id ?? l.userId) === userId);
+      return found ? mapLecturer(found) : null;
     } catch (err) {
       console.error('Error getting lecturer by user_id:', err);
       return null;
     }
   },
 
-  async createLecturer(data: Omit<Lecturer, '$id'>): Promise<Lecturer> {
-    const res = await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      ID.unique(),
-      data
-    );
-    return res as unknown as Lecturer;
+  async getLecturerByEmail(email: string): Promise<Lecturer | null> {
+    try {
+      const list = await apiClient.lecturers.list({});
+      const found = (list || []).find(
+        (l: any) => (l.email || '').toLowerCase() === email.toLowerCase()
+      );
+      return found ? mapLecturer(found) : null;
+    } catch (err) {
+      console.error('Error getting lecturer by email:', err);
+      return null;
+    }
+  },
+
+  async createLecturer(data: Partial<Lecturer>): Promise<Lecturer> {
+    const res = await apiClient.lecturers.create(toPayload(data));
+    return mapLecturer(res);
   },
 
   async updateLecturer(id: string, data: Partial<Lecturer>): Promise<Lecturer> {
-    const res = await databases.updateDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      id,
-      data
-    );
-
-    // If role changed and user_id or email exists, sync role to users collection
-    if (data.role && (res.user_id || res.email)) {
-      try {
-        const userQueries = res.user_id
-          ? [Query.equal('user_id', res.user_id)]
-          : [Query.equal('email', res.email)];
-        const userDocs = await databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.users,
-          userQueries
-        );
-        for (const u of userDocs.documents) {
-          await databases.updateDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.users,
-            u.$id,
-            { role: data.role }
-          );
-        }
-      } catch (err) {
-        console.warn('Sync role to users collection warning:', err);
-      }
-    }
-
-    return res as unknown as Lecturer;
+    const res = await apiClient.lecturers.update(id, toPayload(data));
+    // Sync role ke users collection ditangani backend bila perlu;
+    // di sini cukup update record dosen.
+    return mapLecturer(res);
   },
 
   async deleteLecturer(id: string): Promise<boolean> {
-    await databases.deleteDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.lecturers,
-      id
-    );
+    await apiClient.lecturers.remove(id);
     return true;
   },
 
@@ -110,27 +73,14 @@ export const lecturerService = {
   async syncStudentCount(advisorId: string): Promise<number> {
     if (!advisorId) return 0;
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.thesisSubmissions,
-        [
-          Query.equal('status', 'approved'),
-          Query.limit(200),
-        ]
-      );
-      // Count submissions where advisorId is in advisor_id (comma-separated or single)
-      const count = res.documents.filter((doc: any) => {
-        if (!doc.advisor_id) return false;
-        const parts = String(doc.advisor_id).split(',').map((s: string) => s.trim());
-        return parts.includes(advisorId);
+      const subs = await apiClient.submissions.list({ status: 'approved' });
+      const count = (subs || []).filter((doc: any) => {
+        const adv1 = doc.advisor1Id ?? doc.advisor1_id;
+        const adv2 = doc.advisor2Id ?? doc.advisor2_id;
+        return adv1 === advisorId || adv2 === advisorId;
       }).length;
 
-      await databases.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.lecturers,
-        advisorId,
-        { current_students: count }
-      );
+      await apiClient.lecturers.update(advisorId, { currentStudents: count });
       return count;
     } catch (err) {
       console.error('Failed to sync student count:', err);
@@ -142,3 +92,13 @@ export const lecturerService = {
     await this.syncStudentCount(id);
   },
 };
+
+function toPayload(d: Partial<Lecturer>): any {
+  const out: any = { ...d };
+  if (out.user_id !== undefined) { out.userId = out.user_id; delete out.user_id; }
+  if (out.department_id !== undefined) { out.departmentId = out.department_id; delete out.department_id; }
+  if (out.is_active !== undefined) { out.isActive = out.is_active; delete out.is_active; }
+  if (out.current_students !== undefined) { out.currentStudents = out.current_students; delete out.current_students; }
+  delete out.$id; delete out.$createdAt; delete out.$updatedAt;
+  return out;
+}
