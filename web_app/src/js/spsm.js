@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient.js';
+import { apiClient, setAuthToken } from './apiClient.js';
 
 const PRODI_CODE_MAP = {
   'ILMU HUKUM': 'IH',
@@ -66,17 +66,41 @@ export function formatDateShort(isoString) {
 }
 
 export const authService = {
-  loginWithGoogle() {
-    const origin = window.location.origin;
-    const path = window.location.pathname.replace(/\/[^/]*$/, '/');
-    const successUrl = origin + path + 'index.html';
-    const failureUrl = origin + path + 'signin.html?error=oauth_failed';
-    const params = new URLSearchParams({
-      project: '6af1b3b200056ab6bc1d',
-      success: successUrl,
-      failure: failureUrl,
-    });
-    window.location.href = `https://sgp.cloud.appwrite.io/v1/account/tokens/oauth2/google?${params.toString()}`;
+  async loginWithGoogle() {
+    const { url, key } = await apiClient.auth.oauthStart();
+    if (!url || !key) throw new Error('Gagal memulai login Google.');
+
+    const popup = window.open(url, 'spsm_oauth', 'width=520,height=680');
+    if (!popup) throw new Error('Popup diblokir browser. Izinkan popup untuk login.');
+
+    const deadline = Date.now() + 3 * 60 * 1000;
+    while (Date.now() < deadline) {
+      if (popup.closed) {
+        await new Promise((r) => setTimeout(r, 800));
+        const last = await apiClient.auth.oauthStatus(key).catch(() => null);
+        if (last?.status === 'done' && last?.token) {
+          setAuthToken(last.token);
+          window.location.href = 'index.html';
+          return last.user;
+        }
+        throw new Error('Login dibatalkan.');
+      }
+
+      const status = await apiClient.auth.oauthStatus(key).catch(() => null);
+      if (status?.status === 'done' && status?.token) {
+        try { popup.close(); } catch {}
+        setAuthToken(status.token);
+        window.location.href = 'index.html';
+        return status.user;
+      }
+      if (status?.status === 'error') {
+        try { popup.close(); } catch {}
+        throw new Error(status.error || 'Autentikasi Google gagal.');
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    try { popup.close(); } catch {}
+    throw new Error('Login kedaluwarsa. Silakan coba lagi.');
   },
 
   async loginWithEmail(email, pass) {

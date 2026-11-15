@@ -20,14 +20,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (googleBtn) {
-    googleBtn.addEventListener('click', (e) => {
+    googleBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      const originalHtml = googleBtn.innerHTML;
       googleBtn.disabled = true;
       googleBtn.innerHTML = `
         <span class="inline-block size-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></span>
         <span class="font-bold text-sm text-default">Mengarahkan ke Google Sign In...</span>
       `;
-      authService.loginWithGoogle();
+      try {
+        await authService.loginWithGoogle();
+      } catch (err) {
+        if (alertBox) {
+          alertBox.innerText = err.message || 'Autentikasi Google gagal.';
+          alertBox.classList.remove('hidden');
+        }
+        googleBtn.disabled = false;
+        googleBtn.innerHTML = originalHtml;
+      }
     });
   }
 

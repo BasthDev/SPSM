@@ -8,7 +8,7 @@ const API_BASE_URL =
   window.API_BASE_URL ||
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000/api'
-    : `${window.location.protocol}//${window.location.hostname}:5000/api`);
+    : 'https://spsmapi.basthstudio.my.id/api');
 
 export function getAuthToken() {
   return localStorage.getItem('spsm_token');
@@ -145,6 +145,15 @@ export const apiClient = {
         setAuthToken(res.token);
       }
       return res;
+    },
+    async oauthStart() {
+      return await request('/auth/oauth/start', {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'google' }),
+      });
+    },
+    async oauthStatus(key) {
+      return await request(`/auth/oauth/status?key=${encodeURIComponent(key)}`);
     },
     async exchangeOAuthSession(userId, secret) {
       const res = await request('/auth/oauth-session', {
