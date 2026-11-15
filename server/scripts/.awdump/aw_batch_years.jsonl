@@ -1,0 +1,4 @@
+{"_id":1,"_uid":"batch_2021","_createdAt":"2026-11-15T14:08:17.112","_updatedAt":"2026-11-15T14:08:17.112","_permissions":[],"year":2021,"label":"Angkatan 2021 (Tingkat Akhir)","is_active":true}
+{"_id":2,"_uid":"batch_2022","_createdAt":"2026-11-15T14:08:17.112","_updatedAt":"2026-11-15T14:08:17.112","_permissions":[],"year":2022,"label":"Angkatan 2022 (Reguler)","is_active":true}
+{"_id":3,"_uid":"batch_2023","_createdAt":"2026-11-15T14:08:17.112","_updatedAt":"2026-11-15T14:08:17.112","_permissions":[],"year":2023,"label":"Angkatan 2023","is_active":true}
+{"_id":4,"_uid":"batch_2024","_createdAt":"2026-11-15T14:08:17.112","_updatedAt":"2026-11-15T14:08:17.112","_permissions":[],"year":2024,"label":"Angkatan 2024","is_active":true}

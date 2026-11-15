@@ -1,74 +1,54 @@
 import { Button, GoogleIcon, LoadingScreen } from '@/components';
+import { apiClient } from '@/services/apiClient';
 import { authService } from '@/services/authService';
 import { prefetchUserData } from '@/services/userDataCache';
-import { Colors } from '@/theme/theme';
-import * as Linking from 'expo-linking';
+import { Colors, Shadows } from '@/theme/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { GraduationCap, ShieldCheck } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { ShieldCheck } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Image, StyleSheet, Text, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const SUCCESS_URL = 'appwrite-callback-6af9b97e002cf5c78067://auth/success';
-const FAILURE_URL = 'appwrite-callback-6af9b97e002cf5c78067://auth/failure';
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Tutup Custom Tab/SFSafariViewController yang dibuka untuk OAuth. */
+const closeAuthBrowser = () => {
+  try {
+    WebBrowser.dismissBrowser();
+  } catch {
+    // Browser sudah tertutup / tidak didukung platform
+  }
+};
 
 export default function LoginScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const handledRef = useRef(false);
+  const cancelledRef = useRef(false);
 
-  const handleAuthCallback = useCallback(
-    async (url: string) => {
-      if (!url || handledRef.current) return;
+  /** Setelah token tersimpan: cek profil → dashboard atau onboarding. */
+  const finishLogin = async () => {
+    const acct = await authService.getCurrentAccount();
+    const profile = await authService.getUserProfile(acct.$id);
 
-      if (url.includes('/auth/success')) {
-        handledRef.current = true;
-        const { queryParams } = Linking.parse(url);
-        const userId = queryParams?.userId as string | undefined;
-        const secret = queryParams?.secret as string | undefined;
-
-        if (userId && secret) {
-          try {
-            setLoading(true);
-            await authService.createSession(userId, secret);
-
-            // Check if profile exists
-            const acct = await authService.getCurrentAccount();
-            const profile = await authService.getUserProfile(acct.$id);
-
-            if (profile) {
-              if (!profile.avatar_url) {
-                try {
-                  const avatar = await authService.fetchGoogleAvatar(acct.name);
-                  await authService.updateAvatarUrl(profile.$id, avatar);
-                } catch {
-                  // ignore
-                }
-              }
-              // Prefetch all dashboard data into local cache in the background
-              void prefetchUserData(acct.$id);
-              router.replace('/dashboard');
-            } else {
-              router.replace('/onboarding');
-            }
-          } catch (e: any) {
-            handledRef.current = false;
-            Alert.alert('Error', 'Gagal membuat sesi. Silakan coba lagi.');
-            console.error('Session creation failed', e);
-          } finally {
-            setLoading(false);
-          }
+    if (profile) {
+      if (!profile.avatar_url) {
+        try {
+          const avatar = await authService.fetchGoogleAvatar(acct.name);
+          await authService.updateAvatarUrl(profile.$id, avatar);
+        } catch {
+          // ignore
         }
-      } else if (url.includes('/auth/failure')) {
-        Alert.alert('Login Gagal', 'Autentikasi Google dibatalkan atau gagal.');
-        setLoading(false);
       }
-    },
-    [router]
-  );
+      void prefetchUserData(acct.$id);
+      router.replace('/dashboard');
+    } else {
+      router.replace('/onboarding');
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -100,35 +80,54 @@ export default function LoginScreen() {
     };
   }, [router]);
 
-  useEffect(() => {
-    const subscription = Linking.addEventListener('url', ({ url }) => {
-      handleAuthCallback(url);
-    });
-
-    Linking.getInitialURL().then((url) => {
-      if (url) handleAuthCallback(url);
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [handleAuthCallback]);
+  const cancelSignIn = () => {
+    cancelledRef.current = true;
+    closeAuthBrowser();
+  };
 
   const signInWithGoogle = async () => {
+    if (loading) return;
+    cancelledRef.current = false;
     try {
       setLoading(true);
-      handledRef.current = false;
-      const loginUrl = authService.createGoogleToken(SUCCESS_URL, FAILURE_URL);
-      const result = await WebBrowser.openAuthSessionAsync(loginUrl, SUCCESS_URL);
 
-      if (result.type === 'success' && result.url) {
-        await handleAuthCallback(result.url);
-      } else if (result.type === 'cancel' || result.type === 'dismiss') {
-        setLoading(false);
+      // 1. Minta backend URL OAuth PocketBase + polling key
+      const { url, key } = await apiClient.auth.oauthStart('google');
+      if (cancelledRef.current) return;
+
+      // 2. Buka halaman Google di browser (Custom Tab / SFSafariViewController)
+      void WebBrowser.openBrowserAsync(url);
+
+      // 3. Polling status sampai user selesai login / timeout 3 menit
+      const deadline = Date.now() + 3 * 60 * 1000;
+      while (Date.now() < deadline) {
+        if (cancelledRef.current) return;
+        await sleep(2500);
+        if (cancelledRef.current) return;
+        const st = await apiClient.auth.oauthStatus(key);
+        if (st.status === 'done' && st.token) {
+          closeAuthBrowser();
+          await apiClient.auth.completeOAuthToken(st.token);
+          await finishLogin();
+          return;
+        }
+        if (st.status === 'error' || st.status === 'expired') {
+          closeAuthBrowser();
+          Alert.alert('Login Gagal', st.error || 'Autentikasi Google gagal.');
+          return;
+        }
+      }
+      if (!cancelledRef.current) {
+        closeAuthBrowser();
+        Alert.alert('Login Gagal', 'Waktu login habis. Silakan coba lagi.');
       }
     } catch (e: any) {
-      Alert.alert('Error', 'Gagal memulai proses login.');
+      if (cancelledRef.current) return;
+      closeAuthBrowser();
+      Alert.alert('Error', e?.message || 'Gagal memulai proses login.');
       console.error('OAuth start failed', e);
+    } finally {
+      cancelledRef.current = false;
       setLoading(false);
     }
   };
@@ -139,24 +138,28 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Main Content Card */}
-      <View style={styles.card}>
-        {/* Brand Icon */}
-        <View style={styles.iconCircle}>
-          <GraduationCap size={36} color={Colors.primary} strokeWidth={2.2} />
+      {/* Hero section */}
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryLight]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
+        <View style={styles.logoBadge}>
+          <Image source={require('../assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
+        <Text style={styles.appName}>SPSM-KU</Text>
+        <Text style={styles.appSubtitle}>Sarana Pengajuan Skripsi Mahasiswa</Text>
+        <Text style={styles.univName}>Universitas Muhammadiyah Aceh</Text>
+      </LinearGradient>
 
-        {/* Brand Title */}
-        <Text style={styles.appName}>SPSM</Text>
-        <Text style={styles.appFullName}>Sarana Pengajuan Skripsi Mahasiswa</Text>
-
-        <View style={styles.divider} />
-
-        <Text style={styles.tagline}>
-          Kelola pengajuan judul skripsi dan pantau alur penetapan Dosen Pembimbing secara transparan dan mudah.
+      {/* Form card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Selamat Datang</Text>
+        <Text style={styles.cardSubtitle}>
+          Masuk dengan akun Google institusi untuk mengakses dashboard pengajuan skripsi Anda.
         </Text>
 
-        {/* Sign in Button */}
         <Button
           title="Sign in with Google"
           onPress={signInWithGoogle}
@@ -166,12 +169,18 @@ export default function LoginScreen() {
           style={styles.googleButton}
         />
 
-        {/* Security / Institutional Note */}
+        {loading && (
+          <Button
+            title="Batal"
+            onPress={cancelSignIn}
+            variant="outline"
+            style={styles.cancelButton}
+          />
+        )}
+
         <View style={styles.securityRow}>
           <ShieldCheck size={14} color={Colors.textTertiary} strokeWidth={2} />
-          <Text style={styles.footer}>
-            Gunakan akun Google institusi untuk masuk
-          </Text>
+          <Text style={styles.footer}>Data Anda aman dan terenkripsi</Text>
         </View>
       </View>
     </View>
@@ -181,72 +190,91 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
     backgroundColor: Colors.background,
   },
-  card: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: Colors.card,
-    borderRadius: 28,
-    padding: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#0A4C8F',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#E0F2FE',
+  hero: {
+    flex: 1.1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#BAE6FD',
+    paddingHorizontal: 32,
+    paddingTop: 48,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+  },
+  logoBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    ...Shadows.lg,
+  },
+  logo: {
+    width: 64,
+    height: 64,
   },
   appName: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '900',
-    color: Colors.primary,
-    letterSpacing: 2,
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
-  appFullName: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    fontWeight: '600',
-    marginTop: 2,
+  appSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+    marginTop: 6,
     textAlign: 'center',
   },
-  divider: {
-    width: 40,
-    height: 3,
-    backgroundColor: Colors.primary,
-    borderRadius: 2,
-    marginVertical: 18,
+  univName: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: '600',
+    marginTop: 14,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  tagline: {
+  card: {
+    flex: 1,
+    backgroundColor: Colors.card,
+    marginTop: -60,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 28,
+    paddingTop: 32,
+    paddingBottom: 40,
+    alignItems: 'center',
+    ...Shadows.md,
+  },
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  cardSubtitle: {
     fontSize: 13.5,
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+    marginTop: 8,
     marginBottom: 28,
+    paddingHorizontal: 8,
   },
   googleButton: {
     width: '100%',
     borderRadius: 16,
   },
+  cancelButton: {
+    width: '100%',
+    borderRadius: 16,
+    marginTop: 10,
+  },
   securityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
     gap: 6,
   },
   footer: {

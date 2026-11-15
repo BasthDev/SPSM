@@ -1,0 +1,18 @@
+{"_id":1,"_uid":"IH","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Ilmu Hukum","code":"IH","faculty":"Fakultas Hukum","is_active":true}
+{"_id":2,"_uid":"AKT","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Akuntansi","code":"AKT","faculty":"Fakultas Ekonomi","is_active":true}
+{"_id":3,"_uid":"MNJ","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Manajemen","code":"MNJ","faculty":"Fakultas Ekonomi","is_active":true}
+{"_id":4,"_uid":"BD","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Bisnis Digital","code":"BD","faculty":"Fakultas Ekonomi","is_active":true}
+{"_id":5,"_uid":"KWU","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Kewirausahaan","code":"KWU","faculty":"Fakultas Ekonomi","is_active":true}
+{"_id":6,"_uid":"AGB","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Agribisnis","code":"AGB","faculty":"Fakultas Ekonomi","is_active":true}
+{"_id":7,"_uid":"ARS","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Arsitektur","code":"ARS","faculty":"Fakultas Teknik","is_active":true}
+{"_id":8,"_uid":"TSI","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Teknik Sipil","code":"TSI","faculty":"Fakultas Teknik","is_active":true}
+{"_id":9,"_uid":"MBN","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Manajemen Bencana","code":"MBN","faculty":"Fakultas Teknik","is_active":true}
+{"_id":10,"_uid":"PAI","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Pendidikan Agama Islam","code":"PAI","faculty":"Fakultas Agama Islam","is_active":true}
+{"_id":11,"_uid":"TBI","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Tadris Bahasa Inggris","code":"TBI","faculty":"Fakultas Agama Islam","is_active":true}
+{"_id":12,"_uid":"TBO","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Tadris Biologi","code":"TBO","faculty":"Fakultas Agama Islam","is_active":true}
+{"_id":13,"_uid":"TMK","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Tadris Matematika","code":"TMK","faculty":"Fakultas Agama Islam","is_active":true}
+{"_id":14,"_uid":"PBS","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Perbankan Syariah","code":"PBS","faculty":"Fakultas Agama Islam","is_active":true}
+{"_id":15,"_uid":"IKM","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Ilmu Kesehatan Masyarakat","code":"IKM","faculty":"Fakultas Kesehatan Masyarakat","is_active":true}
+{"_id":16,"_uid":"PSI","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Psikologi","code":"PSI","faculty":"Fakultas Psikologi","is_active":true}
+{"_id":17,"_uid":"PHO","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Perhotelan","code":"PHO","faculty":"Fakultas Vokasi","is_active":true}
+{"_id":18,"_uid":"FIS","_createdAt":"2026-11-15T14:08:16.855","_updatedAt":"2026-11-15T14:08:16.855","_permissions":[],"name":"Fisioterapi","code":"FIS","faculty":"Fakultas Vokasi","is_active":true}

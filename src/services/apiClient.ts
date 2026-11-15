@@ -155,6 +155,24 @@ export const apiClient = {
       }
       return res;
     },
+    /** PocketBase OAuth2: mulai flow -> {url, key}. */
+    async oauthStart(provider = 'google') {
+      return request<{ url: string; key: string }>('/auth/oauth/start', {
+        method: 'POST',
+        body: JSON.stringify({ provider }),
+      });
+    },
+    /** Polling status OAuth -> {status, token?, user?, error?}. */
+    async oauthStatus(key: string) {
+      return request<{ status: string; token?: string; user?: any; error?: string }>(
+        `/auth/oauth/status?key=${encodeURIComponent(key)}`
+      );
+    },
+    /** Simpan token hasil OAuth ke secure store. */
+    async completeOAuthToken(token: string) {
+      await setAuthToken(token);
+      return { token };
+    },
     async getCurrentUser() {
       return request<any>('/auth/me');
     },

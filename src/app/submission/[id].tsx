@@ -1,10 +1,9 @@
 import { AppHeader, Avatar, Button, LoadingScreen, Section, StatusBadge } from '@/components';
-import { type ThesisSubmission } from '@/models/types';
-import { isActiveSubmissionStatus } from '@/models/types';
-import { authService } from '@/services/authService';
-import { submissionService } from '@/services/submissionService';
+import { isActiveSubmissionStatus, type ThesisSubmission } from '@/models/types';
 import { apiClient } from '@/services/apiClient';
+import { authService } from '@/services/authService';
 import { onRealtimeEvent } from '@/services/realtimeService';
+import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -299,7 +298,7 @@ Tanggal Pengesahan: ${formattedApprovalDate || '-'}
 Disahkan oleh Kaprodi: ${submission.kaprodiName || 'Ketua Program Studi'}
 Catatan Pengesahan: ${submission.kaprodiNotes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.'}
 
-Sistem Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`;
+Sarana Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`;
 
     try {
       await Share.share({

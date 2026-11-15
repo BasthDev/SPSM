@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { AppHeader, Section } from '@/components';
 import { Colors } from '@/theme/theme';
 import {
+  AlertTriangle,
   BookOpen,
   CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Clock,
-  FileText,
-  User,
-  HelpCircle,
   ChevronDown,
   ChevronUp,
+  Clock,
+  FileText,
+  HelpCircle,
   MessageCircle,
+  User,
+  XCircle,
 } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type AccordionItemProps = {
   title: string;
@@ -200,7 +200,7 @@ export default function PanduanScreen() {
             {/* Introduction */}
             <AccordionItem
               title="Tentang Aplikasi SPSM-KU"
-              subtitle="Sistem Pengajuan Judul Skripsi Mahasiswa"
+              subtitle="Sarana Pengajuan Judul Skripsi Mahasiswa"
               icon={<BookOpen size={22} color={Colors.primary} strokeWidth={2} />}
               iconBgColor="#EFF6FF"
               defaultExpanded={true}

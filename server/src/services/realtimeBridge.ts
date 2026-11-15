@@ -86,6 +86,11 @@ function broadcast(event: RealtimeEvent, predicate?: (user: AuthUser) => boolean
   }
 }
 
+/** PocketBase record id: `id` (PB) atau `$id` (Appwrite legacy). */
+function docId(doc: any): string {
+  return doc?.id ?? doc?.$id ?? '';
+}
+
 /** Tentukan pemilik data dari dokumen mentah. */
 function ownerOfDoc(collectionKey: string, doc: any): string | null {
   if (collectionKey === 'submissions') return doc.student_id || null;
@@ -127,18 +132,18 @@ async function pollOnce() {
       initialized.add(collection);
 
       for (const doc of docs) {
-        const docId = doc.$id;
-        const updatedAt = doc.$updatedAt || doc.$createdAt || '';
-        const prev = map.get(docId);
+        const id = docId(doc);
+        const updatedAt = doc.updated || doc.$updatedAt || doc.$createdAt || '';
+        const prev = map.get(id);
         if (prev === updatedAt) continue;
         const isNew = prev === undefined;
 
         // Bangun cache owner untuk submissions (doc terbaru saja sudah cukup)
         if (key === 'submissions' && doc.student_id) {
-          submissionOwners.set(docId, doc.student_id);
+          submissionOwners.set(id, doc.student_id);
         }
 
-        map.set(docId, updatedAt);
+        map.set(id, updatedAt);
 
         // Update dokument lama yang tidak ada di 50 terbaru diabaikan —
         // watermark tetap maju sehingga tidak ada event dobel.
@@ -158,11 +163,17 @@ async function handleDocEvent(
   collectionKey: string,
   collection: string,
   doc: any,
-  action: 'create' | 'update'
+  action: 'create' | 'update' | 'delete'
 ) {
+  const id = docId(doc);
   if (collectionKey === 'systemSettings') {
-    broadcast({ v: 1, type: 'settings', collection, id: doc.$id, action });
+    broadcast({ v: 1, type: 'settings', collection, id, action });
     return;
+  }
+
+  // Update cache owner untuk submissions (termasuk delete: biarkan, record masih ada)
+  if (collectionKey === 'submissions' && doc.student_id) {
+    submissionOwners.set(id, doc.student_id);
   }
 
   let ownerId = ownerOfDoc(collectionKey, doc);
@@ -172,13 +183,13 @@ async function handleDocEvent(
   }
 
   const submissionId =
-    collectionKey === 'submissions' ? doc.$id : doc.submission_id || doc.submissionId || undefined;
+    collectionKey === 'submissions' ? id : doc.submission_id || doc.submissionId || undefined;
 
   const event: RealtimeEvent = {
     v: 1,
     type: 'entity',
     collection: collectionKey,
-    id: doc.$id,
+    id,
     action,
     submissionId,
     ownerId: ownerId || undefined,
@@ -272,14 +283,48 @@ function handleUpgrade(request: any, socket: any, head: any) {
   });
 }
 
+/**
+ * PocketBase realtime: subscribe SSE per koleksi yang ditonton.
+ * Tidak butuh polling — PB push event create/update/delete langsung.
+ * Return false jika adapter bukan PocketBase.
+ */
+async function startPocketBaseRealtime(): Promise<boolean> {
+  if (config.dbAdapter !== 'pocketbase') return false;
+  const pb = (db as any).client;
+  if (!pb?.collection || !pb?.realtime) return false;
+
+  for (const { key, collection } of WATCHED) {
+    try {
+      await pb.collection(collection).subscribe('*', (e: any) => {
+        const doc = e.record;
+        if (!doc) return;
+        const action = e.action === 'delete' ? 'delete' : e.action === 'create' ? 'create' : 'update';
+        void handleDocEvent(key, collection, doc, action);
+      });
+      console.log(`[rt] subscribed ${collection}`);
+    } catch (err) {
+      console.warn(`[rt] subscribe ${collection} gagal:`, (err as Error).message);
+    }
+  }
+  return true;
+}
+
 export function attachRealtimeBridge(server: Server) {
   server.on('upgrade', handleUpgrade);
 
-  // Poller delta — langsung jalan pertama kali untuk baseline
-  pollTimer = setInterval(() => {
-    void pollOnce();
-  }, POLL_MS);
-  pollTimer.unref?.();
+  void (async () => {
+    const usingPb = await startPocketBaseRealtime();
+    if (usingPb) {
+      console.log('[rt] Realtime bridge aktif via PocketBase SSE, path /api/realtime');
+      return;
+    }
+    // Fallback: Appwrite delta-poller
+    pollTimer = setInterval(() => {
+      void pollOnce();
+    }, POLL_MS);
+    pollTimer.unref?.();
+    console.log(`[rt] Realtime bridge aktif — poll tiap ${POLL_MS / 1000}s, path /api/realtime`);
+  })();
 
   // Keepalive WS
   pingTimer = setInterval(() => {
@@ -294,6 +339,4 @@ export function attachRealtimeBridge(server: Server) {
     }
   }, 30_000);
   pingTimer.unref?.();
-
-  console.log(`[rt] Realtime bridge aktif — poll tiap ${POLL_MS / 1000}s, path /api/realtime`);
 }

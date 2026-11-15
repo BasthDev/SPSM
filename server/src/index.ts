@@ -1,3 +1,9 @@
+// Node <22 tidak punya global EventSource — dibutuhkan PocketBase realtime (SSE)
+import { EventSource as PolyfillEventSource } from 'eventsource';
+if (typeof (globalThis as any).EventSource === 'undefined') {
+  (globalThis as any).EventSource = PolyfillEventSource;
+}
+
 import { app } from './app';
 import { config } from './config';
 import { startPeriodWatcher } from './services/periodWatcher';

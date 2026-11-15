@@ -47,6 +47,31 @@ export class AuthController {
     }
   }
 
+  /** POST /api/auth/oauth/start — {provider?} -> {url, key} untuk flow PB OAuth2. */
+  async oauthStart(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const provider = typeof req.body?.provider === 'string' ? req.body.provider : 'google';
+      const result = await authService.startOAuth(provider);
+      res.json({ success: true, data: result });
+    } catch (err: any) {
+      res.status(err?.statusCode || 400).json({
+        success: false,
+        error: err.message || 'Gagal memulai OAuth.',
+      });
+    }
+  }
+
+  /** GET /api/auth/oauth/status?key=... — polling hasil OAuth. */
+  oauthStatus(req: Request, res: Response, next: NextFunction): void {
+    const key = typeof req.query?.key === 'string' ? req.query.key : '';
+    if (!key) {
+      res.status(400).json({ success: false, error: 'key wajib diisi.' });
+      return;
+    }
+    const result = authService.pollOAuth(key);
+    res.json({ success: result.status !== 'error' && result.status !== 'expired', data: result });
+  }
+
   async me(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {

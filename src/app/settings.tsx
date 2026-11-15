@@ -1,17 +1,3 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Linking,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import Constants from 'expo-constants';
 import { AppHeader, Section } from '@/components';
 import {
   getNotificationPermission,
@@ -24,6 +10,8 @@ import {
   type NotificationPermission,
 } from '@/services/notificationService';
 import { Colors } from '@/theme/theme';
+import Constants from 'expo-constants';
+import { useFocusEffect } from 'expo-router';
 import {
   Bell,
   BellRing,
@@ -33,6 +21,18 @@ import {
   Send,
   ShieldCheck,
 } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Linking,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function SettingsScreen() {
   const [enabled, setEnabled] = useState(false);
@@ -201,7 +201,7 @@ export default function SettingsScreen() {
           <View style={styles.infoGrid}>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Aplikasi</Text>
-              <Text style={styles.infoValue}>Sistem Penerimaan Skripsi</Text>
+              <Text style={styles.infoValue}>Sarana Pengajuan Skripsi</Text>
             </View>
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>Versi</Text>

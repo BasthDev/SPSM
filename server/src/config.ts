@@ -7,6 +7,12 @@ export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_SECRET || 'default_spsm_secret_jwt_change_in_prod',
+  dbAdapter: process.env.DB_ADAPTER || 'appwrite',
+  pocketbase: {
+    url: process.env.POCKETBASE_URL || 'https://spsm.basthstudio.my.id',
+    adminEmail: process.env.POCKETBASE_ADMIN_EMAIL || '',
+    adminPassword: process.env.POCKETBASE_ADMIN_PASSWORD || '',
+  },
   appwrite: {
     endpoint: process.env.APPWRITE_ENDPOINT || 'https://spsm.basthstudio.my.id/v1',
     projectId: process.env.APPWRITE_PROJECT_ID || '6af9b97e002cf5c78067',

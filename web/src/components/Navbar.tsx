@@ -1,14 +1,13 @@
+import {
+  Award,
+  FileCheck,
+  GraduationCap,
+  LogOut,
+  ShieldCheck,
+  UserCheck
+} from 'lucide-react';
 import React from 'react';
 import type { UserRole } from '../types';
-import {
-  GraduationCap,
-  ShieldCheck,
-  FileCheck,
-  Award,
-  UserCheck,
-  LogOut,
-  Building,
-} from 'lucide-react';
 
 interface Props {
   currentRole: UserRole;
@@ -89,7 +88,7 @@ export const Navbar: React.FC<Props> = ({
           </div>
           <div className="brand-text-col">
             <div className="brand-title">SPSM PORTAL</div>
-            <div className="brand-subtitle">Sistem Pengajuan Skripsi Mahasiswa</div>
+            <div className="brand-subtitle">Sarana Pengajuan Skripsi Mahasiswa</div>
           </div>
         </div>
 
