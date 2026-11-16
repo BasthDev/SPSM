@@ -30,7 +30,8 @@ const collections = [
     type: 'auth',
     fields: [
       T('user_id'),           // legacy Appwrite user id
-      T('role'),              // student | lecturer | kaprodi | akademik
+      T('name'),              // nama lengkap (Google OAuth / onboarding)
+      T('role'),              // student | lecturer | kaprodi | akademik | reviewer
       T('nim_or_nip'),
       T('department'),
       N('batch_year'),
@@ -128,6 +129,8 @@ const collections = [
       T('expertise'),
       N('quota'),
       N('current_students'),
+      N('rejected_assignments'),
+      J('rejection_history'),
       T('role'),
       B('is_active'),
       T('appwrite_id'),
@@ -165,6 +168,35 @@ const collections = [
       N('min_sks'),
       N('required_title_count'),
       J('required_courses'),
+      T('appwrite_id'),
+    ],
+  },
+  // ---- File storage buckets (dipakai pocketbaseStorageAdapter) ----
+  {
+    name: 'repo_files',
+    type: 'base',
+    fields: [
+      T('name'),
+      T('original_name'),
+      N('size'),
+      T('mime'),
+      T('kind'),
+      T('submission_id'),
+      FILE('file'),
+      T('appwrite_id'),
+    ],
+  },
+  {
+    name: 'sk_files',
+    type: 'base',
+    fields: [
+      T('name'),
+      T('original_name'),
+      N('size'),
+      T('mime'),
+      T('kind'),           // template | scan | generated
+      T('submission_id'),
+      FILE('file'),
       T('appwrite_id'),
     ],
   },
