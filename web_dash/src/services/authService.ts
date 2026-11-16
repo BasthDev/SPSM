@@ -44,19 +44,8 @@ export const authService = {
 
     const deadline = Date.now() + OAUTH_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      if (popup.closed) {
-        // User menutup popup manual — cek status terakhir kali.
-        await new Promise((r) => setTimeout(r, 800));
-        const last = await apiClient
-          .request<any>(`/auth/oauth/status?key=${encodeURIComponent(key)}`)
-          .catch(() => null);
-        if (last?.status === 'done' && last?.token) {
-          localStorage.setItem('spsm_token', last.token);
-          return last.user;
-        }
-        throw new Error('Login dibatalkan.');
-      }
-
+      // Popup boleh ditutup user setelah "Auth completed" — polling tetap
+      // jalan sampai backend selesai exchange (sama seperti mobile).
       const status = await apiClient
         .request<any>(`/auth/oauth/status?key=${encodeURIComponent(key)}`)
         .catch(() => null);
@@ -87,7 +76,9 @@ export const authService = {
     try {
       popup.close();
     } catch {}
-    throw new Error('Waktu login habis. Coba lagi.');
+    throw new Error(
+      popup.closed ? 'Login dibatalkan.' : 'Waktu login habis. Coba lagi.'
+    );
   },
 
   /**
