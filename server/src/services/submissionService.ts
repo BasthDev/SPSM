@@ -1,5 +1,6 @@
 import { db } from '../database';
 import {
+  ApprovalLogDto,
   SubmissionDto,
   SubmissionStatus,
   normalizeSubmissionStatus,
@@ -34,6 +35,73 @@ async function resolveLecturer(id?: string | null) {
 }
 
 export class SubmissionService {
+  /** Cache resolusi actor_id -> nama tampil (nama user jarang berubah). */
+  private actorNameCache = new Map<string, string | null>();
+
+  /**
+   * Resolve actor_id approval log ke nama manusia.
+   * actor_id bisa berupa: user id auth, id dokumen user profile, id/NIP dosen,
+   * atau nama bebas (client lama mengirim nama sebagai actorId).
+   */
+  private async resolveActorName(actorId?: string | null): Promise<string | null> {
+    if (!actorId) return null;
+    const key = String(actorId);
+    if (this.actorNameCache.has(key)) return this.actorNameCache.get(key) ?? null;
+
+    let name: string | null = null;
+    try {
+      const profile =
+        (await db.getUserProfileByUserId(key).catch(() => null)) ||
+        (await db.getUserProfileById(key).catch(() => null));
+      name = profile?.name || null;
+    } catch {
+      // abaikan — lanjut lookup dosen
+    }
+
+    if (!name) {
+      try {
+        const lecturer =
+          (await db.getLecturerById(key).catch(() => null)) ||
+          (await db.getLecturerByNip(key).catch(() => null));
+        name = lecturer?.name || null;
+      } catch {
+        // abaikan
+      }
+    }
+
+    // actor_id bisa berupa userId auth milik dosen — cari di daftar dosen
+    if (!name) {
+      try {
+        const lecturers = await db.listLecturers().catch(() => []);
+        const hit = lecturers.find(
+          (l) => l.userId === key || l.id === key || l.nip === key
+        );
+        name = hit?.name || null;
+      } catch {
+        // abaikan
+      }
+    }
+
+    this.actorNameCache.set(key, name);
+    return name;
+  }
+
+  /** Tambahkan actorName ke setiap log agar client tidak menampilkan ID mentah. */
+  private async hydrateLogActors(
+    logs?: ApprovalLogDto[]
+  ): Promise<ApprovalLogDto[] | undefined> {
+    if (!logs?.length) return logs;
+    return Promise.all(
+      logs.map(async (log) => ({
+        ...log,
+        actorName:
+          log.actorName ||
+          (await this.resolveActorName(log.actorId)) ||
+          undefined,
+      }))
+    );
+  }
+
   /**
    * Orchestrate submission creation and related options + approval logs
    */
@@ -404,6 +472,12 @@ export class SubmissionService {
     return (await this.getSubmissionById(submissionId))!;
   }
 
+  /** Daftar approval log sebuah pengajuan dengan actorName ter-resolve. */
+  async getApprovalLogs(submissionId: string): Promise<ApprovalLogDto[]> {
+    const logs = await db.getApprovalLogsBySubmissionId(submissionId);
+    return (await this.hydrateLogActors(logs)) || [];
+  }
+
   /**
    * Hydrate full submission with student, options, advisors, surat, and logs
    */
@@ -411,7 +485,7 @@ export class SubmissionService {
     const sub = await db.getSubmissionById(id);
     if (!sub) return null;
 
-    const [options, logs, student, adv1, adv2, pref1, pref2, surat] = await Promise.all([
+    const [options, rawLogs, student, adv1, adv2, pref1, pref2, surat] = await Promise.all([
       db.getOptionsBySubmissionId(id),
       db.getApprovalLogsBySubmissionId(id),
       db.getUserProfileByUserId(sub.studentId).catch(() => null),
@@ -421,6 +495,7 @@ export class SubmissionService {
       resolveLecturer(sub.preferredAdvisor2Id),
       db.getSuratBySubmissionId(id).catch(() => null),
     ]);
+    const logs = await this.hydrateLogActors(rawLogs);
 
     return {
       ...sub,
@@ -451,7 +526,7 @@ export class SubmissionService {
 
     return Promise.all(
       submissions.map(async (sub) => {
-        const [options, logs, student, adv1, adv2, pref1, pref2, surat] = await Promise.all([
+        const [options, rawLogs, student, adv1, adv2, pref1, pref2, surat] = await Promise.all([
           db.getOptionsBySubmissionId(sub.id).catch(() => []),
           db.getApprovalLogsBySubmissionId(sub.id).catch(() => []),
           db.getUserProfileByUserId(sub.studentId).catch(() => null),
@@ -461,6 +536,7 @@ export class SubmissionService {
           resolveLecturer(sub.preferredAdvisor2Id),
           db.getSuratBySubmissionId(sub.id).catch(() => null),
         ]);
+        const logs = await this.hydrateLogActors(rawLogs);
         return {
           ...sub,
           options,

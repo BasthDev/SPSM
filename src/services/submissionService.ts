@@ -215,6 +215,8 @@ function mapLogDtoToModel(log: any): ApprovalLog {
     $id: log.id,
     submission_id: log.submissionId,
     actor_id: log.actorId,
+    actor_name: log.actorName ?? log.actor_name ?? null,
+    actorName: log.actorName ?? log.actor_name ?? null,
     action: log.action,
     notes: log.notes,
     created_at: log.createdAt,

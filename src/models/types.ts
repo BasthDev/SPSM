@@ -172,6 +172,8 @@ export interface ApprovalLog {
   $id: string;
   submission_id: string;
   actor_id: string;
+  actor_name?: string | null;
+  actorName?: string | null;
   action: string;
   notes: string | null;
   created_at: string;

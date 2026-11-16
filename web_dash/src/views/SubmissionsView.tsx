@@ -13,6 +13,7 @@ import { apiClient } from '@/services/apiClient';
 import { mapSubmission } from '@/lib/mappers';
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, Textarea } from '@/components/ui';
 import { statusMeta, formatDateShort } from '@/lib/format';
+import { formatLogActorName, formatLogNotes, humanizeLogAction } from '@/lib/logFormat';
 import { lecturerPositionOn, submissionInvolvesLecturer, LECTURER_POSITION_LABEL, type LecturerPosition } from '@/lib/lecturerRole';
 import type { ThesisSubmission } from '@/types';
 
@@ -699,18 +700,21 @@ function SubmissionDetailModal({
               <Clock size={12} /> Riwayat Persetujuan ({logs.length})
             </p>
             <div className="space-y-2">
-              {logs.map((log) => (
+              {logs.map((log) => {
+                const noteText = formatLogNotes(log.notes, sub);
+                return (
                 <div key={log.$id} className="flex gap-3 rounded-lg border border-ink-100 bg-ink-50/50 px-3.5 py-2.5">
                   <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-600" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[12.5px] font-bold text-ink-800">{log.action}</p>
-                    {log.notes && <p className="mt-0.5 whitespace-pre-wrap text-[12px] text-ink-500">{log.notes}</p>}
+                    <p className="text-[12.5px] font-bold text-ink-800">{humanizeLogAction(log.action)}</p>
+                    {noteText && <p className="mt-0.5 whitespace-pre-wrap text-[12px] text-ink-500">{noteText}</p>}
                     <p className="mt-0.5 text-[11px] text-ink-400">
-                      {log.actor_id} · {formatDateShort(log.created_at)}
+                      {formatLogActorName(log, sub)} · {formatDateShort(log.created_at)}
                     </p>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

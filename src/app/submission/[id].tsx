@@ -6,6 +6,7 @@ import { onRealtimeEvent } from '@/services/realtimeService';
 import { settingsService } from '@/services/settingsService';
 import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
+import { formatLogActorName, formatLogNotes, humanizeLogAction } from '@/utils/approvalLog';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -442,37 +443,8 @@ Sarana Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
-  const formatLogNotes = (notes: string | null, action: string) => {
-    if (!notes) return '';
-    if (action === 'PENGAJUAN_MAHASISWA') {
-      try {
-        const parsed = JSON.parse(notes);
-        const name1 =
-          submission?.preferredAdvisor1?.name ||
-          parsed.pref1_name ||
-          (parsed.pref1 ? `Dosen ID: ${parsed.pref1}` : 'Tidak ditentukan');
-        const name2 =
-          submission?.preferredAdvisor2?.name ||
-          parsed.pref2_name ||
-          (parsed.pref2 ? `Dosen ID: ${parsed.pref2}` : 'Tidak ditentukan');
-        return `Usulan Calon Pembimbing:\n• Prioritas 1: ${name1}\n• Prioritas 2: ${name2}`;
-      } catch {
-        return notes;
-      }
-    }
-    if (notes.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(notes);
-        if (parsed.nomor_surat) {
-          return `Nomor SK: ${parsed.nomor_surat}\n${parsed.text || 'Disahkan oleh Kaprodi.'}`;
-        }
-        return parsed.text || parsed.notes || notes;
-      } catch {
-        return notes;
-      }
-    }
-    return notes;
-  };
+  const formatSubmissionLogNotes = (notes: string | null, action: string) =>
+    formatLogNotes(notes, action, submission);
 
   const statusLabel =
     submission.status === 'sk_issued' || submission.status === 'approved'
@@ -1276,11 +1248,14 @@ Sarana Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
 
             <View style={styles.logsList}>
               {submission.logs.map((log) => {
+                const noteText = formatSubmissionLogNotes(log.notes, log.action);
                 return (
                   <View key={log.$id} style={styles.logItem}>
                     <View style={styles.logTopRow}>
                       <View style={styles.logActorBadge}>
-                        <Text style={styles.logActorName}>{log.actor_id}</Text>
+                        <Text style={styles.logActorName}>
+                          {formatLogActorName(log, submission)}
+                        </Text>
                       </View>
                       <Text style={styles.logDate}>
                         {new Date(log.created_at).toLocaleDateString('id-ID', {
@@ -1292,31 +1267,11 @@ Sarana Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                       </Text>
                     </View>
 
-                    <Text style={styles.logAction}>
-                      {log.action === 'VERIFIKASI_DOSEN_PENILAI'
-                        ? 'Verifikasi & Pemilihan Dosen Pembimbing'
-                        : log.action === 'DISAHKAN_KAPRODI'
-                        ? 'Disahkan Kaprodi'
-                        : log.action === 'MINTA_REVISI'
-                        ? 'Permintaan Revisi Judul'
-                        : log.action === 'DITOLAK'
-                        ? 'Ditolak'
-                        : log.action === 'REVISI_PENGAJUAN'
-                        ? 'Revisi Pengajuan'
-                        : log.action === 'PENGAJUAN_MAHASISWA'
-                        ? 'Pengajuan Mahasiswa'
-                        : log.action === 'UPLOAD_SKRSIPSI'
-                        ? 'Upload SK / File Skripsi'
-                        : log.action === 'PENGESAHAN_KAPRODI' || log.action === 'APPROVAL_KAPRODI'
-                        ? 'Disahkan Kaprodi'
-                        : log.action}
-                    </Text>
+                    <Text style={styles.logAction}>{humanizeLogAction(log.action)}</Text>
 
-                    {log.notes ? (
+                    {noteText ? (
                       <View style={styles.logNotesBox}>
-                        <Text style={styles.logNotesText}>
-                          {formatLogNotes(log.notes, log.action)}
-                        </Text>
+                        <Text style={styles.logNotesText}>{noteText}</Text>
                       </View>
                     ) : null}
                   </View>

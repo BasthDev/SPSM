@@ -187,7 +187,7 @@ export class SubmissionController {
   /** GET /api/submissions/:id/logs */
   async listLogs(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const logs = await db.getApprovalLogsBySubmissionId(req.params.id);
+      const logs = await submissionService.getApprovalLogs(req.params.id);
       res.json({ success: true, data: logs });
     } catch (err) {
       next(err);
