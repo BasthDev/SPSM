@@ -20,7 +20,22 @@ export default function IndexScreen() {
         const acct = await authService.getCurrentAccount();
         const profile = await authService.getUserProfile(acct.$id);
 
-        if (profile) {
+        // Profil auto-dibuat kosong saat OAuth login — anggap "selesai onboarding"
+        // hanya jika SEMUA field yang diisi form onboarding terisi.
+        // phone & avatar sengaja tidak dicek: keduanya opsional di form,
+        // kalau disertakan user yang mengosongkannya akan terjebak loop onboarding.
+        // Role non-mahasiswa tidak pernah diarahkan ke onboarding.
+        const staffRoles = ['admin', 'lecturer', 'kaprodi', 'akademik', 'reviewer', 'advisor'];
+        const isStaff = staffRoles.includes((profile?.role || '').toLowerCase());
+        const nim = profile?.nim_or_nip || profile?.nim || '';
+        const isComplete = Boolean(
+          profile?.name &&
+            nim &&
+            profile?.department &&
+            Number(profile?.batch_year) > 0
+        );
+
+        if (profile && (isStaff || isComplete)) {
           await minDelay;
           router.replace('/dashboard');
         } else {
