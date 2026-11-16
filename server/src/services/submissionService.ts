@@ -335,7 +335,7 @@ export class SubmissionService {
   /**
    * Dosen pembimbing menolak penugasan:
    * - Lepas dosen tsb dari slot advisor1/advisor2 yang dia tempati
-   * - Status tetap 'waiting_kaprodi' agar kaprodi bisa assign ulang
+   * - Status kembali ke 'pending_lecturer' agar reviewer assign ulang
    * - Catat approval log + increment counter rejected_assignments dosen
    */
   async rejectAssignment(
@@ -367,7 +367,7 @@ export class SubmissionService {
       throw err;
     }
 
-    const patch: Partial<SubmissionDto> = {};
+    const patch: Partial<SubmissionDto> = { status: 'pending_lecturer' };
     if (isAdv1) patch.advisor1Id = null as any;
     if (isAdv2) patch.advisor2Id = null as any;
     await db.updateSubmission(submissionId, patch);
@@ -380,7 +380,8 @@ export class SubmissionService {
       notes:
         `Dosen ${lecturer?.name || actorName || lid} menolak penugasan` +
         (isAdv1 && isAdv2 ? ' (Pembimbing 1 & 2)' : isAdv1 ? ' (Pembimbing 1)' : ' (Pembimbing 2)') +
-        (reason ? `. Alasan: ${reason}` : '.'),
+        (reason ? `. Alasan: ${reason}` : '.') +
+        ' Status dikembalikan ke antrian reviewer untuk penugasan ulang.',
       createdAt: new Date().toISOString(),
     });
 

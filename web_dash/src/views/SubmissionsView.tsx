@@ -27,6 +27,24 @@ const STATUS_TABS: { value: string; label: string }[] = [
   { value: 'revision', label: 'Revisi' },
 ];
 
+/** Nama dosen yang terakhir menolak penugasan (belum diverifikasi ulang reviewer). */
+function declineBadgeInfo(sub: ThesisSubmission): string | null {
+  if (sub.status !== 'pending_lecturer') return null;
+  const logs = [...(sub.logs || [])].sort((a, b) =>
+    String(a.created_at).localeCompare(String(b.created_at))
+  );
+  const lastDecline = [...logs].reverse().find((l) => l.action === 'DOSEN_TOLAK_PENUGASAN');
+  if (!lastDecline) return null;
+  const reVerified = logs.some(
+    (l) =>
+      String(l.created_at) > String(lastDecline.created_at) &&
+      /VERIFIKASI|SETUJUI|DISAHKAN/i.test(l.action || '')
+  );
+  if (reVerified) return null;
+  const m = /Dosen (.+?) menolak/.exec(lastDecline.notes || '');
+  return m ? m[1] : 'Dosen';
+}
+
 export function SubmissionsView() {
   const { user } = useAuth();
   const role = user?.role || 'lecturer';
@@ -164,6 +182,7 @@ export function SubmissionsView() {
               <tbody className="divide-y divide-ink-100">
                 {filtered.map((sub) => {
                   const meta = statusMeta(sub.status);
+                  const declineName = declineBadgeInfo(sub);
                   const pos: LecturerPosition | null =
                     role === 'lecturer' ? lecturerPositionOn(sub, lecturerId) : null;
                   return (
@@ -185,7 +204,16 @@ export function SubmissionsView() {
                         <p className="font-semibold text-ink-700">{sub.student?.department || '-'}</p>
                         <p className="text-[12px] text-ink-400">{sub.student?.batch_year || '-'}</p>
                       </td>
-                      <td className="px-4 py-3.5"><Badge tone={meta.tone}>{meta.label}</Badge></td>
+                      <td className="px-4 py-3.5">
+                        <Badge tone={meta.tone}>{meta.label}</Badge>
+                        {declineName && (
+                          <p className="mt-1">
+                            <Badge tone="red" className="whitespace-nowrap">
+                              Dosen {declineName} menolak
+                            </Badge>
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3.5 text-ink-600">
                         <p className="max-w-[200px] truncate font-semibold">
                           P1: {sub.advisor?.name || sub.preferredAdvisor1?.name || '-'}
@@ -247,8 +275,10 @@ function SubmissionDetailModal({
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  // Reviewer form
-  const [selOption, setSelOption] = useState<string>('');
+  // Reviewer form — preselect opsi yang sebelumnya disetujui (mis. setelah dosen tolak)
+  const [selOption, setSelOption] = useState<string>(
+    (sub.options || []).find((o) => o.is_selected_by_lecturer)?.$id || ''
+  );
   const [adv1, setAdv1] = useState<string>(sub.advisor?.$id || (sub as any).advisor1_id || '');
   const [adv2, setAdv2] = useState<string>((sub as any).advisor2_id || '');
   const [notes, setNotes] = useState('');
@@ -530,7 +560,7 @@ function SubmissionDetailModal({
               <XCircle size={15} /> Penugasan sebagai {LECTURER_POSITION_LABEL[myPos!].toLowerCase()}
             </p>
             <p className="mb-3 text-[12.5px] text-red-800/80">
-              Menolak akan membebaskan Anda dari penugasan ini — status kembali ke Menunggu Kaprodi untuk ditugaskan ulang ke dosen lain.
+              Menolak akan membebaskan Anda dari penugasan ini — status kembali ke antrian Reviewer untuk ditugaskan ulang ke dosen lain.
             </p>
             {showLecReject ? (
               <div className="space-y-3">
@@ -548,7 +578,7 @@ function SubmissionDetailModal({
                     onClick={() =>
                       run(async () => {
                         await apiClient.submissions.rejectAssignment(sub.$id, lecRejectReason || undefined);
-                      }, 'Penugasan ditolak. Menunggu Kaprodi assign ulang.')
+                      }, 'Penugasan ditolak. Kembali ke antrian Reviewer untuk assign ulang.')
                     }
                   >
                     <XCircle size={14} /> Konfirmasi Tolak Penugasan
