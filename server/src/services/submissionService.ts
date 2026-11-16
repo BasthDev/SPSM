@@ -385,9 +385,17 @@ export class SubmissionService {
     });
 
     if (lecturer) {
+      const history = Array.isArray(lecturer.rejectionHistory) ? [...lecturer.rejectionHistory] : [];
+      history.unshift({
+        submissionId,
+        slot: isAdv1 && isAdv2 ? 'both' : isAdv1 ? 'advisor1' : 'advisor2',
+        reason: reason || undefined,
+        at: new Date().toISOString(),
+      });
       await db
         .updateLecturer(lid, {
           rejectedAssignments: (lecturer.rejectedAssignments || 0) + 1,
+          rejectionHistory: history.slice(0, 200), // batasi riwayat terakhir 200
         })
         .catch((e) => console.warn('Gagal update counter penolakan dosen:', e));
     }

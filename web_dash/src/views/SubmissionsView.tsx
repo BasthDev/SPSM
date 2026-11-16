@@ -187,8 +187,12 @@ export function SubmissionsView() {
                       </td>
                       <td className="px-4 py-3.5"><Badge tone={meta.tone}>{meta.label}</Badge></td>
                       <td className="px-4 py-3.5 text-ink-600">
-                        <p className="max-w-[180px] truncate">{sub.advisor?.name || sub.preferredAdvisor1?.name || '-'}</p>
-                        {sub.advisor2?.name && <p className="max-w-[180px] truncate text-[11px] text-ink-400">+ {sub.advisor2.name}</p>}
+                        <p className="max-w-[200px] truncate font-semibold">
+                          P1: {sub.advisor?.name || sub.preferredAdvisor1?.name || '-'}
+                        </p>
+                        <p className="max-w-[200px] truncate text-[11.5px] text-ink-400">
+                          P2: {sub.advisor2?.name || sub.preferredAdvisor2?.name || '-'}
+                        </p>
                       </td>
                       <td className="px-4 py-3.5 text-ink-500">{formatDateShort(sub.$createdAt || sub.submitted_at)}</td>
                       <td className="px-4 py-3.5 text-right">

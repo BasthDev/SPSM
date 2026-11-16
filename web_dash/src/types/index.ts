@@ -40,6 +40,12 @@ export interface Lecturer {
   role: 'lecturer' | 'reviewer' | 'kaprodi' | 'akademik' | 'admin';
   is_active: boolean;
   rejected_assignments?: number;
+  rejection_history?: Array<{
+    submissionId: string;
+    slot: 'advisor1' | 'advisor2' | 'both';
+    reason?: string;
+    at: string;
+  }>;
 }
 
 export interface Department {

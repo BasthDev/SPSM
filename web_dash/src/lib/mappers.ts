@@ -45,6 +45,7 @@ export const mapLecturer = (d: any): Lecturer =>
     role: d.role ?? 'lecturer',
     is_active: d.is_active ?? d.isActive ?? true,
     rejected_assignments: d.rejected_assignments ?? d.rejectedAssignments ?? 0,
+    rejection_history: d.rejection_history ?? d.rejectionHistory ?? [],
   });
 
 export const mapDepartment = (d: any): Department =>

@@ -34,7 +34,13 @@ export function ReportsView() {
         const approved = adviseeSubs.filter((s) => APPROVED_STATUSES.has(s.status) || s.status === 'waiting_kaprodi').length;
         const rejected = adviseeSubs.filter((s) => s.status === 'rejected').length;
         const pending = adviseeSubs.filter((s) => ['pending_lecturer', 'revision', 'drafting'].includes(s.status)).length;
-        return { lecturer: l, total: adviseeSubs.length, approved, rejected, pending, declined: l.rejected_assignments ?? 0 };
+        const hist = l.rejection_history || [];
+        const now = Date.now();
+        const weekAgo = now - 7 * 864e5;
+        const monthAgo = now - 30 * 864e5;
+        const declinedWeek = hist.filter((h) => new Date(h.at).getTime() > weekAgo).length;
+        const declinedMonth = hist.filter((h) => new Date(h.at).getTime() > monthAgo).length;
+        return { lecturer: l, total: adviseeSubs.length, approved, rejected, pending, declined: l.rejected_assignments ?? hist.length, declinedWeek, declinedMonth };
       })
       .filter((r) => {
         if (deptFilter !== 'all' && (r.lecturer.department_id || '') !== deptFilter) return false;
@@ -120,7 +126,8 @@ export function ReportsView() {
                   <tr className="border-b border-ink-100 bg-ink-50/60 text-[11px] font-extrabold uppercase tracking-wider text-ink-400">
                     <th className="px-5 py-3">Dosen</th><th className="px-4 py-3">Prodi</th>
                     <th className="px-4 py-3">Total Bimbingan</th><th className="px-4 py-3">Disetujui</th>
-                    <th className="px-4 py-3">Ditolak</th><th className="px-4 py-3">Tolak Assign</th><th className="px-4 py-3">Dalam Proses</th>
+                    <th className="px-4 py-3">Ditolak</th><th className="px-4 py-3">Tolak Assign</th>
+                    <th className="px-4 py-3">Minggu Ini</th><th className="px-4 py-3">Bulan Ini</th><th className="px-4 py-3">Dalam Proses</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
@@ -134,7 +141,21 @@ export function ReportsView() {
                       <td className="px-4 py-3.5 font-bold text-ink-900">{r.total}</td>
                       <td className="px-4 py-3.5"><Badge tone="green">{r.approved}</Badge></td>
                       <td className="px-4 py-3.5"><Badge tone="red">{r.rejected}</Badge></td>
-                      <td className="px-4 py-3.5"><Badge tone={r.declined > 0 ? 'amber' : 'slate'}>{r.declined}</Badge></td>
+                      <td className="px-4 py-3.5">
+                        <Badge
+                          tone={r.declined > 0 ? 'amber' : 'slate'}
+                          className="cursor-help"
+                        >
+                          {r.declined}
+                        </Badge>
+                        {r.lecturer.rejection_history?.[0] && (
+                          <p className="mt-0.5 max-w-[140px] truncate text-[10.5px] text-ink-400" title={r.lecturer.rejection_history[0].reason || ''}>
+                            terakhir {formatDateShort(r.lecturer.rejection_history[0].at)}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5"><Badge tone={r.declinedWeek > 0 ? 'red' : 'slate'}>{r.declinedWeek}</Badge></td>
+                      <td className="px-4 py-3.5"><Badge tone={r.declinedMonth > 0 ? 'amber' : 'slate'}>{r.declinedMonth}</Badge></td>
                       <td className="px-4 py-3.5"><Badge tone="amber">{r.pending}</Badge></td>
                     </tr>
                   ))}

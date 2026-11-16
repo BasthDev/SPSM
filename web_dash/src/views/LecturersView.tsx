@@ -4,6 +4,7 @@ import { Users, Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import { lecturerService } from '@/services/lecturerService';
 import { masterDataService } from '@/services/masterDataService';
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner } from '@/components/ui';
+import { formatDateShort } from '@/lib/format';
 import type { Lecturer } from '@/types';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -123,7 +124,14 @@ export function LecturersView() {
                     <td className="px-4 py-3.5 text-ink-600">
                       {l.current_students ?? 0}/{l.quota ?? 10}
                       {(l.rejected_assignments ?? 0) > 0 && (
-                        <span className="ml-1.5 text-[11px] font-bold text-amber-600" title="Penugasan ditolak">({l.rejected_assignments} tolak)</span>
+                        <span
+                          className="ml-1.5 text-[11px] font-bold text-amber-600"
+                          title={l.rejection_history?.[0]
+                            ? `Terakhir: ${formatDateShort(l.rejection_history[0].at)}${l.rejection_history[0].reason ? ` — ${l.rejection_history[0].reason}` : ''}`
+                            : 'Penugasan ditolak'}
+                        >
+                          ({l.rejected_assignments} tolak)
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3.5">

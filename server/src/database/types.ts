@@ -92,6 +92,13 @@ export interface LecturerDto {
   isActive: boolean;
   /** Jumlah penugasan pembimbing yang ditolak dosen ini. */
   rejectedAssignments?: number;
+  /** Riwayat penolakan: [{submissionId, slot, reason, at}] */
+  rejectionHistory?: Array<{
+    submissionId: string;
+    slot: 'advisor1' | 'advisor2' | 'both';
+    reason?: string;
+    at: string;
+  }>;
   /** Legacy aliases kept for older clients. */
   currentAdviseeCount?: number;
   maxAdviseeQuota?: number;
