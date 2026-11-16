@@ -227,9 +227,11 @@ export default function SubmissionDetailScreen() {
   else if (submission.status === 'sk_process') currentStage = 4;
   else if (submission.status === 'sk_issued' || submission.status === 'approved') currentStage = 5;
 
+  const isSkIssued =
+    submission.status === 'sk_issued' || submission.status === 'approved';
+
   const isSkReady = Boolean(
-    submission.status === 'sk_issued' ||
-      submission.status === 'approved' ||
+    isSkIssued ||
       submission.surat?.scannedSkId ||
       submission.surat?.scanned_sk_id ||
       submission.surat?.nomor_surat ||
@@ -556,27 +558,29 @@ Sarana Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
               <Text style={styles.skNumberValue}>{submission.nomor_surat || '-'}</Text>
             </View>
 
-            <View style={styles.skButtonRow}>
-              <TouchableOpacity
-                style={styles.skDownloadBtn}
-                onPress={handleDownloadSk}
-                activeOpacity={0.8}
-              >
-                <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.skDownloadBtnText}>
-                  {submission.surat?.scannedSkId || submission.surat?.scanned_sk_id
-                    ? 'Unduh File Scan SK Basah (PDF)'
-                    : 'Unduh / Cetak Dokumen SK'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.skShareBtn}
-                onPress={handleShareSk}
-                activeOpacity={0.8}
-              >
-                <Share2 size={16} color={Colors.primary} strokeWidth={2.2} />
-              </TouchableOpacity>
-            </View>
+            {isSkIssued && (
+              <View style={styles.skButtonRow}>
+                <TouchableOpacity
+                  style={styles.skDownloadBtn}
+                  onPress={handleDownloadSk}
+                  activeOpacity={0.8}
+                >
+                  <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
+                  <Text style={styles.skDownloadBtnText}>
+                    {submission.surat?.scannedSkId || submission.surat?.scanned_sk_id
+                      ? 'Unduh File Scan SK Basah (PDF)'
+                      : 'Unduh / Cetak Dokumen SK'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.skShareBtn}
+                  onPress={handleShareSk}
+                  activeOpacity={0.8}
+                >
+                  <Share2 size={16} color={Colors.primary} strokeWidth={2.2} />
+                </TouchableOpacity>
+              </View>
+            )}
           </Section>
         )}
 
