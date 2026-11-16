@@ -137,6 +137,11 @@ export async function sendFcmNotification(msg: FcmMessage): Promise<{ ok: boolea
           android: {
             priority: 'HIGH',
             notification: {
+              // Harus sama dengan channel_id yang dibuat di mobile
+              // (notificationService.ts -> DEFAULT_CHANNEL = 'default').
+              // Android 8+ mengatur sound/vibration per channel — tanpanya
+              // notifikasi jatuh ke channel sistem yang bisa silent.
+              channel_id: 'default',
               sound: 'default',
               ...(msg.color ? { color: msg.color } : {}),
             },
