@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ShieldCheck } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, StyleSheet, Text, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -95,13 +95,8 @@ export default function LoginScreen() {
       const { url, key } = await apiClient.auth.oauthStart('google');
       if (cancelledRef.current) return;
 
-      // 2. Buka halaman Google — iOS langsung ke Safari app (bukan
-      //    SFSafariViewController), Android tetap Custom Tab.
-      if (Platform.OS === 'ios') {
-        await Linking.openURL(url);
-      } else {
-        void WebBrowser.openBrowserAsync(url);
-      }
+      // 2. Buka halaman Google di browser (Custom Tab / SFSafariViewController)
+      void WebBrowser.openBrowserAsync(url);
 
       // 3. Polling status sampai user selesai login / timeout 3 menit
       const deadline = Date.now() + 3 * 60 * 1000;

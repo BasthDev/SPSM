@@ -124,7 +124,7 @@ function DashboardSubmissionCardInner({
               {sub.status === 'pending_lecturer' && sub.options && sub.options.length > 0 ? (
                 /* Case 1: Show all 3 titles when pending review */
                 <View>
-                  <Text style={styles.sectionLabel}>3 Usulan Judul Dalam Penelaahan:</Text>
+                  <Text style={styles.sectionLabel}>{sub.options?.length ?? 0} Usulan Judul Dalam Penelaahan:</Text>
                   {sub.options.map((opt) => (
                     <View key={opt.$id} style={styles.listCardOptRow}>
                       <View style={styles.listCardOptBadge}>

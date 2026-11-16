@@ -146,8 +146,10 @@ export default function CreateSubmissionScreen() {
               const sortedOpts = [...(prev.options || [])].sort(
                 (a, b) => a.option_number - b.option_number
               );
-              const prefilled = titles.map(() => emptyTitle());
-              sortedOpts.slice(0, titles.length).forEach((opt, i) => {
+              // Pakai reqCount dari system settings — bukan panjang titles
+              // state yang masih stale (initial 3) saat init async.
+              const prefilled = Array.from({ length: reqCount }, () => emptyTitle());
+              sortedOpts.slice(0, reqCount).forEach((opt, i) => {
                 prefilled[i] = {
                   title: opt.title || '',
                   background: opt.background || '',

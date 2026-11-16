@@ -3,6 +3,7 @@ import { isActiveSubmissionStatus, type ThesisSubmission } from '@/models/types'
 import { apiClient } from '@/services/apiClient';
 import { authService } from '@/services/authService';
 import { onRealtimeEvent } from '@/services/realtimeService';
+import { settingsService } from '@/services/settingsService';
 import { submissionService } from '@/services/submissionService';
 import { Colors } from '@/theme/theme';
 import * as DocumentPicker from 'expo-document-picker';
@@ -48,6 +49,7 @@ export default function SubmissionDetailScreen() {
   const [expandedOptions, setExpandedOptions] = useState<Record<string, boolean>>({});
   const [uploadingSkripsi, setUploadingSkripsi] = useState(false);
   const [hasActiveSubmission, setHasActiveSubmission] = useState(false);
+  const [requiredTitleCount, setRequiredTitleCount] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +62,10 @@ export default function SubmissionDetailScreen() {
         const sub = await submissionService.getSubmissionWithDetails(id);
         if (!active) return;
         setSubmission(sub);
+        settingsService
+          .getSettings()
+          .then((s) => active && setRequiredTitleCount(s.required_title_count))
+          .catch(() => {});
 
         // Cek apakah mahasiswa punya pengajuan aktif lain (pending/waiting/approved)
         try {
@@ -94,6 +100,10 @@ export default function SubmissionDetailScreen() {
     try {
       const sub = await submissionService.getSubmissionWithDetails(id);
       setSubmission(sub);
+      settingsService
+        .getSettings()
+        .then((s) => setRequiredTitleCount(s.required_title_count))
+        .catch(() => {});
     } catch {
       // biarkan data lama tetap tampil saat fetch gagal
     }
@@ -691,7 +701,7 @@ Sarana Pengajuan Judul Skripsi Mahasiswa (SPSM) - Universitas Muhammadiyah Aceh`
                   </View>
                 </View>
                 <Text style={styles.vStepDesc}>
-                  {submission.options?.length ?? 3} usulan judul dan latar belakang diajukan oleh Mahasiswa.
+                  {submission.options?.length ?? requiredTitleCount ?? 'Beberapa'} usulan judul dan latar belakang diajukan oleh Mahasiswa.
                 </Text>
                 <Text style={styles.vStepDate}>{formattedSubmittedDate}</Text>
               </View>
