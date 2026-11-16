@@ -416,6 +416,9 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
 
   async createUserProfile(data: Omit<UserProfileDto, 'id'>): Promise<UserProfileDto> {
     const nimOrNip = (data.nimOrNip || data.nim || '').toString();
+    // Collection auth mewajibkan password — generate random karena
+    // user login via OAuth2, bukan password.
+    const tempPassword = crypto.randomUUID() + 'A1!';
     const doc = await this.pb.collection(this.col.users).create({
       user_id: data.userId,
       name: data.name || '',
@@ -431,6 +434,8 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
       has_uploaded_thesis: Boolean(data.thesisUploaded ?? data.hasUploadedThesis),
       appwrite_id: '',
       external_id: '',
+      password: tempPassword,
+      passwordConfirm: tempPassword,
     });
     return this.mapUser(doc);
   }
