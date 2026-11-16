@@ -67,6 +67,7 @@ export function SettingsView() {
 
       <Card>
         <CardHeader icon={<Settings2 size={18} className="text-brand-700" />} title="Status Pengajuan" subtitle="Kontrol apakah mahasiswa dapat mengajukan judul" />
+        <div className="px-5 py-5">
         <div className="flex items-center justify-between rounded-xl border border-ink-200 p-4">
           <div>
             <p className="text-[14px] font-bold text-ink-900">{status.isOpen ? 'Periode pengajuan AKTIF' : 'Periode pengajuan TUTUP'}</p>
@@ -77,11 +78,12 @@ export function SettingsView() {
             <div className="h-7 w-12 rounded-full bg-ink-200 peer-checked:bg-emerald-500 after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:peer-checked:translate-x-5 after:shadow" />
           </label>
         </div>
+        </div>
       </Card>
 
       <Card>
         <CardHeader icon={<CalendarClock size={18} className="text-brand-700" />} title="Periode & Tahun Akademik" />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-2">
           <Field label="Tahun Akademik"><Input value={form.academic_year || ''} onChange={(e) => setForm({ ...form, academic_year: e.target.value })} placeholder="2025/2026" /></Field>
           <Field label="Jumlah Judul Wajib"><Input type="number" min={1} max={5} value={form.required_title_count ?? ''} onChange={(e) => setForm({ ...form, required_title_count: Number(e.target.value) })} /></Field>
           <Field label="Mulai Pengajuan"><Input type="datetime-local" value={form.start_date || ''} onChange={(e) => setForm({ ...form, start_date: e.target.value })} /></Field>
@@ -92,6 +94,7 @@ export function SettingsView() {
 
       <Card>
         <CardHeader icon={<FileSignature size={18} className="text-brand-700" />} title="Mata Kuliah Wajib" subtitle="Satu per baris" />
+        <div className="px-5 py-5">
         <textarea
           value={form.required_courses || ''}
           onChange={(e) => setForm({ ...form, required_courses: e.target.value })}
@@ -99,16 +102,17 @@ export function SettingsView() {
           placeholder={'Basis Data\nPemrograman Web\nKecerdasan Buatan'}
           className="w-full rounded-xl border border-ink-300 px-4 py-3 text-[13px] focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-100"
         />
+        </div>
       </Card>
 
       <Card>
-        <div className="flex items-start gap-3 rounded-xl bg-ink-50 p-4">
+        <div className="flex items-start gap-3 px-5 py-5">
           <Info size={18} className="mt-0.5 shrink-0 text-ink-400" />
           <p className="text-[12.5px] leading-relaxed text-ink-500">
             Perubahan disimpan ke database dan <strong>langsung direaltime</strong> — aplikasi mobile mahasiswa akan menerima pembaruan tanpa perlu reload.
           </p>
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="flex justify-end border-t border-ink-100 px-5 py-4">
           <Button onClick={save} loading={saving}><Save size={15} /> Simpan Pengaturan</Button>
         </div>
       </Card>

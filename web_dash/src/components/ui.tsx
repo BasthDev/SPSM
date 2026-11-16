@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 
 /* ---------- Button ---------- */
@@ -104,10 +105,12 @@ export function Badge({ tone = 'slate', children, className = '' }: { tone?: Ton
 /* ---------- Modal ---------- */
 export function Modal({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title?: string; children: React.ReactNode; wide?: boolean }) {
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  // Portal ke body — fixed inset-0 harus cover seluruh viewport,
+  // tidak terpengaruh transform/animation pada ancestor.
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-[2px]" onClick={onClose} />
-      <div className={`relative w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} animate-fade-in rounded-2xl bg-white shadow-2xl`}>
+      <div className={`relative z-10 w-full ${wide ? 'max-w-3xl' : 'max-w-lg'} animate-fade-in rounded-2xl bg-white shadow-2xl`}>
         {title && (
           <div className="flex items-center justify-between border-b border-ink-100 px-6 py-4">
             <h3 className="text-base font-bold text-ink-900">{title}</h3>
@@ -116,7 +119,8 @@ export function Modal({ open, onClose, title, children, wide }: { open: boolean;
         )}
         <div className="max-h-[80vh] overflow-y-auto px-6 py-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

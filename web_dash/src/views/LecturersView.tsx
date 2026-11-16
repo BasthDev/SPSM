@@ -7,7 +7,7 @@ import { Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner }
 import type { Lecturer } from '@/types';
 
 const ROLE_LABEL: Record<string, string> = {
-  lecturer: 'Dosen', reviewer: 'Reviewer', kaprodi: 'Kaprodi', admin: 'Admin',
+  lecturer: 'Dosen Pembimbing', reviewer: 'Reviewer', kaprodi: 'Kaprodi', akademik: 'Akademik', admin: 'Admin',
 };
 
 export function LecturersView() {

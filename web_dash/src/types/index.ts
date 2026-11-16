@@ -37,7 +37,7 @@ export interface Lecturer {
   expertise: string;
   quota: number;
   current_students: number;
-  role: 'lecturer' | 'reviewer' | 'kaprodi' | 'admin';
+  role: 'lecturer' | 'reviewer' | 'kaprodi' | 'akademik' | 'admin';
   is_active: boolean;
 }
 

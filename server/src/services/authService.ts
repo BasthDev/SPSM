@@ -10,7 +10,7 @@ export interface AuthUser {
   userId: string;
   email: string;
   name: string;
-  role: 'student' | 'lecturer' | 'kaprodi' | 'akademik' | 'admin';
+  role: 'student' | 'lecturer' | 'reviewer' | 'kaprodi' | 'akademik' | 'admin';
   isAdmin: boolean;
   profile?: UserProfileDto | null;
   lecturer?: LecturerDto | null;
@@ -449,10 +449,18 @@ export class AuthService {
         lecRole === 'kaprodi' ||
         lecRole === 'admin' ||
         lecRole === 'akademik' ||
+        lecRole === 'reviewer' ||
         lecName.includes('kaprodi') ||
         (profile && profile.role === 'kaprodi')
       ) {
-        role = lecRole === 'admin' ? 'admin' : lecRole === 'akademik' ? 'akademik' : 'kaprodi';
+        role =
+          lecRole === 'admin'
+            ? 'admin'
+            : lecRole === 'akademik'
+              ? 'akademik'
+              : lecRole === 'reviewer'
+                ? 'reviewer'
+                : 'kaprodi';
       } else {
         role = 'lecturer';
       }
