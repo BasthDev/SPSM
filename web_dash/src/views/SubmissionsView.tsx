@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -6,6 +6,7 @@ import {
   CheckCircle2, XCircle, Pencil, Upload, Eye,
 } from 'lucide-react';
 import { useAuth } from '@/app/auth';
+import { onRealtimeEvent } from '@/services/realtimeService';
 import { submissionService } from '@/services/submissionService';
 import { lecturerService } from '@/services/lecturerService';
 import { masterDataService } from '@/services/masterDataService';
@@ -117,6 +118,23 @@ export function SubmissionsView() {
     p.delete('open');
     setParams(p, { replace: true });
   }
+
+  // Realtime: sinkronkan data modal detail bila ada perubahan saat modal sedang terbuka
+  useEffect(() => {
+    if (!selected) return;
+    const unsub = onRealtimeEvent((event) => {
+      const isSubEvent =
+        event.id === selected.$id ||
+        event.submissionId === selected.$id;
+      if (isSubEvent) {
+        apiClient.submissions
+          .getById(selected.$id)
+          .then((full) => setSelected(mapSubmission(full)))
+          .catch(() => {});
+      }
+    });
+    return unsub;
+  }, [selected?.$id]);
 
   return (
     <div className="space-y-5">

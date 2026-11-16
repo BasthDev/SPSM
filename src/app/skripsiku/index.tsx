@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { apiClient } from '@/services/apiClient';
 import { authService } from '@/services/authService';
+import { onRealtimeEvent } from '@/services/realtimeService';
 
 type UploadedFile = {
   id: string;
@@ -62,9 +63,11 @@ export default function SkripsiKuScreen() {
 
   // Load current user, then load only their files from API storage
   useEffect(() => {
+    let currentUid: string | null = null;
     (async () => {
       try {
         const current = await authService.getCurrentAccount();
+        currentUid = current.$id;
         setUserId(current.$id);
         await loadFiles(current.$id);
       } catch (error) {
@@ -72,6 +75,16 @@ export default function SkripsiKuScreen() {
         setLoading(false);
       }
     })();
+
+    const unsub = onRealtimeEvent(() => {
+      if (currentUid) {
+        void loadFiles(currentUid);
+      }
+    });
+
+    return () => {
+      unsub();
+    };
   }, [loadFiles]);
 
   const handleDeleteFile = (fileId: string) => {

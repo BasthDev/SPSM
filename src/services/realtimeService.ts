@@ -21,6 +21,7 @@ type Listener = (event: RealtimeEvent) => void;
 const listeners = new Set<Listener>();
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let pingInterval: ReturnType<typeof setInterval> | null = null;
 let reconnectAttempts = 0;
 let intentionalClose = false;
 let connecting = false;
@@ -68,6 +69,16 @@ export async function connectRealtime(): Promise<void> {
       reconnectAttempts = 0;
       // Auth via pesan pertama — token tidak ikut di URL
       socket.send(JSON.stringify({ type: 'auth', token }));
+
+      // Heartbeat ping tiap 25 detik agar koneksi tetap hidup di balik Cloudflare Tunnel / proxy
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          } catch {}
+        }
+      }, 25_000);
     };
 
     socket.onmessage = (e) => {
@@ -90,6 +101,10 @@ export async function connectRealtime(): Promise<void> {
     };
 
     socket.onclose = () => {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
       connecting = false;
       ws = null;
       if (!intentionalClose) scheduleReconnect();
@@ -99,6 +114,10 @@ export async function connectRealtime(): Promise<void> {
       // onclose akan menyusul dan menangani reconnect
     };
   } catch {
+    if (pingInterval) {
+      clearInterval(pingInterval);
+      pingInterval = null;
+    }
     connecting = false;
     scheduleReconnect();
   }
@@ -106,6 +125,10 @@ export async function connectRealtime(): Promise<void> {
 
 export function disconnectRealtime() {
   intentionalClose = true;
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;

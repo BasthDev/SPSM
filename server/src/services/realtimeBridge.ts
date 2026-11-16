@@ -1,19 +1,12 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
+import PocketBase from 'pocketbase';
 import { db } from '../database';
 import { config } from '../config';
 import { authService, AuthUser } from './authService';
 
 /**
- * Realtime bridge: Appwrite delta-poller → WebSocket fan-out.
- *
- * Server SDK Appwrite tidak support Realtime dengan API key, jadi bridge ini
- * polling ringan: tiap POLL_MS ambil dokumen terbaru per koleksi yang ditonton
- * (orderDesc $updatedAt, limit kecil), bandingkan dengan watermark in-memory,
- * lalu push event ke client WS yang berhak.
- *
- * Biaya DB konstan (~7 query per interval) berapapun jumlah user — tidak
- * ada query per-user seperti polling biasa.
+ * Realtime bridge: PocketBase SSE / Appwrite delta-poller → WebSocket fan-out.
  */
 
 const POLL_MS = 15_000;
@@ -64,6 +57,9 @@ const WATCHED: { key: keyof typeof config.appwrite.collections; collection: stri
   { key: 'surat', collection: colId('surat') },
   { key: 'systemSettings', collection: colId('systemSettings') },
   { key: 'users', collection: colId('users') },
+  { key: 'lecturers', collection: colId('lecturers') },
+  { key: 'departments', collection: colId('departments') },
+  { key: 'batchYears', collection: colId('batchYears') },
 ];
 
 function isPrivileged(user: AuthUser): boolean {
@@ -188,7 +184,7 @@ async function handleDocEvent(
   const event: RealtimeEvent = {
     v: 1,
     type: 'entity',
-    collection: collectionKey,
+    collection,
     id,
     action,
     submissionId,
@@ -197,6 +193,7 @@ async function handleDocEvent(
 
   broadcast(event, (user) => {
     if (isPrivileged(user)) return true;
+    if (['departments', 'batch_years', 'system_settings'].includes(collection)) return true;
     return Boolean(ownerId) && user.userId === ownerId;
   });
 }
@@ -267,9 +264,10 @@ function handleUpgrade(request: any, socket: any, head: any) {
       send(client, { v: 1, type: 'ready' });
       console.log(`[rt] client connected: ${user.email} (${sockets.size} total)`);
 
-      ws.on('close', () => {
+      ws.on('close', (code, reason) => {
         sockets.delete(client);
-        console.log(`[rt] client disconnected: ${user.email} (${sockets.size} total)`);
+        const reasonStr = reason ? reason.toString() : '';
+        console.log(`[rt] client disconnected: ${user.email} (code: ${code}${reasonStr ? `, reason: ${reasonStr}` : ''}) (${sockets.size} total)`);
       });
 
       ws.on('error', () => {
@@ -285,28 +283,43 @@ function handleUpgrade(request: any, socket: any, head: any) {
 
 /**
  * PocketBase realtime: subscribe SSE per koleksi yang ditonton.
- * Tidak butuh polling — PB push event create/update/delete langsung.
- * Return false jika adapter bukan PocketBase.
+ * Menggunakan dedicated PocketBase client instance agar tidak pernah terganggu
+ * oleh disconnect/resubscribe OAuth di authService.
  */
+let rtPb: PocketBase | null = null;
+
 async function startPocketBaseRealtime(): Promise<boolean> {
   if (config.dbAdapter !== 'pocketbase') return false;
-  const pb = (db as any).client;
-  if (!pb?.collection || !pb?.realtime) return false;
+  try {
+    rtPb = new PocketBase(config.pocketbase.url);
+    rtPb.autoCancellation(false);
 
-  for (const { key, collection } of WATCHED) {
     try {
-      await pb.collection(collection).subscribe('*', (e: any) => {
-        const doc = e.record;
-        if (!doc) return;
-        const action = e.action === 'delete' ? 'delete' : e.action === 'create' ? 'create' : 'update';
-        void handleDocEvent(key, collection, doc, action);
+      await (rtPb as any).collection('_superusers').authWithPassword(config.pocketbase.adminEmail, config.pocketbase.adminPassword);
+    } catch {
+      await rtPb.admins.authWithPassword(config.pocketbase.adminEmail, config.pocketbase.adminPassword).catch((err: any) => {
+        console.warn('[rt] superuser auth warning:', err?.message);
       });
-      console.log(`[rt] subscribed ${collection}`);
-    } catch (err) {
-      console.warn(`[rt] subscribe ${collection} gagal:`, (err as Error).message);
     }
+
+    for (const { key, collection } of WATCHED) {
+      try {
+        await rtPb.collection(collection).subscribe('*', (e: any) => {
+          const doc = e.record;
+          if (!doc) return;
+          const action = e.action === 'delete' ? 'delete' : e.action === 'create' ? 'create' : 'update';
+          void handleDocEvent(key, collection, doc, action);
+        });
+        console.log(`[rt] subscribed ${collection}`);
+      } catch (err) {
+        console.warn(`[rt] subscribe ${collection} gagal:`, (err as Error).message);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.warn('[rt] PocketBase realtime init failed:', (err as Error).message);
+    return false;
   }
-  return true;
 }
 
 export function attachRealtimeBridge(server: Server) {

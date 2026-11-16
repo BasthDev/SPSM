@@ -5,6 +5,9 @@ import { errorHandler } from './middleware/errorHandler';
 
 export const app = express();
 
+// Trust reverse proxy (Cloudflare Tunnel, Traefik, Nginx) for accurate IP rate-limiting
+app.set('trust proxy', 1);
+
 // Middlewares
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));

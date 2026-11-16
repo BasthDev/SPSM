@@ -48,25 +48,32 @@ export function AppLayout() {
   useEffect(() => {
     const unsub = onRealtimeEvent((event) => {
       const col = event.collection || '';
-      if (event.type === 'settings' || col === 'system_settings') {
+      if (event.type === 'settings' || col === 'system_settings' || col === 'systemSettings') {
         void qc.invalidateQueries({ queryKey: ['settings'] });
       } else if (col === 'departments') {
         void qc.invalidateQueries({ queryKey: ['departments'] });
-      } else if (col === 'batch_years') {
+      } else if (col === 'batch_years' || col === 'batchYears') {
         void qc.invalidateQueries({ queryKey: ['batchYears'] });
       } else if (col === 'lecturers') {
         void qc.invalidateQueries({ queryKey: ['lecturers'] });
       } else if (col === 'users') {
         void qc.invalidateQueries({ queryKey: ['lecturers'] });
         void qc.invalidateQueries({ queryKey: ['submissions'] });
-      } else if (col === 'thesis_submissions' || col === 'submission_options' || col === 'approval_logs' || col === 'surat') {
+      } else if (
+        col === 'thesis_submissions' ||
+        col === 'submissions' ||
+        col === 'submission_options' ||
+        col === 'options' ||
+        col === 'approval_logs' ||
+        col === 'approvalLogs' ||
+        col === 'surat'
+      ) {
         void qc.invalidateQueries({ queryKey: ['submissions'] });
         if (col === 'surat') void qc.invalidateQueries({ queryKey: ['repo-files'] });
       }
     });
     return () => {
       unsub();
-      disconnectRealtime();
     };
   }, [qc]);
 
