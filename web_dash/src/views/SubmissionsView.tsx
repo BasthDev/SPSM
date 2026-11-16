@@ -13,6 +13,7 @@ import { apiClient } from '@/services/apiClient';
 import { mapSubmission } from '@/lib/mappers';
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Spinner, Textarea } from '@/components/ui';
 import { statusMeta, formatDateShort } from '@/lib/format';
+import { lecturerPositionOn, submissionInvolvesLecturer, LECTURER_POSITION_LABEL, type LecturerPosition } from '@/lib/lecturerRole';
 import type { ThesisSubmission } from '@/types';
 
 const STATUS_TABS: { value: string; label: string }[] = [
@@ -48,12 +49,9 @@ export function SubmissionsView() {
 
   const filtered = useMemo(() => {
     let list = submissions;
-    // Dosen hanya melihat bimbingannya
+    // Dosen melihat pengajuan yang dia bimbingi ATAU yang memilihnya
     if (role === 'lecturer' && lecturerId) {
-      list = list.filter((s) => {
-        const ids = [s.advisor?.$id || (s as any).advisor1_id, (s as any).advisor2_id].filter(Boolean).map(String);
-        return ids.includes(lecturerId);
-      });
+      list = list.filter((s) => submissionInvolvesLecturer(s, lecturerId));
     }
     if (statusFilter !== 'all') {
       // 'approved' web ≈ 'sk_issued' backend — mapper sudah menormalkan
@@ -166,11 +164,22 @@ export function SubmissionsView() {
               <tbody className="divide-y divide-ink-100">
                 {filtered.map((sub) => {
                   const meta = statusMeta(sub.status);
+                  const pos: LecturerPosition | null =
+                    role === 'lecturer' ? lecturerPositionOn(sub, lecturerId) : null;
                   return (
                     <tr key={sub.$id} className="transition-colors hover:bg-brand-50/40">
                       <td className="px-5 py-3.5">
-                        <p className="font-bold text-ink-900">{sub.student?.name || 'Mahasiswa'}</p>
-                        <p className="text-[12px] text-ink-400">{sub.student?.nim_or_nip || '-'}</p>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-bold text-ink-900">{sub.student?.name || 'Mahasiswa'}</p>
+                            <p className="text-[12px] text-ink-400">{sub.student?.nim_or_nip || '-'}</p>
+                          </div>
+                          {pos && (
+                            <Badge tone={pos === 'advisor1' || pos === 'advisor2' ? 'blue' : 'slate'}>
+                              {LECTURER_POSITION_LABEL[pos]}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3.5">
                         <p className="font-semibold text-ink-700">{sub.student?.department || '-'}</p>

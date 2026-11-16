@@ -9,6 +9,7 @@ import { submissionService } from '@/services/submissionService';
 import { settingsService } from '@/services/settingsService';
 import { Card, CardHeader, Badge, Spinner, EmptyState } from '@/components/ui';
 import { formatDateShort, statusMeta } from '@/lib/format';
+import { lecturerPositionOn, submissionInvolvesLecturer, LECTURER_POSITION_LABEL, type LecturerPosition } from '@/lib/lecturerRole';
 import type { ThesisSubmission, SubmissionStatus } from '@/types';
 
 
@@ -42,14 +43,21 @@ export function DashboardView() {
     queryFn: () => settingsService.getSettings(),
   });
 
-  // Untuk dosen: hanya pengajuan yang dia bimbingi
+  // Untuk dosen: pengajuan yang dia bimbingi ATAU yang memilihnya sebagai pembimbing
   const visible =
     role === 'lecturer' && lecturerId
-      ? submissions.filter((s) => {
-          const ids = [s.advisor?.$id || (s as any).advisor1Id, (s as any).advisor2Id, (s as any).advisor_2_id].filter(Boolean).map(String);
-          return ids.includes(lecturerId) || s.advisor?.$id === lecturerId;
-        })
+      ? submissions.filter((s) => submissionInvolvesLecturer(s, lecturerId))
       : submissions;
+
+  const assigned = (st?: ThesisSubmission['status']) =>
+    visible.filter(
+      (s) =>
+        (!st || s.status === st) &&
+        ['advisor1', 'advisor2'].includes(lecturerPositionOn(s, lecturerId) || '')
+    );
+  const preferredOnly = visible.filter(
+    (s) => ['pref1', 'pref2'].includes(lecturerPositionOn(s, lecturerId) || '')
+  );
 
   const count = (st: SubmissionStatus | SubmissionStatus[]) =>
     visible.filter((s) => (Array.isArray(st) ? st.includes(s.status) : s.status === st)).length;
@@ -75,6 +83,13 @@ export function DashboardView() {
           { label: 'Proses Penerbitan SK', value: count('sk_process'), icon: <FileText size={20} className="text-amber-600" />, tone: 'bg-amber-50', status: 'sk_process' as const },
           { label: 'SK Terbit', value: count(['approved', 'sk_issued'] as any), icon: <CheckCircle2 size={20} className="text-emerald-600" />, tone: 'bg-emerald-50', status: 'approved' as const },
           { label: 'Total Pengajuan', value: visible.length, icon: <Users size={20} className="text-brand-700" />, tone: 'bg-brand-50', status: undefined },
+        ]
+      : role === 'lecturer'
+      ? [
+          { label: 'Bimbingan Saya', value: assigned().length, icon: <Users size={20} className="text-brand-700" />, tone: 'bg-brand-50', status: undefined },
+          { label: 'Dipilih Mahasiswa', value: preferredOnly.length, icon: <GraduationCap size={20} className="text-cyan-600" />, tone: 'bg-cyan-50', status: undefined },
+          { label: 'Menunggu Proses', value: visible.filter((s) => ['pending_lecturer', 'waiting_kaprodi', 'waiting_akademik', 'sk_process'].includes(s.status)).length, icon: <Clock size={20} className="text-amber-600" />, tone: 'bg-amber-50', status: undefined },
+          { label: 'Selesai / SK Terbit', value: visible.filter((s) => ['approved', 'sk_issued'].includes(s.status)).length, icon: <CheckCircle2 size={20} className="text-emerald-600" />, tone: 'bg-emerald-50', status: 'approved' as const },
         ]
       : [
           { label: 'Total Pengajuan', value: visible.length, icon: <FileText size={20} className="text-brand-700" />, tone: 'bg-brand-50', status: undefined },
@@ -147,6 +162,8 @@ export function DashboardView() {
           <div className="divide-y divide-ink-100">
             {recent.map((sub) => {
               const meta = statusMeta(sub.status);
+              const pos: LecturerPosition | null =
+                role === 'lecturer' ? lecturerPositionOn(sub, lecturerId) : null;
               return (
                 <button
                   key={sub.$id}
@@ -154,9 +171,16 @@ export function DashboardView() {
                   className="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-ink-50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-bold text-ink-900">
-                      {sub.student?.name || 'Mahasiswa'}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-[13.5px] font-bold text-ink-900">
+                        {sub.student?.name || 'Mahasiswa'}
+                      </p>
+                      {pos && (
+                        <Badge tone={pos === 'advisor1' || pos === 'advisor2' ? 'blue' : 'slate'} className="shrink-0">
+                          {LECTURER_POSITION_LABEL[pos]}
+                        </Badge>
+                      )}
+                    </div>
                     <p className="truncate text-[12px] text-ink-400">
                       {sub.student?.nim_or_nip || '-'} · {sub.student?.department || '-'}
                     </p>
