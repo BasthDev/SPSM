@@ -333,6 +333,69 @@ export class SubmissionService {
   }
 
   /**
+   * Dosen pembimbing menolak penugasan:
+   * - Lepas dosen tsb dari slot advisor1/advisor2 yang dia tempati
+   * - Status tetap 'waiting_kaprodi' agar kaprodi bisa assign ulang
+   * - Catat approval log + increment counter rejected_assignments dosen
+   */
+  async rejectAssignment(
+    submissionId: string,
+    lecturerId: string,
+    actorName?: string,
+    reason?: string
+  ): Promise<SubmissionDto> {
+    const sub = await db.getSubmissionById(submissionId);
+    if (!sub) {
+      const err: any = new Error('Pengajuan tidak ditemukan.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const status = normalizeSubmissionStatus(sub.status);
+    if (status !== 'waiting_kaprodi') {
+      const err: any = new Error('Penugasan hanya bisa ditolak saat status Menunggu Kaprodi.');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    const lid = String(lecturerId);
+    const isAdv1 = String(sub.advisor1Id || '') === lid;
+    const isAdv2 = String(sub.advisor2Id || '') === lid;
+    if (!isAdv1 && !isAdv2) {
+      const err: any = new Error('Anda bukan pembimbing yang ditugaskan pada pengajuan ini.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    const patch: Partial<SubmissionDto> = {};
+    if (isAdv1) patch.advisor1Id = null as any;
+    if (isAdv2) patch.advisor2Id = null as any;
+    await db.updateSubmission(submissionId, patch);
+
+    const lecturer = await db.getLecturerById(lid).catch(() => null);
+    await db.createApprovalLog({
+      submissionId,
+      actorId: lecturer?.userId || lid,
+      action: 'DOSEN_TOLAK_PENUGASAN',
+      notes:
+        `Dosen ${lecturer?.name || actorName || lid} menolak penugasan` +
+        (isAdv1 && isAdv2 ? ' (Pembimbing 1 & 2)' : isAdv1 ? ' (Pembimbing 1)' : ' (Pembimbing 2)') +
+        (reason ? `. Alasan: ${reason}` : '.'),
+      createdAt: new Date().toISOString(),
+    });
+
+    if (lecturer) {
+      await db
+        .updateLecturer(lid, {
+          rejectedAssignments: (lecturer.rejectedAssignments || 0) + 1,
+        })
+        .catch((e) => console.warn('Gagal update counter penolakan dosen:', e));
+    }
+
+    return (await this.getSubmissionById(submissionId))!;
+  }
+
+  /**
    * Hydrate full submission with student, options, advisors, surat, and logs
    */
   async getSubmissionById(id: string): Promise<SubmissionDto | null> {

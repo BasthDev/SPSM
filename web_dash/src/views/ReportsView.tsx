@@ -34,7 +34,7 @@ export function ReportsView() {
         const approved = adviseeSubs.filter((s) => APPROVED_STATUSES.has(s.status) || s.status === 'waiting_kaprodi').length;
         const rejected = adviseeSubs.filter((s) => s.status === 'rejected').length;
         const pending = adviseeSubs.filter((s) => ['pending_lecturer', 'revision', 'drafting'].includes(s.status)).length;
-        return { lecturer: l, total: adviseeSubs.length, approved, rejected, pending };
+        return { lecturer: l, total: adviseeSubs.length, approved, rejected, pending, declined: l.rejected_assignments ?? 0 };
       })
       .filter((r) => {
         if (deptFilter !== 'all' && (r.lecturer.department_id || '') !== deptFilter) return false;
@@ -120,7 +120,7 @@ export function ReportsView() {
                   <tr className="border-b border-ink-100 bg-ink-50/60 text-[11px] font-extrabold uppercase tracking-wider text-ink-400">
                     <th className="px-5 py-3">Dosen</th><th className="px-4 py-3">Prodi</th>
                     <th className="px-4 py-3">Total Bimbingan</th><th className="px-4 py-3">Disetujui</th>
-                    <th className="px-4 py-3">Ditolak</th><th className="px-4 py-3">Dalam Proses</th>
+                    <th className="px-4 py-3">Ditolak</th><th className="px-4 py-3">Tolak Assign</th><th className="px-4 py-3">Dalam Proses</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-100">
@@ -134,6 +134,7 @@ export function ReportsView() {
                       <td className="px-4 py-3.5 font-bold text-ink-900">{r.total}</td>
                       <td className="px-4 py-3.5"><Badge tone="green">{r.approved}</Badge></td>
                       <td className="px-4 py-3.5"><Badge tone="red">{r.rejected}</Badge></td>
+                      <td className="px-4 py-3.5"><Badge tone={r.declined > 0 ? 'amber' : 'slate'}>{r.declined}</Badge></td>
                       <td className="px-4 py-3.5"><Badge tone="amber">{r.pending}</Badge></td>
                     </tr>
                   ))}

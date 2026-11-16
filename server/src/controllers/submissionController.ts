@@ -215,6 +215,35 @@ export class SubmissionController {
     }
   }
 
+  /** POST /api/submissions/:id/reject-assignment — dosen tolak penugasan. */
+  async rejectAssignment(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      // lecturerId: dari record dosen milik user yg login (cocok by email);
+      // admin boleh oper lecturerId via body untuk keperluan administrasi.
+      const isAdminUser = Boolean(req.user?.isAdmin) || req.user?.role === 'admin';
+      let lecturerId: string | undefined;
+      if (isAdminUser && req.body?.lecturerId) {
+        lecturerId = String(req.body.lecturerId);
+      } else if (req.user?.email) {
+        const lec = await db.getLecturerByEmail(String(req.user.email)).catch(() => null);
+        lecturerId = lec?.id;
+      }
+      if (!lecturerId) {
+        res.status(400).json({ success: false, error: 'Akun ini tidak tertaut ke data dosen.' });
+        return;
+      }
+      const updated = await submissionService.rejectAssignment(
+        req.params.id,
+        String(lecturerId),
+        (req.user as any)?.name || req.user?.email,
+        req.body?.reason
+      );
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   /** PATCH /api/submissions/:id — update field umum (status, advisorId, notes). */
   async updateSubmission(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {

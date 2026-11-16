@@ -120,7 +120,12 @@ export function LecturersView() {
                     <td className="px-4 py-3.5 text-ink-600">{l.nip || '-'}</td>
                     <td className="px-4 py-3.5 text-ink-600">{departments.find((d) => d.$id === l.department_id)?.name || l.department_id || l.department || '-'}</td>
                     <td className="px-4 py-3.5"><Badge tone="blue">{ROLE_LABEL[l.role || 'lecturer'] || l.role}</Badge></td>
-                    <td className="px-4 py-3.5 text-ink-600">{l.current_students ?? 0}/{l.quota ?? 10}</td>
+                    <td className="px-4 py-3.5 text-ink-600">
+                      {l.current_students ?? 0}/{l.quota ?? 10}
+                      {(l.rejected_assignments ?? 0) > 0 && (
+                        <span className="ml-1.5 text-[11px] font-bold text-amber-600" title="Penugasan ditolak">({l.rejected_assignments} tolak)</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5">
                       <Badge tone={l.is_active ? 'green' : 'red'}>{l.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
                     </td>

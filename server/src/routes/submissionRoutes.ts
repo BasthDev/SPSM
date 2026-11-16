@@ -28,5 +28,10 @@ router.patch('/options/:optionId', requireRole('admin', 'kaprodi', 'akademik', '
 router.get('/:id/logs', (req, res, next) => submissionController.listLogs(req, res, next));
 router.post('/:id/logs', requireRole('admin', 'kaprodi', 'akademik', 'lecturer', 'reviewer'), (req, res, next) => submissionController.createLog(req, res, next));
 router.post('/:id/revision', (req, res, next) => submissionController.resubmitRevision(req, res, next));
+router.post(
+  '/:id/reject-assignment',
+  requireRole('admin', 'lecturer'),
+  (req, res, next) => submissionController.rejectAssignment(req, res, next)
+);
 
 export default router;

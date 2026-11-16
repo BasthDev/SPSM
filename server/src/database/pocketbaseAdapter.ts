@@ -542,6 +542,7 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
     if (currentStudents !== undefined) payload.current_students = toInt(currentStudents, 0);
     if (patch.role !== undefined) payload.role = patch.role;
     if (patch.isActive !== undefined) payload.is_active = patch.isActive;
+    if (patch.rejectedAssignments !== undefined) payload.rejected_assignments = toInt(patch.rejectedAssignments, 0);
 
     const doc = await this.pb.collection(this.col.lecturers).update(id, payload);
     return this.mapLecturer(doc);
@@ -837,6 +838,7 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
       currentStudents,
       role: doc.role || 'lecturer',
       isActive: doc.is_active ?? true,
+      rejectedAssignments: toInt(doc.rejected_assignments, 0),
       currentAdviseeCount: currentStudents,
       maxAdviseeQuota: quota,
     };

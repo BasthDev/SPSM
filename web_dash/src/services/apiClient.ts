@@ -144,6 +144,12 @@ export const apiClient = {
         body: JSON.stringify(data),
       });
     },
+    async rejectAssignment(id: string, reason?: string) {
+      return request<any>(`/submissions/${id}/reject-assignment`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
     async comparableTitles() {
       return request<any[]>('/submissions/comparable-titles');
     },

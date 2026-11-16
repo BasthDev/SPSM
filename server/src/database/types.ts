@@ -90,6 +90,8 @@ export interface LecturerDto {
   currentStudents?: number;
   role?: string;
   isActive: boolean;
+  /** Jumlah penugasan pembimbing yang ditolak dosen ini. */
+  rejectedAssignments?: number;
   /** Legacy aliases kept for older clients. */
   currentAdviseeCount?: number;
   maxAdviseeQuota?: number;

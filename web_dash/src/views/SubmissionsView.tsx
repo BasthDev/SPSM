@@ -256,6 +256,10 @@ function SubmissionDetailModal({
   // SK upload
   const [skFile, setSkFile] = useState<File | null>(null);
 
+  // Dosen tolak penugasan
+  const [showLecReject, setShowLecReject] = useState(false);
+  const [lecRejectReason, setLecRejectReason] = useState('');
+
   const run = async (fn: () => Promise<void>, okMsg: string) => {
     setBusy(true);
     setErr(null);
@@ -278,6 +282,14 @@ function SubmissionDetailModal({
   const canReview = canAct && sub.status === 'pending_lecturer';
   const canKaprodi = canAct && (user?.isAdmin || role === 'kaprodi' || role === 'admin') && sub.status === 'waiting_kaprodi';
   const canAkademik = canAct && (user?.isAdmin || role === 'akademik' || role === 'admin') && ['waiting_akademik', 'sk_process'].includes(sub.status);
+
+  // Dosen yang ditugaskan bisa menolak penugasan selama menunggu kaprodi
+  const myLecturerId = user?.lecturer?.$id;
+  const myPos = role === 'lecturer' ? lecturerPositionOn(sub, myLecturerId) : null;
+  const canRejectAssignment =
+    role === 'lecturer' &&
+    (myPos === 'advisor1' || myPos === 'advisor2') &&
+    sub.status === 'waiting_kaprodi';
 
   return (
     <Modal open onClose={onClose} wide title="Detail Pengajuan">
@@ -504,6 +516,47 @@ function SubmissionDetailModal({
                 <Upload size={14} /> Unggah & Terbitkan SK
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Dosen: tolak penugasan */}
+        {canRejectAssignment && (
+          <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+            <p className="mb-2 flex items-center gap-2 text-[13px] font-extrabold text-red-900">
+              <XCircle size={15} /> Penugasan sebagai {LECTURER_POSITION_LABEL[myPos!].toLowerCase()}
+            </p>
+            <p className="mb-3 text-[12.5px] text-red-800/80">
+              Menolak akan membebaskan Anda dari penugasan ini — status kembali ke Menunggu Kaprodi untuk ditugaskan ulang ke dosen lain.
+            </p>
+            {showLecReject ? (
+              <div className="space-y-3">
+                <Field label="Alasan penolakan (opsional)">
+                  <Textarea
+                    value={lecRejectReason}
+                    onChange={(e) => setLecRejectReason(e.target.value)}
+                    placeholder="Contoh: beban bimbingan penuh, di luar bidang keahlian…"
+                  />
+                </Field>
+                <div className="flex gap-2">
+                  <Button
+                    variant="danger"
+                    loading={busy}
+                    onClick={() =>
+                      run(async () => {
+                        await apiClient.submissions.rejectAssignment(sub.$id, lecRejectReason || undefined);
+                      }, 'Penugasan ditolak. Menunggu Kaprodi assign ulang.')
+                    }
+                  >
+                    <XCircle size={14} /> Konfirmasi Tolak Penugasan
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowLecReject(false)}>Batal</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="outline" onClick={() => setShowLecReject(true)}>
+                <XCircle size={14} /> Tolak Penugasan
+              </Button>
+            )}
           </div>
         )}
 

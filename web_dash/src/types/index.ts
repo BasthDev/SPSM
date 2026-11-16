@@ -39,6 +39,7 @@ export interface Lecturer {
   current_students: number;
   role: 'lecturer' | 'reviewer' | 'kaprodi' | 'akademik' | 'admin';
   is_active: boolean;
+  rejected_assignments?: number;
 }
 
 export interface Department {
