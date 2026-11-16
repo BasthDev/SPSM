@@ -230,26 +230,34 @@ export const submissionService = {
       // fallback
     }
 
-    // 2. Update status -> 'approved' (backend normalize ke 'sk_issued' &
-    //    auto-generate surat bila belum ada) + kedua pembimbing + log.
+    // 2. Generate surat + nomor surat DULU (sama seperti web_app lama) —
+    //    jangan pakai status 'approved' karena backend menormalkannya
+    //    langsung ke 'sk_issued' dan melewati antrian akademik.
+    let surat: any = null;
+    try {
+      surat = await apiClient.surat.generate(submissionId, department, batchYear);
+    } catch (err) {
+      console.warn('generateSurat warning:', err);
+    }
+
+    // 3. Update status -> 'waiting_akademik' + kedua pembimbing + log
+    //    (nomor surat ikut dicatat di notes JSON seperti flow lama).
     await apiClient.submissions.updateStatus(
       submissionId,
-      'approved',
+      'waiting_akademik',
       'DISAHKAN_KAPRODI',
-      notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi.',
+      JSON.stringify({
+        nomor_surat: surat?.nomorSurat || surat?.nomor_surat || null,
+        urutan: surat?.urutan ?? null,
+        text: notes || 'Judul dan Dosen Pembimbing resmi disahkan oleh Kaprodi. Menunggu administrasi SK.',
+        generated_at: new Date().toISOString(),
+      }),
       {
         advisor1Id: advisor1Id.trim() || null,
         advisor2Id: advisor2Id.trim() || null,
         kaprodiNotes: notes || null,
       }
     );
-
-    // 3. Pastikan surat + nomor surat tergenerate
-    try {
-      await apiClient.surat.generate(submissionId, department, batchYear);
-    } catch (err) {
-      console.warn('generateSurat warning:', err);
-    }
 
     // 4. Sync quota kedua pembimbing
     const combined = [advisor1Id, advisor2Id].filter(Boolean).join(',');

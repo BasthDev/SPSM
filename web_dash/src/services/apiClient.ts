@@ -281,5 +281,9 @@ export const apiClient = {
         body: JSON.stringify({ submissionId, department, batchYear }),
       });
     },
+    /** Generate/ambil file SK documen (untuk cetak draf TTD Dekan). */
+    async getSkFile(submissionId: string) {
+      return request<any>(`/surat/${submissionId}/sk-file`);
+    },
   },
 };

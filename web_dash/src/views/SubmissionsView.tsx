@@ -315,7 +315,7 @@ function SubmissionDetailModal({
 
   const canReview = canAct && sub.status === 'pending_lecturer';
   const canKaprodi = canAct && (user?.isAdmin || role === 'kaprodi' || role === 'admin') && sub.status === 'waiting_kaprodi';
-  const canAkademik = canAct && (user?.isAdmin || role === 'akademik' || role === 'admin') && ['waiting_akademik', 'sk_process'].includes(sub.status);
+  const canAkademik = canAct && (user?.isAdmin || role === 'akademik' || role === 'admin') && ['waiting_akademik', 'sk_process', 'sk_issued'].includes(sub.status);
 
   // Dosen yang ditugaskan bisa menolak penugasan selama menunggu kaprodi
   const myLecturerId = user?.lecturer?.$id;
@@ -518,38 +518,97 @@ function SubmissionDetailModal({
         {canAkademik && (
           <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4">
             <p className="mb-3 flex items-center gap-2 text-[13px] font-extrabold text-cyan-900">
-              <Upload size={15} /> Administrasi SK — Unggah Scan SK BertTD
+              <Upload size={15} /> Administrasi SK
             </p>
             {sub.nomor_surat && (
               <p className="mb-3 rounded-lg bg-white px-3 py-2 text-[12.5px] font-bold text-ink-700 ring-1 ring-ink-200">
                 Nomor Surat: {sub.nomor_surat}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="file"
-                accept=".pdf,image/*"
-                onChange={(e) => setSkFile(e.target.files?.[0] || null)}
-                className="text-[13px] text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-900 file:px-3.5 file:py-2 file:text-[12.5px] file:font-bold file:text-white hover:file:bg-brand-800"
-              />
-              <Button
-                loading={busy}
-                disabled={!skFile}
-                onClick={() =>
-                  run(async () => {
-                    const uploaded = await apiClient.files.upload('sk', skFile!);
-                    const fileId = uploaded.fileId || uploaded.id;
-                    await apiClient.submissions.updateStatus(
-                      sub.$id, 'sk_issued', 'SK_RESMI_TERBIT',
-                      `Scan PDF SK resmi berhasil diunggah (File ID: ${fileId}). SK resmi diterbitkan.`,
-                      { scannedSkId: fileId }
+
+            {/* Tahap 1: Menunggu Akademik — cetak draf & mulai proses TTD Dekan */}
+            {sub.status === 'waiting_akademik' && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  loading={busy}
+                  onClick={() =>
+                    run(async () => {
+                      const res: any = await apiClient.surat.getSkFile(sub.$id);
+                      const url = res?.url || res?.data?.url;
+                      if (url) window.open(url, '_blank');
+                      else throw new Error('File SK gagal dibuat.');
+                    }, 'Draf SK dibuka untuk dicetak.')
+                  }
+                >
+                  <FileText size={14} /> Cetak Draf SK
+                </Button>
+                <Button
+                  loading={busy}
+                  onClick={() => {
+                    if (!window.confirm('Ubah status menjadi "Proses TTD Dekan"?\nPastikan draf SK fisik telah dicetak dan siap dimintakan tanda tangan basah Dekan.')) return;
+                    void run(
+                      () =>
+                        apiClient.submissions.updateStatus(
+                          sub.$id, 'sk_process', 'PROSES_TTD_DEKAN',
+                          'Draf SK telah dicetak fisik dan sedang dalam proses tanda tangan Dekan.'
+                        ).then(() => {}),
+                      'Status diubah ke "Proses TTD Dekan".'
                     );
-                  }, 'SK resmi berhasil diterbitkan.')
-                }
-              >
-                <Upload size={14} /> Unggah & Terbitkan SK
-              </Button>
-            </div>
+                  }}
+                >
+                  <Clock size={14} /> Proses TTD Dekan
+                </Button>
+              </div>
+            )}
+
+            {/* Tahap 2: Proses TTD — unggah scan SK bertanda tangan */}
+            {sub.status === 'sk_process' && (
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  onChange={(e) => setSkFile(e.target.files?.[0] || null)}
+                  className="text-[13px] text-ink-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-900 file:px-3.5 file:py-2 file:text-[12.5px] file:font-bold file:text-white hover:file:bg-brand-800"
+                />
+                <Button
+                  loading={busy}
+                  disabled={!skFile}
+                  onClick={() =>
+                    run(async () => {
+                      const uploaded = await apiClient.files.upload('sk', skFile!);
+                      const fileId = uploaded.fileId || uploaded.id;
+                      await apiClient.submissions.updateStatus(
+                        sub.$id, 'sk_issued', 'SK_RESMI_TERBIT',
+                        `Scan PDF SK resmi ber-TTD basah Dekan berhasil diunggah (File ID: ${fileId}). SK resmi diterbitkan.`,
+                        { scannedSkId: fileId }
+                      );
+                    }, 'SK resmi berhasil diterbitkan.')
+                  }
+                >
+                  <Upload size={14} /> Unggah & Terbitkan SK
+                </Button>
+              </div>
+            )}
+
+            {/* Tahap 3: SK sudah terbit — tautan lihat scan */}
+            {sub.status === 'sk_issued' && (
+              (() => {
+                const scannedId = (sub as any).surat?.scannedSkId || (sub as any).surat?.scanned_sk_id;
+                return scannedId ? (
+                  <a
+                    href={apiClient.files.getViewUrl('sk', scannedId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-emerald-700"
+                  >
+                    <ExternalLink size={14} /> Lihat SK Basah
+                  </a>
+                ) : (
+                  <p className="text-[12.5px] font-semibold text-ink-500">SK telah diterbitkan — file scan belum tersedia.</p>
+                );
+              })()
+            )}
           </div>
         )}
 
