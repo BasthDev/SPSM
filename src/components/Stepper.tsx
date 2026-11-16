@@ -32,7 +32,7 @@ export const Stepper: React.FC<StepperProps> = ({
             ]}
           >
             {isCompleted ? (
-              <Check size={14} color="#ffffff" strokeWidth={3} />
+              <Check size={15} color="#ffffff" strokeWidth={3.2} />
             ) : (
               <Text
                 style={[
@@ -83,18 +83,18 @@ export const Stepper: React.FC<StepperProps> = ({
   );
 };
 
-const CIRCLE_SIZE = 30;
+const CIRCLE_SIZE = 32;
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+    paddingHorizontal: 4,
   },
   stepWrapper: {
     alignItems: 'center',
-    maxWidth: 70,
+    maxWidth: 72,
   },
   circle: {
     width: CIRCLE_SIZE,
@@ -110,10 +110,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
   completedCircle: {
     backgroundColor: Colors.success,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   },
   circleText: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     fontWeight: '700',
   },
   activeCircleText: {
@@ -130,22 +130,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     color: Colors.textTertiary,
-    marginTop: 6,
+    marginTop: 7,
     fontWeight: '600',
     textAlign: 'center',
   },
   activeLabel: {
     color: Colors.primary,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   completedLabel: {
     color: Colors.textSecondary,
+    fontWeight: '700',
   },
   line: {
     flex: 1,
-    height: 2.5,
-    marginBottom: 20,
-    marginHorizontal: 4,
+    height: 3,
+    marginTop: CIRCLE_SIZE / 2 - 1.5,
+    marginHorizontal: 6,
     borderRadius: 2,
   },
   completedLine: {

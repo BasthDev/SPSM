@@ -321,33 +321,34 @@ export default function OnboardingScreen() {
         // onRightAction={handleSignOut}
       />
 
+      {/* Stepper fixed di bawah header — tidak ikut scroll */}
+      <View style={styles.stepperBar}>
+        <Stepper steps={STEPS} currentStep={currentStep} />
+      </View>
+
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Stepper Header */}
-        <Stepper steps={STEPS} currentStep={currentStep} style={styles.stepper} />
-
         {/* Step Content */}
         {renderStep()}
 
-        {/* Action Buttons */}
+        {/* Action Buttons — Kembali kiri, Lanjut/Simpan kanan (sama seperti form pengajuan) */}
         <View style={styles.buttonRow}>
           {currentStep > 0 && (
             <Button
               title="Kembali"
               onPress={handleBack}
               variant="secondary"
-              style={styles.buttonHalf}
             />
           )}
+          <View style={{ flex: 1 }} />
           {currentStep < STEPS.length - 1 ? (
             <Button
               title="Lanjut"
               onPress={handleNext}
               variant="primary"
-              style={[styles.buttonHalf, currentStep === 0 && styles.buttonFull]}
             />
           ) : (
             <Button
@@ -355,7 +356,6 @@ export default function OnboardingScreen() {
               onPress={handleSubmit}
               loading={loading}
               variant="primary"
-              style={styles.buttonHalf}
             />
           )}
         </View>
@@ -383,8 +383,12 @@ const styles = StyleSheet.create({
     padding: 18,
     paddingBottom: 40,
   },
-  stepper: {
-    marginBottom: 16,
+  stepperBar: {
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: 18,
+    paddingTop: 4,
   },
   stepHeaderRow: {
     flexDirection: 'row',
@@ -453,15 +457,9 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 18,
     gap: 12,
-  },
-  buttonHalf: {
-    flex: 1,
-  },
-  buttonFull: {
-    flex: 1,
   },
   logoutHeaderBtn: {
     flexDirection: 'row',

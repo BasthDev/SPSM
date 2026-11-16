@@ -14,8 +14,9 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
         return {
           ScheduleIcon: Clock,
           accentColor: '#059669',
-          badgeBg: '#059669',
-          badgeText: '#FFFFFF',
+          badgeBg: '#ECFDF5',
+          badgeText: '#059669',
+          badgeDot: '#059669',
           badgeLabel: 'PENDAFTARAN DIBUKA',
           schedulePrefix: 'Jadwal:',
         };
@@ -23,8 +24,9 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
         return {
           ScheduleIcon: Calendar,
           accentColor: Colors.primary,
-          badgeBg: Colors.primary,
-          badgeText: '#FFFFFF',
+          badgeBg: '#E0F2FE',
+          badgeText: Colors.primary,
+          badgeDot: Colors.primary,
           badgeLabel: 'AKAN DATANG',
           schedulePrefix: 'Dibuka pada:',
         };
@@ -33,8 +35,9 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
         return {
           ScheduleIcon: Calendar,
           accentColor: '#D97706',
-          badgeBg: '#D97706',
-          badgeText: '#FFFFFF',
+          badgeBg: '#FFFBEB',
+          badgeText: '#D97706',
+          badgeDot: '#D97706',
           badgeLabel: 'PENDAFTARAN DITUTUP',
           schedulePrefix: 'Periode:',
         };
@@ -52,6 +55,7 @@ export function PeriodInfoCard({ periodDisplay }: Props) {
           {/* Header Row: Solid Pill Badge + Academic Year */}
           <View style={styles.topMetaRow}>
             <View style={[styles.solidBadge, { backgroundColor: theme.badgeBg }]}>
+              <View style={[styles.badgeDot, { backgroundColor: theme.badgeDot }]} />
               <Text style={[styles.solidBadgeText, { color: theme.badgeText }]}>
                 {theme.badgeLabel}
               </Text>
@@ -123,6 +127,14 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   solidBadgeText: {
     fontSize: 9.5,

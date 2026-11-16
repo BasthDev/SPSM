@@ -1,4 +1,4 @@
-import { Button, GoogleIcon, LoadingScreen } from '@/components';
+import { GoogleLoginButton, LoadingScreen } from '@/components';
 import { apiClient } from '@/services/apiClient';
 import { authService } from '@/services/authService';
 import { prefetchUserData } from '@/services/userDataCache';
@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { ShieldCheck } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -148,9 +148,9 @@ export default function LoginScreen() {
         <View style={styles.logoBadge}>
           <Image source={require('../assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
         </View>
-        <Text style={styles.appName}>SPSM-KU</Text>
+        <Text style={styles.appName}>SPSM</Text>
         <Text style={styles.appSubtitle}>Sarana Pengajuan Skripsi Mahasiswa</Text>
-        <Text style={styles.univName}>Universitas Muhammadiyah Aceh</Text>
+        {/* <Text style={styles.univName}>Universitas Muhammadiyah Aceh</Text> */}
       </LinearGradient>
 
       {/* Form card */}
@@ -160,23 +160,16 @@ export default function LoginScreen() {
           Masuk dengan akun Google institusi untuk mengakses dashboard pengajuan skripsi Anda.
         </Text>
 
-        <Button
-          title="Sign in with Google"
-          onPress={signInWithGoogle}
-          variant="google"
-          loading={loading}
-          icon={<GoogleIcon size={20} />}
-          style={styles.googleButton}
-        />
+        <GoogleLoginButton loading={loading} onPress={signInWithGoogle} />
 
-        {loading && (
-          <Button
-            title="Batal"
-            onPress={cancelSignIn}
-            variant="outline"
-            style={styles.cancelButton}
-          />
-        )}
+        {/* Slot batal selalu ada (fixed height) supaya layout tidak bergeser saat loading */}
+        <View style={styles.cancelSlot}>
+          {loading && (
+            <TouchableOpacity onPress={cancelSignIn} activeOpacity={0.7}>
+              <Text style={styles.cancelText}>Batal</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <View style={styles.securityRow}>
           <ShieldCheck size={14} color={Colors.textTertiary} strokeWidth={2} />
@@ -262,14 +255,17 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     paddingHorizontal: 8,
   },
-  googleButton: {
-    width: '100%',
-    borderRadius: 16,
-  },
-  cancelButton: {
-    width: '100%',
-    borderRadius: 16,
+  cancelSlot: {
+    height: 36,
     marginTop: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    textDecorationLine: 'underline',
   },
   securityRow: {
     flexDirection: 'row',

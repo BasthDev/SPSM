@@ -47,12 +47,33 @@ function DashboardSubmissionCardInner({
 
   const canResubmit = sub.status === 'revision' || sub.status === 'rejected';
 
+  // Warna aksen kiri card — selaras dengan StatusBadge
+  const STATUS_ACCENT: Record<string, string> = {
+    drafting: '#475569',
+    pending_lecturer: '#B45309',
+    waiting_kaprodi: '#1D4ED8',
+    waiting_akademik: '#6D28D9',
+    sk_process: '#C2410C',
+    sk_issued: '#047857',
+    approved: '#047857',
+    revision: '#B45309',
+    rejected: '#DC2626',
+    approved_lecturer: '#1D4ED8',
+    pending_kaprodi: '#1D4ED8',
+  };
+  const accentColor = STATUS_ACCENT[sub.status] ?? '#94A3B8';
+
   return (
     <TouchableOpacity
       onPress={() => router.push(`/submission/${sub.$id}` as any)}
       activeOpacity={0.7}
     >
-      <Section style={styles.submissionCard}>
+      <Section
+        style={[
+          styles.submissionCard,
+          { borderLeftWidth: 4, borderLeftColor: accentColor },
+        ]}
+      >
         {/* Status Badge - Absolute Position */}
         <View style={styles.cardBadgeAbsolute}>
           <StatusBadge status={sub.status} size="sm" />

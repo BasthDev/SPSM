@@ -31,7 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
-  RefreshControl,
+
   ScrollView,
   StyleSheet,
   Text,
@@ -42,12 +42,12 @@ import {
 export default function DashboardScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
 
   // Load dashboard data: render from local cache instantly, then refresh from API
   const loadDashboardData = useCallback(async (isInitial = false) => {
@@ -113,12 +113,6 @@ export default function DashboardScreen() {
       didInitialLoad.current = true;
     }, [loadDashboardData])
   );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadDashboardData(false);
-    setRefreshing(false);
-  }, [loadDashboardData]);
 
   // Realtime: silent refetch (debounced) saat ada perubahan data relevan.
   // Server sudah memfilter event per user, jadi semua event yang sampai
@@ -249,19 +243,18 @@ export default function DashboardScreen() {
         avatarUrl={user?.avatar_url}
         onProfilePress={() => router.push('/profile')}
         onSignOutPress={handleSignOut}
+        collapsed={headerCollapsed}
       />
 
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
-        }
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          const y = e.nativeEvent.contentOffset.y;
+          setHeaderCollapsed((prev) => (y > 40 ? true : y < 10 ? false : prev));
+        }}
+        refreshControl={undefined}
       >
         {/* TOP INFO CARD: Dynamic period status — component handles open/upcoming/closed */}
         <PeriodInfoCard periodDisplay={periodDisplay} />

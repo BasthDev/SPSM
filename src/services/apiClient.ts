@@ -121,6 +121,16 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   try {
     json = JSON.parse(text);
   } catch {
+    // Respons non-JSON (mis. halaman error HTML Cloudflare Tunnel 1033,
+    // maintenance page, dsb) — jangan tampilkan HTML mentah ke user.
+    if (text.trimStart().startsWith('<')) {
+      notifyConnectionError('Tidak dapat terhubung ke server');
+      throw new ApiError(
+        'Tidak dapat terhubung ke server. Coba beberapa saat lagi.',
+        res.status || 503,
+        { isGatewayError: true }
+      );
+    }
     json = { message: text };
   }
 

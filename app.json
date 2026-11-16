@@ -3,12 +3,11 @@
     "name": "SPSM-KU",
     "slug": "SPSM-KU",
     "scheme": [
-      "appwrite-callback-6af9b97e002cf5c78067",
       "spsm"
     ],
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "id.my.basthdev.spsm",

@@ -11,6 +11,7 @@ export { Dropdown } from './Dropdown';
 export type { DropdownOption } from './Dropdown';
 export { Select } from './Select';
 export { GoogleIcon } from './GoogleIcon';
+export { GoogleLoginButton } from './GoogleLoginButton';
 export { StatusBadge } from './StatusBadge';
 export type { BadgeStatus } from './StatusBadge';
 export { LoadingScreen } from './LoadingScreen';

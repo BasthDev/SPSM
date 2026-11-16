@@ -39,8 +39,9 @@ export function EligibilityCard({ eligibility }: EligibilityCardProps) {
           activeOpacity={0.7}
         >
           <View style={styles.headerTopRow}>
-            <View style={styles.solidDangerBadge}>
-              <Text style={styles.solidDangerBadgeText}>PRASYARAT AKADEMIK</Text>
+            <View style={styles.softDangerBadge}>
+              <View style={styles.softBadgeDot} />
+              <Text style={styles.softDangerBadgeText}>PRASYARAT AKADEMIK</Text>
             </View>
             {expanded ? (
               <ChevronUp size={18} color={Colors.textTertiary} strokeWidth={2.2} />
@@ -132,8 +133,9 @@ export function ClosedPeriodCard({ periodDisplay }: ClosedPeriodCardProps) {
     <View style={styles.solidClosedCard}>
       <View style={styles.cardPadding}>
         <View style={styles.headerContainer}>
-          <View style={styles.solidMutedBadge}>
-            <Text style={styles.solidMutedBadgeText}>PENDAFTARAN DITUTUP</Text>
+          <View style={styles.softMutedBadge}>
+            <View style={[styles.softBadgeDot, { backgroundColor: '#64748B' }]} />
+            <Text style={styles.softMutedBadgeText}>PENDAFTARAN DITUTUP</Text>
           </View>
           <Text style={styles.cardHeadingMuted}>Ajukan Judul Skripsi</Text>
           <Text style={styles.cardSubtitle}>
@@ -212,16 +214,47 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   solidDangerBadge: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#FEF2F2',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  softDangerBadge: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  softBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DC2626',
   },
   solidDangerBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#DC2626',
+    letterSpacing: 0.6,
+  },
+  softDangerBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#DC2626',
+    letterSpacing: 0.6,
+  },
+  softMutedBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748B',
     letterSpacing: 0.6,
   },
   cardHeading: {
@@ -318,12 +351,26 @@ const styles = StyleSheet.create({
     }),
   },
   solidMutedBadge: {
-    backgroundColor: '#64748B',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: 'flex-start',
     marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  softMutedBadge: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   solidMutedBadgeText: {
     fontSize: 9.5,

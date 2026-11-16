@@ -11,73 +11,66 @@ type StatusBadgeProps = {
   style?: ViewStyle;
 };
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
+/**
+ * Soft badge: background tint terang + teks & dot warna solid.
+ * `accent` = warna utama (dot + teks), `soft` = latar tint.
+ */
+const STATUS_CONFIG: Record<string, { label: string; accent: string; soft: string }> = {
   drafting: {
     label: 'Draf',
-    bg: '#64748B',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#475569',
+    soft: '#F1F5F9',
   },
   pending_lecturer: {
     label: 'Menunggu Review',
-    bg: Colors.warning,
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#B45309',
+    soft: '#FEF3C7',
   },
   waiting_kaprodi: {
     label: 'Pleno Kaprodi',
-    bg: '#2563EB',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#1D4ED8',
+    soft: '#DBEAFE',
   },
   waiting_akademik: {
     label: 'Menunggu Administrasi TU',
-    bg: '#7C3AED',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#6D28D9',
+    soft: '#F3E8FF',
   },
   sk_process: {
     label: 'Proses TTD Dekan',
-    bg: '#EA580C',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#C2410C',
+    soft: '#FFEDD5',
   },
   sk_issued: {
     label: 'SK Resmi Terbit',
-    bg: '#059669',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#047857',
+    soft: '#D1FAE5',
   },
   approved: {
     label: 'SK Resmi Terbit',
-    bg: '#059669',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#047857',
+    soft: '#D1FAE5',
   },
   revision: {
     label: 'Perlu Revisi',
-    bg: '#D97706',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#B45309',
+    soft: '#FEF3C7',
   },
   rejected: {
     label: 'Ditolak',
-    bg: Colors.error,
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#DC2626',
+    soft: '#FEE2E2',
   },
   // Legacy aliases (normalized server-side, kept for safety)
   approved_lecturer: {
     label: 'Pleno Kaprodi',
-    bg: '#2563EB',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#1D4ED8',
+    soft: '#DBEAFE',
   },
   pending_kaprodi: {
     label: 'Pleno Kaprodi',
-    bg: '#2563EB',
-    text: '#FFFFFF',
-    dot: '#FFFFFF',
+    accent: '#1D4ED8',
+    soft: '#DBEAFE',
   },
 };
 
@@ -90,7 +83,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', s
     <View
       style={[
         styles.badge,
-        { backgroundColor: config.bg },
+        { backgroundColor: config.soft },
         isSmall && { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
         style,
       ]}
@@ -98,15 +91,15 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', s
       <View
         style={[
           styles.dot,
-          { backgroundColor: config.dot },
+          { backgroundColor: config.accent },
           isSmall && { width: 5, height: 5, borderRadius: 2.5 },
         ]}
       />
       <Text
         style={[
           styles.text,
-          { color: config.text },
-          isSmall && { fontSize: 11, fontWeight: '600' },
+          { color: config.accent },
+          isSmall && { fontSize: 11, fontWeight: '700' },
         ]}
       >
         {config.label}
@@ -132,7 +125,8 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
 });
 export default StatusBadge;

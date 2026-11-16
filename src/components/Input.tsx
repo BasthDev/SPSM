@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { forwardRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,20 +16,21 @@ type InputProps = {
   containerStyle?: ViewStyle;
 } & RNTextInputProps;
 
-export const Input: React.FC<InputProps> = ({
+export const Input = forwardRef<any, InputProps>(function Input({
   label,
   error,
   hint,
   containerStyle,
   style,
   ...rest
-}) => {
+}, ref) {
   const [focused, setFocused] = useState(false);
 
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       <RNTextInput
+        ref={ref}
         style={[
           styles.input,
           focused && styles.inputFocused,
@@ -54,7 +55,7 @@ export const Input: React.FC<InputProps> = ({
       ) : null}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

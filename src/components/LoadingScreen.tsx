@@ -1,18 +1,34 @@
-import React from 'react';
-import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, ActivityIndicator, Text, StyleSheet, Animated, Image } from 'react-native';
 import { Colors } from '@/theme/theme';
+
+const logoImage = require('@/assets/images/logo.png');
 
 type LoadingScreenProps = {
   message?: string;
 };
 
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ message = 'Memuat...' }) => {
+  const pulse = useRef(new Animated.Value(0.55)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.55, duration: 750, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.text}>{message}</Text>
-      </View>
+      <Animated.View style={{ opacity: pulse }}>
+        <Image source={logoImage} style={styles.logoImage} resizeMode="contain" />
+      </Animated.View>
+      <Text style={styles.text}>{message}</Text>
+      <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 14 }} />
     </View>
   );
 };
@@ -25,19 +41,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     padding: 24,
   },
-  card: {
-    backgroundColor: Colors.card,
-    paddingVertical: 28,
-    paddingHorizontal: 36,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+  logoImage: {
+    width: 110,
+    height: 110,
   },
   text: {
     marginTop: 14,

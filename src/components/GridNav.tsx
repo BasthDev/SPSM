@@ -1,14 +1,14 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Colors } from '@/theme/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   BookOpen,
   FileText,
-  Settings,
-  User,
   HelpCircle,
+  Settings,
 } from 'lucide-react-native';
-import { Colors } from '@/theme/theme';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type GridNavProps = {
   style?: any;
@@ -23,40 +23,24 @@ export const GridNav: React.FC<GridNavProps> = ({ style }) => {
       label: 'Repo',
       icon: BookOpen,
       route: '/repo',
-      color: '#0A4C8F',
-      bgColor: '#E0F2FE',
     },
     {
       id: 'skripsiku',
       label: 'Skripsi Ku',
       icon: FileText,
       route: '/skripsiku',
-      color: '#059669',
-      bgColor: '#ECFDF5',
-    },
-    {
-      id: 'profil',
-      label: 'Profil',
-      icon: User,
-      route: '/profile',
-      color: '#7C3AED',
-      bgColor: '#F5F3FF',
-    },
-    {
-      id: 'pengaturan',
-      label: 'Pengaturan',
-      icon: Settings,
-      route: '/settings',
-      color: '#475569',
-      bgColor: '#F1F5F9',
     },
     {
       id: 'panduan',
       label: 'Panduan',
       icon: HelpCircle,
       route: '/panduan',
-      color: '#EA580C',
-      bgColor: '#FFF7ED',
+    },
+    {
+      id: 'pengaturan',
+      label: 'Pengaturan',
+      icon: Settings,
+      route: '/settings',
     },
   ];
 
@@ -69,12 +53,19 @@ export const GridNav: React.FC<GridNavProps> = ({ style }) => {
             key={menu.id}
             style={styles.menuItem}
             onPress={() => router.push(menu.route as any)}
-            activeOpacity={0.7}
+            activeOpacity={0.85}
           >
-            <View style={[styles.iconContainer, { backgroundColor: menu.bgColor }]}>
-              <IconComponent size={24} color={menu.color} strokeWidth={2} />
-            </View>
-            <Text style={styles.menuLabel}>{menu.label}</Text>
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryLight]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientCard}
+            >
+              <IconComponent size={20} color="#FFFFFF" strokeWidth={2.2} />
+              <Text style={styles.menuLabel} numberOfLines={1}>
+                {menu.label}
+              </Text>
+            </LinearGradient>
           </TouchableOpacity>
         );
       })}
@@ -85,26 +76,33 @@ export const GridNav: React.FC<GridNavProps> = ({ style }) => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: 4,
     marginBottom: 20,
   },
   menuItem: {
-    alignItems: 'center',
     flex: 1,
+    aspectRatio: 1,
+    marginHorizontal: 5,
+    borderRadius: 20,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+  gradientCard: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    borderRadius: 20,
+    paddingHorizontal: 6,
   },
   menuLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.text,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
     textAlign: 'center',
+    letterSpacing: -0.1,
+    marginTop: 6,
   },
 });

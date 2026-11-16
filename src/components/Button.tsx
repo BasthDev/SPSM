@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
   StyleSheet,
   ActivityIndicator,
+  Animated,
   StyleProp,
   ViewStyle,
   TextStyle,
@@ -42,6 +43,16 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
 }) => {
   const isDisabled = disabled || loading;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const animatePress = (toValue: number) => {
+    Animated.spring(scaleAnim, {
+      toValue,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 0,
+    }).start();
+  };
 
   const getColors = () => {
     if (disabled) {
@@ -79,6 +90,7 @@ export const Button: React.FC<ButtonProps> = ({
   const s = sizeStyles[size];
 
   return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
     <TouchableOpacity
       style={[
         styles.base,
@@ -96,6 +108,8 @@ export const Button: React.FC<ButtonProps> = ({
         style,
       ]}
       onPress={onPress}
+      onPressIn={() => !isDisabled && animatePress(0.96)}
+      onPressOut={() => animatePress(1)}
       disabled={isDisabled}
       activeOpacity={0.82}
     >
@@ -120,6 +134,7 @@ export const Button: React.FC<ButtonProps> = ({
         </View>
       )}
     </TouchableOpacity>
+    </Animated.View>
   );
 };
 

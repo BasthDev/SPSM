@@ -26,7 +26,7 @@ import {
   Lightbulb,
   TableProperties,
 } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -86,6 +86,25 @@ export default function CreateSubmissionScreen() {
   const titleCount = titles.length;
   const stepLabels = titles.map((_, i) => 'Judul ' + (i + 1)).concat(['Dosen', 'Kirim']);
   const [resubmitSource, setResubmitSource] = useState<string | null>(null);
+
+  // Scroll & focus management saat ganti step
+  const scrollRef = useRef<any>(null);
+  const titleInputRefs = useRef<Record<number, any>>({});
+
+  /** Pindah step: scroll ke atas + fokus input pertama di step tujuan. */
+  const goToStep = (next: number) => {
+    setErrors({});
+    setStep(next);
+    // Auto-scroll ke atas saat ganti step.
+    // CATATAN: auto-fokus input judul dimatikan — uncomment blok di bawah
+    // jika ingin mengaktifkan kembali.
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    // setTimeout(() => {
+    //   if (next < titles.length) {
+    //     titleInputRefs.current[next]?.focus?.();
+    //   }
+    // }, 120);
+  };
 
   useEffect(() => {
     let active = true;
@@ -263,18 +282,17 @@ export default function CreateSubmissionScreen() {
     }
 
     if (validateCurrentStep()) {
-      setStep((s) => Math.min(s + 1, stepLabels.length - 1));
+      goToStep(Math.min(step + 1, stepLabels.length - 1));
     }
   };
 
   const handleBack = () => {
-    setErrors({});
-    setStep((s) => Math.max(s - 1, 0));
+    if (step > 0) goToStep(step - 1);
   };
 
   const handleHeaderBack = () => {
     if (step > 0) {
-      setStep((s) => s - 1);
+      goToStep(step - 1);
     } else if (router.canGoBack()) {
       router.back();
     } else {
@@ -404,6 +422,9 @@ export default function CreateSubmissionScreen() {
         </View>
 
         <Input
+          ref={(el) => {
+            titleInputRefs.current[index] = el;
+          }}
           label="Judul Skripsi"
           value={t.title}
           onChangeText={(v) => updateTitle(index, 'title', v)}
@@ -641,7 +662,13 @@ export default function CreateSubmissionScreen() {
     >
       <AppHeader title="Pengajuan Judul Skripsi" showBack onBack={handleHeaderBack} />
 
+      {/* Stepper fixed di bawah header — tidak ikut scroll */}
+      <View style={styles.stepperBar}>
+        <Stepper steps={stepLabels} currentStep={step} />
+      </View>
+
       <ScrollView
+        ref={scrollRef}
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -686,27 +713,26 @@ export default function CreateSubmissionScreen() {
           </View>
         )}
 
-        <Stepper steps={stepLabels} currentStep={step} style={styles.stepper} />
+        {/* Step Content */}
 
         {step < titleCount ? renderTitleForm(step) : step === titleCount ? renderAdvisorSelection() : renderSummary()}
 
-        {/* Action Buttons */}
+        {/* Action Buttons — Kembali di kiri, Lanjut/Kirim di kanan */}
         <View style={styles.buttonRow}>
           {step > 0 && (
             <Button
               title="Kembali"
               onPress={handleBack}
               variant="secondary"
-              style={styles.btnHalf}
             />
           )}
+          <View style={{ flex: 1 }} />
           {step < titleCount + 1 ? (
             <Button
               title="Lanjut"
               onPress={handleNext}
               variant="primary"
               disabled={isSubmissionBlocked}
-              style={[styles.btnHalf, step === 0 && styles.btnFull]}
             />
           ) : (
             <Button
@@ -715,7 +741,6 @@ export default function CreateSubmissionScreen() {
               loading={loading}
               disabled={isSubmissionBlocked}
               variant="primary"
-              style={styles.btnHalf}
             />
           )}
         </View>
@@ -733,8 +758,12 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  stepper: {
-    marginBottom: 14,
+  stepperBar: {
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   blockedBanner: {
     flexDirection: 'row',
@@ -1013,13 +1042,8 @@ const styles = StyleSheet.create({
   },
   buttonRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     marginTop: 18,
-  },
-  btnHalf: {
-    flex: 1,
-  },
-  btnFull: {
-    flex: 1,
   },
 });
