@@ -3,7 +3,7 @@
 # Jalan di VM Ubuntu. Output: /home/basth/apk-dist/latest.apk + timestamped copies.
 set -euo pipefail
 
-REPO_DIR="${REPO_DIR:-/home/basth/spsm-app}"
+REPO_DIR="${REPO_DIR:-/home/basth/apbuilder}"
 DIST_DIR="${DIST_DIR:-/home/basth/apk-dist}"
 ANDROID_HOME="${ANDROID_HOME:-/home/basth/Android/Sdk}"
 JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
@@ -30,6 +30,15 @@ ensure_sdk() {
 
 mkdir -p "$DIST_DIR"
 cd "$REPO_DIR"
+
+# Node deps untuk Metro bundling (sekali saja, incremental setelahnya)
+if [ ! -d node_modules ]; then
+  echo "=== npm install (deps untuk Metro bundle) ==="
+  if [ ! -f .env ]; then
+    echo "WARNING: .env tidak ada di $REPO_DIR — EXPO_PUBLIC_* akan kosong!"
+  fi
+  npm install --no-audit --no-fund
+fi
 
 echo "=== git pull ==="
 git pull --ff-only
