@@ -54,7 +54,7 @@ export default function SkripsiKuScreen() {
 
       setFiles(uploadedFiles);
     } catch (error) {
-      console.error('Failed to load files:', error);
+      console.warn('Failed to load files (showing empty state):', error);
       setFiles([]);
     } finally {
       setLoading(false);

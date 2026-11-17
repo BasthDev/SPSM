@@ -50,7 +50,7 @@ export default function RepoScreen() {
           );
         }
       } catch (error) {
-        console.error('Failed to load repo files:', error);
+        console.warn('Failed to load repo files (showing empty state):', error);
         if (!ignore) setFiles([]);
       } finally {
         if (!ignore) setLoading(false);
