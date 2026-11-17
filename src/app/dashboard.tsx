@@ -261,8 +261,8 @@ export default function DashboardScreen() {
         {/* TOP INFO CARD: Dynamic period status — component handles open/upcoming/closed */}
         <PeriodInfoCard periodDisplay={periodDisplay} />
 
-        {/* Carousel info — auto-scroll banner fitur & informasi */}
-        <Carousel height={108} autoPlayMs={4000} />
+        {/* Carousel info — auto-scroll slide terintegrasi periodWatcher */}
+        <Carousel period={periodDisplay} height={108} autoPlayMs={4000} />
 
         {/* Grid Navigation */}
         <GridNav />

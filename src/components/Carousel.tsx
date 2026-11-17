@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   LayoutChangeEvent,
@@ -10,8 +10,17 @@ import {
   ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BellRing, FileCheck2, RefreshCcw, Sparkles } from 'lucide-react-native';
+import {
+  BellRing,
+  CalendarCheck,
+  CalendarClock,
+  CalendarX2,
+  FileCheck2,
+  RefreshCcw,
+  Sparkles,
+} from 'lucide-react-native';
 import { Colors } from '@/theme/theme';
+import type { PeriodDisplayStatus } from '@/services/settingsService';
 
 export interface CarouselSlideData {
   id: string;
@@ -22,7 +31,53 @@ export interface CarouselSlideData {
   badge?: string;
 }
 
-export const DEFAULT_DASHBOARD_SLIDES: CarouselSlideData[] = [
+/**
+ * Generate slide status periode pengajuan (Period Watcher)
+ * Sesuai logika pada server/src/services/periodWatcher.ts & notificationService.ts
+ */
+export function buildPeriodSlide(period?: PeriodDisplayStatus | null): CarouselSlideData {
+  const status = period?.status || 'open';
+
+  if (status === 'upcoming') {
+    return {
+      id: 'period_status',
+      title: period?.title || 'Pengajuan Akan Datang',
+      description: period?.dateRangeText
+        ? `Jadwal: ${period.dateRangeText} • Pantau tanggal mulai pengajuan.`
+        : (period?.description || 'Masa pengajuan judul skripsi akan segera dibuka. Pantau tanggal mulai pengajuan.'),
+      icon: <CalendarClock size={22} color="#FFFFFF" strokeWidth={2.3} />,
+      colors: ['#D97706', '#B45309'],
+      badge: 'SEGERA',
+    };
+  }
+
+  if (status === 'closed') {
+    return {
+      id: 'period_status',
+      title: period?.title || 'Pengajuan Ditutup',
+      description: period?.dateRangeText
+        ? `Periode pengajuan (${period.dateRangeText}) telah ditutup.`
+        : (period?.description || 'Masa pengajuan judul skripsi telah ditutup. Terima kasih atas partisipasi Anda.'),
+      icon: <CalendarX2 size={22} color="#FFFFFF" strokeWidth={2.3} />,
+      colors: ['#475569', '#334155'],
+      badge: 'DITUTUP',
+    };
+  }
+
+  // Default: Open / Dibuka
+  return {
+    id: 'period_status',
+    title: period?.title || 'Pengajuan Dibuka',
+    description: period?.dateRangeText
+      ? `Aktif: ${period.dateRangeText} • Segera ajukan usulan judul Anda.`
+      : (period?.description || 'Masa pengajuan judul skripsi telah dibuka. Segera ajukan usulan judul Anda.'),
+    icon: <CalendarCheck size={22} color="#FFFFFF" strokeWidth={2.3} />,
+    colors: ['#059669', '#047857'],
+    badge: 'DIBUKA',
+  };
+}
+
+export const BASE_FEATURE_SLIDES: CarouselSlideData[] = [
   {
     id: 'realtime',
     title: 'Update Real-time',
@@ -58,9 +113,11 @@ export const DEFAULT_DASHBOARD_SLIDES: CarouselSlideData[] = [
 ];
 
 type CarouselProps = {
-  /** Daftar slide custom (opsional). Jika tidak disediakan, slide default dashboard akan digunakan. */
+  /** Data status masa pengajuan (dari settingsService / periodWatcher) untuk slide pertama */
+  period?: PeriodDisplayStatus | null;
+  /** Daftar slide custom (opsional). Jika diisi, meng-override slides default. */
   slides?: React.ReactNode[];
-  /** Data slide terstruktur (opsional). */
+  /** Data slide terstruktur custom (opsional). */
   items?: CarouselSlideData[];
   /** Tinggi area carousel (default 108). */
   height?: number;
@@ -71,9 +128,10 @@ type CarouselProps = {
 
 /**
  * Carousel horizontal mandiri untuk dashboard.
- * Dilengkapi styling internal, pagination snap presisi, dan dot indicator responsif.
+ * Slide pertama otomatis terintegrasi dengan status masa pengajuan (periodWatcher).
  */
 export const Carousel: React.FC<CarouselProps> = ({
+  period,
   slides,
   items,
   height = 108,
@@ -84,8 +142,14 @@ export const Carousel: React.FC<CarouselProps> = ({
   const [index, setIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  // Gunakan slides kustom jika ada, atau render dari items/default slides
-  const slideItems = items || (slides ? null : DEFAULT_DASHBOARD_SLIDES);
+  // Bangun daftar slide: slide pertama selalu status periode pengajuan, disusul fitur aplikasi
+  const dynamicItems = useMemo<CarouselSlideData[]>(() => {
+    if (items) return items;
+    const periodSlide = buildPeriodSlide(period);
+    return [periodSlide, ...BASE_FEATURE_SLIDES];
+  }, [period, items]);
+
+  const slideItems = slides ? null : dynamicItems;
   const count = slides ? slides.length : (slideItems ? slideItems.length : 0);
 
   // Auto-play loop
@@ -129,7 +193,7 @@ export const Carousel: React.FC<CarouselProps> = ({
         <FlatList
           ref={listRef}
           data={slides ? slides : slideItems!}
-          keyExtractor={(_, i) => String(i)}
+          keyExtractor={(item, i) => (item as any)?.id || String(i)}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -138,7 +202,7 @@ export const Carousel: React.FC<CarouselProps> = ({
           decelerationRate="fast"
           snapToInterval={containerWidth}
           snapToAlignment="start"
-          renderItem={({ item, index: itemIdx }) => {
+          renderItem={({ item }) => {
             if (slides) {
               return (
                 <View style={[styles.slideContainer, { width: containerWidth, height }]}>
