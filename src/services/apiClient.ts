@@ -438,6 +438,36 @@ export const apiClient = {
     async updateProfile(userId: string, patch: any) {
       return request<any>(`/users/profile/${userId}`, { method: 'PATCH', body: JSON.stringify(patch) });
     },
+    /** Upload foto profil (file) → disimpan di file field users.avatar, avatar_url diisi URL file. */
+    async uploadAvatar(userId: string, asset: { uri: string; fileName?: string | null; mimeType?: string | null }) {
+      const formData = new FormData();
+      const ext = (asset.mimeType || 'image/jpeg').split('/')[1] || 'jpg';
+      formData.append('avatar', {
+        uri: asset.uri,
+        name: asset.fileName || `avatar-${Date.now()}.${ext}`,
+        type: asset.mimeType || 'image/jpeg',
+      } as any);
+
+      const url = `${API_BASE_URL}/users/${userId}/avatar`;
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      let res: Response;
+      try {
+        res = await fetch(url, { method: 'POST', headers, body: formData });
+      } catch (netErr: any) {
+        console.warn(`[apiClient] Avatar upload failed for ${url}:`, netErr?.message);
+        notifyConnectionError('Tidak dapat terhubung ke server');
+        throw new ApiError('Tidak dapat terhubung ke server.', 503, { isNetworkError: true });
+      }
+      notifyConnectionSuccess();
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new ApiError(json?.error || `Upload avatar gagal (${res.status})`, res.status);
+      }
+      return json?.data;
+    },
     async list() {
       return request<any[]>('/users');
     },

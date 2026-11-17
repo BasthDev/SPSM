@@ -14,3 +14,28 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Terlalu banyak percobaan login. Coba lagi nanti.' },
 });
+
+/**
+ * Rate limiter untuk similarity check (memanggil Gemini API).
+ * Mencegah abuse yang bisa menghabiskan kuota/biaya Gemini.
+ * Window 1 menit, maks 10 request per IP.
+ */
+export const similarityLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Terlalu banyak pengecekan kemiripan. Tunggu sebentar.' },
+});
+
+/**
+ * Rate limiter umum untuk endpoint non-auth — anti-scraping.
+ * Window 1 menit, maks 120 request per IP.
+ */
+export const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Terlalu banyak request. Coba lagi nanti.' },
+});

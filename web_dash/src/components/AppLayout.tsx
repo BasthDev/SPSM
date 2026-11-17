@@ -8,7 +8,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/app/auth';
 import { Avatar } from '@/components/ui';
 import { onRealtimeEvent, disconnectRealtime } from '@/services/realtimeService';
-
 interface NavItem {
   to: string;
   label: string;
@@ -45,8 +44,15 @@ export function AppLayout() {
   const qc = useQueryClient();
 
   // Realtime: invalidate query cache saat ada perubahan di backend
+  // Jika auth_error (token expired) → redirect ke login otomatis
   useEffect(() => {
     const unsub = onRealtimeEvent((event) => {
+      if (event.type === 'auth_error') {
+        // Token sudah tidak valid — paksa logout & redirect
+        disconnectRealtime();
+        void logout().finally(() => navigate('/login'));
+        return;
+      }
       const col = event.collection || '';
       if (event.type === 'settings' || col === 'system_settings' || col === 'systemSettings') {
         void qc.invalidateQueries({ queryKey: ['settings'] });
@@ -75,7 +81,7 @@ export function AppLayout() {
     return () => {
       unsub();
     };
-  }, [qc]);
+  }, [qc, logout, navigate]);
 
   const role = user?.role || 'lecturer';
   const items = NAV.filter((n) => n.roles.includes(role) || user?.isAdmin);
@@ -84,6 +90,7 @@ export function AppLayout() {
   const roleLabel = user?.isAdmin && role !== 'admin' ? 'Administrator' : (ROLE_LABEL[role] || role);
 
   const handleLogout = async () => {
+    disconnectRealtime();
     await logout();
     navigate('/login');
   };

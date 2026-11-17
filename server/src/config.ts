@@ -6,7 +6,16 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  jwtSecret: process.env.JWT_SECRET || 'default_spsm_secret_jwt_change_in_prod',
+  jwtSecret: (() => {
+    const s = process.env.JWT_SECRET || '';
+    if (!s || s.length < 16) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('[config] JWT_SECRET wajib diset di .env production (min 32 karakter)!');
+      }
+      return s || 'dev_only_spsm_secret_not_for_production_12345678';
+    }
+    return s;
+  })(),
   dbAdapter: process.env.DB_ADAPTER || 'appwrite',
   pocketbase: {
     url: process.env.POCKETBASE_URL || 'https://spsm.basthstudio.my.id',

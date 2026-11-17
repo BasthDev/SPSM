@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { submissionController } from '../controllers/submissionController';
 import { authenticate } from '../middleware/authMiddleware';
 import { requireRole } from '../middleware/authMiddleware';
+import { similarityLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ const router = Router();
 router.use(authenticate);
 
 router.post('/', (req, res, next) => submissionController.create(req, res, next));
-router.post('/check-similarity', (req, res, next) => submissionController.checkSimilarity(req, res, next));
+router.post('/check-similarity', similarityLimiter, (req, res, next) => submissionController.checkSimilarity(req, res, next));
 router.get('/comparable-titles', (req, res, next) => submissionController.comparableTitles(req, res, next));
 router.get('/', (req, res, next) => submissionController.list(req, res, next));
 router.get('/:id', (req, res, next) => submissionController.getById(req, res, next));

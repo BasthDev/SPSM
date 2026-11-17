@@ -256,6 +256,8 @@ export interface IDatabaseAdapter {
   getUserProfileByEmail(email: string): Promise<UserProfileDto | null>;
   createUserProfile(data: Omit<UserProfileDto, 'id'>): Promise<UserProfileDto>;
   updateUserProfile(id: string, patch: Partial<UserProfileDto>): Promise<UserProfileDto>;
+  /** Upload foto profil ke file field `avatar` users collection (opsional per adapter). */
+  updateUserAvatar?(id: string, file: { buffer: Buffer; originalname: string; mimetype: string }): Promise<UserProfileDto>;
   listUsers(limit?: number): Promise<UserProfileDto[]>;
 
   // Lecturers

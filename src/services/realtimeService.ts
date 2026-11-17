@@ -86,8 +86,14 @@ export async function connectRealtime(): Promise<void> {
         const event = JSON.parse(String(e.data)) as RealtimeEvent;
         if (event.type === 'pong' || event.type === 'ready') return;
         if (event.type === 'auth_error') {
-          // Token ditolak — tutup socket, reconnect akan mencoba lagi
+          // Token ditolak — hentikan reconnect otomatis (token sudah tidak valid)
+          // agar tidak masuk infinite loop reconnect→auth_error→reconnect.
+          intentionalClose = true;
           socket.close();
+          // Teruskan ke listener agar app bisa redirect ke login
+          listeners.forEach((l) => {
+            try { l(event); } catch {}
+          });
           return;
         }
         listeners.forEach((l) => {

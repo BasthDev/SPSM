@@ -440,6 +440,23 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
     return this.mapUser(doc);
   }
 
+  /** Upload avatar ke file field `avatar` collection users, lalu set avatar_url ke file URL-nya. */
+  async updateUserAvatar(
+    id: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string }
+  ): Promise<UserProfileDto> {
+    const form = new FormData();
+    form.append('avatar', new Blob([new Uint8Array(file.buffer)], { type: file.mimetype }), file.originalname);
+    const doc = await this.pb.collection(this.col.users).update(id, form as any);
+    const fileName = Array.isArray(doc.avatar) ? doc.avatar[0] : doc.avatar;
+    if (fileName) {
+      const avatarUrl = `${config.pocketbase.url}/api/files/users/${doc.id}/${encodeURIComponent(fileName)}`;
+      const updated = await this.pb.collection(this.col.users).update(id, { avatar_url: avatarUrl });
+      return this.mapUser(updated);
+    }
+    return this.mapUser(doc);
+  }
+
   async updateUserProfile(id: string, patch: Partial<UserProfileDto>): Promise<UserProfileDto> {
     const payload: Record<string, any> = {};
     if (patch.userId !== undefined) payload.user_id = patch.userId || '';

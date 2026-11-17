@@ -1,10 +1,13 @@
-import { AppHeader, Button, Dropdown, Input, LoadingScreen, Section } from '@/components';
+import { AppHeader, Avatar, Button, Dropdown, Input, LoadingScreen, Section } from '@/components';
 import { FALLBACK_BATCH_YEARS, FALLBACK_DEPARTMENTS } from '@/models/types';
 import { academicService } from '@/services/academicService';
+import { apiClient } from '@/services/apiClient';
 import { authService } from '@/services/authService';
 import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { Camera } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -13,6 +16,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -28,6 +32,7 @@ export default function ProfileEditScreen() {
   const [department, setDepartment] = useState('');
   const [batchYear, setBatchYear] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const [departmentOptions, setDepartmentOptions] = useState(FALLBACK_DEPARTMENTS);
   const [batchYearOptions, setBatchYearOptions] = useState(FALLBACK_BATCH_YEARS);
@@ -75,6 +80,49 @@ export default function ProfileEditScreen() {
       active = false;
     };
   }, [router]);
+
+  /** Pilih foto dari galeri → upload file ke server (file field users.avatar). */
+  const handlePickAvatar = async () => {
+    if (avatarBusy || !userId) return;
+    setAvatarBusy(true);
+    try {
+      console.log('[avatar] meminta izin galeri...');
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        console.warn('[avatar] izin galeri ditolak');
+        Alert.alert('Izin Diperlukan', 'Izinkan akses galeri untuk mengganti foto profil.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets?.[0]) {
+        console.log('[avatar] pemilihan dibatalkan user');
+        return;
+      }
+      const asset = result.assets[0];
+      console.log('[avatar] foto dipilih:', asset.uri, asset.mimeType, asset.fileName);
+
+      console.log('[avatar] upload ke server...');
+      const updated = await apiClient.users.uploadAvatar(userId, {
+        uri: asset.uri,
+        fileName: asset.fileName,
+        mimeType: asset.mimeType,
+      });
+      const newUrl = updated?.avatarUrl || updated?.avatar_url || '';
+      console.log('[avatar] upload berhasil, avatar_url:', newUrl ? 'tersimpan' : '(kosong)');
+      setAvatarUrl(newUrl);
+      Alert.alert('Berhasil', 'Foto profil berhasil diunggah.');
+    } catch (e: any) {
+      console.error('[avatar] upload GAGAL:', e?.message || e);
+      Alert.alert('Upload Gagal', e?.message || 'Foto profil gagal diunggah. Coba lagi.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
 
   const handleSave = async () => {
     const newErrors: Record<string, string> = {};
@@ -148,14 +196,34 @@ export default function ProfileEditScreen() {
             keyboardType="phone-pad"
           />
 
-          <Input
-            label="URL Foto Profil (opsional)"
-            value={avatarUrl}
-            onChangeText={setAvatarUrl}
-            placeholder="https://..."
-            autoCapitalize="none"
-            keyboardType="url"
-          />
+          {/* Avatar — tap untuk upload foto, disimpan base64 di avatar_url */}
+          <View style={styles.avatarRow}>
+            <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} disabled={avatarBusy}>
+              <View>
+                <Avatar
+                  name={name || 'Mahasiswa'}
+                  source={avatarUrl || null}
+                  size={72}
+                  backgroundColor={Colors.primary}
+                  iconFallback
+                />
+                <View style={styles.avatarCameraBadge}>
+                  <Camera size={14} color="#FFFFFF" strokeWidth={2.4} />
+                </View>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.avatarTextCol}>
+              <Text style={styles.avatarLabel}>Foto Profil</Text>
+              <Text style={styles.avatarHint}>
+                Ketuk foto untuk mengganti dari galeri. Foto otomatis dikompres & disimpan aman.
+              </Text>
+              {avatarUrl ? (
+                <TouchableOpacity onPress={() => setAvatarUrl('')} activeOpacity={0.7}>
+                  <Text style={styles.avatarRemove}>Hapus foto</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
         </Section>
 
         <Section>
@@ -208,6 +276,50 @@ const styles = StyleSheet.create({
     color: Colors.text,
     letterSpacing: -0.2,
     marginBottom: 14,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: Colors.borderLight ?? '#F1F5F9',
+  },
+  avatarTextCol: {
+    flex: 1,
+  },
+  avatarLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  avatarHint: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    marginTop: 3,
+    lineHeight: 17,
+  },
+  avatarRemove: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginTop: 6,
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   buttonWrapper: {
     marginTop: 8,

@@ -409,7 +409,7 @@ export class AuthService {
    */
   async resolveUserData(userId: string, email: string): Promise<AuthUser> {
     const cleanEmail = email.toLowerCase().trim();
-    const isAdmin = cleanEmail === 'ws.basithachmed@gmail.com';
+    const isAdmin = cleanEmail === (process.env.ADMIN_EMAIL || '').toLowerCase().trim();
 
     let profile: UserProfileDto | null = null;
     let lecturer: LecturerDto | null = null;

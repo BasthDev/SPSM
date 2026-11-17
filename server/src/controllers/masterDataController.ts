@@ -335,6 +335,35 @@ export class MasterDataController {
     }
   }
 
+  /** POST /users/:userId/avatar — upload foto profil ke file field users.avatar. */
+  async uploadAvatar(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.file) {
+        res.status(400).json({ success: false, error: 'File avatar tidak ditemukan.' });
+        return;
+      }
+      if (!db.updateUserAvatar) {
+        res.status(501).json({ success: false, error: 'Upload avatar tidak didukung adapter ini.' });
+        return;
+      }
+      const userId = req.params.userId || req.user?.userId;
+      let existing = await db.getUserProfileByUserId(userId || '');
+      if (!existing) existing = await db.getUserProfileById(userId || '');
+      if (!existing) {
+        res.status(404).json({ success: false, error: 'Profil pengguna tidak ditemukan.' });
+        return;
+      }
+      const updated = await db.updateUserAvatar(existing.id, {
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+      });
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async listUsers(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;

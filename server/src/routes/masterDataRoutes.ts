@@ -1,11 +1,25 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { masterDataController } from '../controllers/masterDataController';
 import { authenticate, optionalAuthenticate, requireRole } from '../middleware/authMiddleware';
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max untuk foto profil
+});
 
 const router = Router();
 
 // Public (optionally authenticated) reads for master data
 router.use(optionalAuthenticate);
+
+// Avatar upload — auth required, self only (dicek di controller)
+router.post(
+  '/users/:userId/avatar',
+  authenticate,
+  avatarUpload.single('avatar'),
+  (req, res, next) => masterDataController.uploadAvatar(req, res, next)
+);
 
 // Lecturers — reads public, writes admin-only
 router.get('/lecturers', (req, res, next) => masterDataController.listLecturers(req, res, next));

@@ -181,7 +181,7 @@ export async function sendTestNotification() {
   await ensureAndroidChannel();
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'SPSM KU',
+      title: 'SPSM',
       body: 'Notifikasi uji — pengaturan notifikasi berfungsi!',
       sound: 'default',
     },
