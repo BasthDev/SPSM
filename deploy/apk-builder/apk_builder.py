@@ -87,15 +87,15 @@ small{color:#64748b;display:block;margin-top:14px}
 </style></head><body><div class=card>
 <h1>SPSM APK Builder</h1>
 <div class=sub>Self-hosted build server</div>
-<div class="status {cls}">{status}</div>
+<div class="status __CLS__">__STATUS__</div>
 <p id=info></p>
 <a class=btn href="/download">Download APK Terbaru</a>
-<form method=post action="/build?token={token}"><button class=btn type=submit style="border:0;cursor:pointer">Build APK Sekarang</button></form>
+<form method=post action="/build?token=__TOKEN__"><button class=btn type=submit style="border:0;cursor:pointer">Build APK Sekarang</button></form>
 <small>Build butuh ~10-20 menit. Status: <a style="color:#38bdf8" href="/status.json">/status.json</a> • Log: <a style="color:#38bdf8" href="/log">/log</a></small>
 </div><script>
-fetch('/status.json').then(r=>r.json()).then(s=>{{
+fetch('/status.json').then(r=>r.json()).then(s=>{
  document.getElementById('info').textContent = s.last_build ? ('Last build: '+s.last_build) : '';
-}});
+});
 </script></body></html>"""
 
 
@@ -119,7 +119,11 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/":
             st = read_state()
             cls = st.get("status", "idle")
-            self._send(200, INDEX_HTML.format(cls=cls, status=cls.upper(), token=BUILD_TOKEN), "text/html; charset=utf-8")
+            html = (INDEX_HTML
+                    .replace("__CLS__", cls)
+                    .replace("__STATUS__", cls.upper())
+                    .replace("__TOKEN__", BUILD_TOKEN))
+            self._send(200, html, "text/html; charset=utf-8")
         elif u.path == "/status.json":
             st = read_state()
             st["building"] = is_building()
