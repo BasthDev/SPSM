@@ -55,6 +55,7 @@ chmod +x gradlew
 ./gradlew assembleRelease --console=plain
 
 APK="app/build/outputs/apk/release/app-release.apk"
+[ -f "$APK" ] || APK="app/build/outputs/apk/release/app-release-unsigned.apk"
 if [ ! -f "$APK" ]; then
   echo "ERROR: APK tidak ditemukan di $APK"
   exit 1
