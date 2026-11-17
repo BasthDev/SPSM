@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  FileEdit,
   FileText,
   HelpCircle,
   MessageCircle,
@@ -108,6 +109,26 @@ export default function PanduanScreen() {
   ];
 
   const faqData = [
+    {
+      question: 'Bagaimana cara kerja fitur draf pengajuan?',
+      answer:
+        'Saat Anda mengisi formulir pengajuan judul, sistem secara otomatis menyimpan data Anda ke penyimpanan lokal (AsyncStorage). Draf ini aman dan aktif selama 30 hari (1 bulan). Anda dapat melanjutkan pengisian kapan saja tanpa khawatir data hilang saat keluar aplikasi.',
+    },
+    {
+      question: 'Mengapa tombol ajukan judul baru dinonaktifkan saat ada draf?',
+      answer:
+        'Untuk mencegah tumpang tindih pengajuan, sistem menangguhkan pengajuan baru selama masih ada draf aktif. Anda dapat melanjutkan draf tersebut hingga selesai dikirim atau menghapus draf jika ingin mengulang dari awal.',
+    },
+    {
+      question: 'Bagaimana cara menghapus draf pengajuan?',
+      answer:
+        'Anda dapat menghapus draf dengan cara: Klik tombol "Hapus" pada kartu draf di dashboard atau di riwayat pengajuan lalu pilih "Ya, Hapus".',
+    },
+    {
+      question: 'Mengapa kartu riwayat pengajuan di dashboard hanya menampilkan info dokumen dan tanggal?',
+      answer:
+        'Kartu riwayat di dashboard didesain minimal dan rapi yang menampilkan No. Dokumen, Tanggal Pengajuan, No. SK (jika sudah terbit), Tanggal SK Terbit, dan Status. Untuk membaca seluruh usulan opsi judul, latar belakang, relevansi jurnal, dan evaluasi reviewer, cukup ketuk kartu untuk membuka Halaman Detail Pengajuan.',
+    },
     {
       question: 'Berapa lama proses review pengajuan?',
       answer: 'Proses review oleh Dosen Penilai biasanya memakan waktu 1-3 hari kerja. Setelah itu, pengesahan oleh Kaprodi memerlukan waktu tambahan 1-2 hari kerja.',
@@ -324,7 +345,7 @@ export default function PanduanScreen() {
                 </View>
                 <View style={styles.stepItem}>
                   <View style={styles.stepNumber}>
-                    <Text style={styles.stepNumberText}>3</Text>
+                    <Text style={styles.stepNumberText}>2</Text>
                   </View>
                   <View style={styles.stepContent}>
                     <Text style={styles.stepTitle}>Isi Data Diri & Pilih Prodi</Text>
@@ -335,7 +356,7 @@ export default function PanduanScreen() {
                 </View>
                 <View style={styles.stepItem}>
                   <View style={styles.stepNumber}>
-                    <Text style={styles.stepNumberText}>2</Text>
+                    <Text style={styles.stepNumberText}>3</Text>
                   </View>
                   <View style={styles.stepContent}>
                     <Text style={styles.stepTitle}>Klik &ldquo;Ajukan Judul Skripsi&rdquo;</Text>
@@ -381,6 +402,50 @@ export default function PanduanScreen() {
                       Setelah lolos, Anda akan menerima nomor dokumen.
                     </Text>
                   </View>
+                </View>
+              </View>
+            </AccordionItem>
+
+            {/* Fitur Draf Pengajuan & Penyimpanan Lokal */}
+            <AccordionItem
+              title="Fitur Draf & Auto-Save Pengajuan"
+              subtitle="Penyimpanan lokal otomatis aman selama 1 bulan"
+              icon={<FileEdit size={22} color="#D97706" strokeWidth={2} />}
+              iconBgColor="#FEF3C7"
+            >
+              <Text style={styles.sectionContent}>
+                Formulir pengajuan judul skripsi kini dilengkapi dengan fitur Auto-Drafting. Setiap kali Anda mengetik atau berpindah langkah, data formulir otomatis dicache ke memori lokal perangkat Anda.
+              </Text>
+              <View style={styles.tipList}>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Masa Aktif 30 Hari:</Text> Draf tersimpan secara aman di perangkat selama 1 bulan (30 hari) sejak terakhir kali diperbarui. Jika lewat 30 hari tanpa submit, draf otomatis kedaluwarsa.
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Tampil di Riwayat Pengajuan:</Text> Draf pengajuan akan tampil di bagian Riwayat Pengajuan pada Dashboard dengan badge status &ldquo;Draf&rdquo;.
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Pengajuan Baru Ditangguhkan:</Text> Selama draf aktif belum diajukan, pembuatan pengajuan baru dinonaktifkan guna menghindari data ganda. Anda dapat melanjutkan draf tersebut atau menghapusnya.
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Hapus Draf:</Text> Cukup tekan tombol Hapus pada kartu draf di riwayat untuk memunculkan konfirmasi penghapusan (Batal / Ya, Hapus). Tombol &ldquo;Hapus&rdquo; juga tersedia langsung pada kartu.
+                  </Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Text style={styles.tipBullet}>•</Text>
+                  <Text style={styles.tipText}>
+                    <Text style={styles.boldText}>Otomatis Bersih saat Submit:</Text> Setelah Anda menekan tombol Kirim dan pengajuan berhasil dikirimkan ke sistem, draf lokal otomatis dibersihkan dari memori perangkat.
+                  </Text>
                 </View>
               </View>
             </AccordionItem>
@@ -437,7 +502,7 @@ export default function PanduanScreen() {
                   <View style={styles.statusContent}>
                     <Text style={styles.statusTitle}>Draf / Belum Dikirim</Text>
                     <Text style={styles.statusDesc}>
-                      Pengajuan masih dalam tahap pengisian dan belum dikirim ke reviewer.
+                      Pengajuan tersimpan di memori perangkat lokal (aktif s.d. 30 hari) dan belum dikirim ke reviewer.
                     </Text>
                   </View>
                 </View>
@@ -775,7 +840,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   accordionSection: {
-    marginBottom: 12,
+    // marginBottom: 12,
     padding: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },

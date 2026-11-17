@@ -243,9 +243,9 @@ function DashboardSubmissionCardInner({
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.draftHintText}>
+              {/* <Text style={styles.draftHintText}>
                 Tahan 3 detik untuk menghapus draf
-              </Text>
+              </Text> */}
             </View>
           ) : (
             <TouchableOpacity
