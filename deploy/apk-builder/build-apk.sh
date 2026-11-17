@@ -5,6 +5,9 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-/home/basth/apbuilder}"
 DIST_DIR="${DIST_DIR:-/home/basth/apk-dist}"
+PROGRESS_FILE="${PROGRESS_FILE:-/home/basth/apk-builder/progress.txt}"
+mark() { echo "$1" > "$PROGRESS_FILE"; }
+mark "start"
 ANDROID_HOME="${ANDROID_HOME:-/home/basth/Android/Sdk}"
 JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
 export ANDROID_HOME JAVA_HOME
@@ -26,13 +29,14 @@ ensure_sdk() {
   echo "=== sdkmanager install platform/build-tools/ndk ==="
   "$sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
 }
-[ -d "$ANDROID_HOME" ] && ensure_sdk
+[ -d "$ANDROID_HOME" ] && { mark "sdk"; ensure_sdk; }
 
 mkdir -p "$DIST_DIR"
 cd "$REPO_DIR"
 
 # Node deps untuk Metro bundling (sekali saja, incremental setelahnya)
 if [ ! -d node_modules ]; then
+  mark "npm"
   echo "=== npm install (deps untuk Metro bundle) ==="
   if [ ! -f .env ]; then
     echo "WARNING: .env tidak ada di $REPO_DIR — EXPO_PUBLIC_* akan kosong!"
@@ -40,21 +44,25 @@ if [ ! -d node_modules ]; then
   npm install --no-audit --no-fund
 fi
 
+mark "git"
 echo "=== git pull ==="
 git pull --ff-only
 
 # android/ adalah CNG (gitignored) — generate via expo prebuild jika belum ada
 if [ ! -d android ]; then
+  mark "prebuild"
   echo "=== expo prebuild --platform android ==="
   npx expo prebuild --platform android
 fi
 
+mark "gradle"
 echo "=== gradlew assembleRelease ==="
 cd android
 chmod +x gradlew
 ./gradlew assembleRelease --console=plain
 
 APK="app/build/outputs/apk/release/app-release.apk"
+mark "sign"
 # Release tanpa signing config → APK unsigned, sign pakai debug keystore agar bisa diinstall
 if [ ! -f "$APK" ]; then
   UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
@@ -84,4 +92,5 @@ cp "$APK" "$DIST_DIR/latest.apk"
 # Simpan max 5 versi lama
 ls -t "$DIST_DIR"/app-release-*.apk | tail -n +6 | xargs -r rm -f
 
+mark "done"
 echo "=== DONE: $DIST_DIR/latest.apk ($(du -h "$DIST_DIR/latest.apk" | cut -f1)) ==="
