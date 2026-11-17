@@ -43,6 +43,12 @@ fi
 echo "=== git pull ==="
 git pull --ff-only
 
+# android/ adalah CNG (gitignored) — generate via expo prebuild jika belum ada
+if [ ! -d android ]; then
+  echo "=== expo prebuild --platform android ==="
+  npx expo prebuild --platform android
+fi
+
 echo "=== gradlew assembleRelease ==="
 cd android
 chmod +x gradlew
