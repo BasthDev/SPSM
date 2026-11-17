@@ -5,14 +5,14 @@ import {
 } from '@/models/types';
 
 export const authService = {
-  createGoogleToken(successUrl: string, failureUrl: string): string {
-    const base = `https://spsm.basthstudio.my.id/v1/account/tokens/oauth2/google`;
-    const params = new URLSearchParams({
-      project: '6af9b97e002cf5c78067',
-      success: successUrl,
-      failure: failureUrl,
-    });
-    return `${base}?${params.toString()}`;
+  /**
+   * @deprecated Gunakan apiClient.auth.getGoogleOAuthUrl() untuk OAuth via backend PocketBase.
+   * Method ini tidak lagi dipakai sejak migrasi dari Appwrite ke PocketBase.
+   */
+  createGoogleToken(_successUrl: string, _failureUrl: string): string {
+    // Legacy Appwrite OAuth URL — tidak digunakan. OAuth kini via backend /auth/google.
+    console.warn('createGoogleToken: deprecated, gunakan OAuth via backend');
+    return '';
   },
 
   async createSession(userId: string, secret: string) {
@@ -131,10 +131,14 @@ export const authService = {
     return this.getUserProfile(userId);
   },
 
+  /**
+   * Generate initial avatar URL dari nama pengguna menggunakan API backend.
+   * Tidak lagi menggunakan Appwrite avatar service.
+   */
   async fetchGoogleAvatar(accountName?: string): Promise<string> {
-    return `https://spsm.basthstudio.my.id/v1/avatars/initials?name=${encodeURIComponent(
-      accountName || 'User'
-    )}&project=6af9b97e002cf5c78067`;
+    const name = encodeURIComponent(accountName || 'User');
+    // Gunakan UI Avatars sebagai fallback publik (tidak perlu auth)
+    return `https://ui-avatars.com/api/?name=${name}&background=random&color=fff&size=128`;
   },
 
   async updateAvatarUrl(docId: string, avatarUrl: string): Promise<void> {
