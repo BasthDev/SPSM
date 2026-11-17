@@ -1,5 +1,6 @@
 import {
   Button,
+  Carousel,
   ClosedPeriodCard,
   EligibilityCard,
   EmptyState,
@@ -23,6 +24,7 @@ import { submissionService } from '@/services/submissionService';
 import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   FileText,
   GraduationCap,
@@ -258,6 +260,9 @@ export default function DashboardScreen() {
       >
         {/* TOP INFO CARD: Dynamic period status — component handles open/upcoming/closed */}
         <PeriodInfoCard periodDisplay={periodDisplay} />
+
+        {/* Carousel info — auto-scroll banner fitur & informasi */}
+        <Carousel height={108} autoPlayMs={4000} />
 
         {/* Grid Navigation */}
         <GridNav />
