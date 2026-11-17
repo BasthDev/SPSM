@@ -468,7 +468,13 @@ export class PocketBaseAdapter implements IDatabaseAdapter {
     if (patch.batchYear !== undefined) payload.batch_year = toInt(patch.batchYear, 0);
     if (patch.currentSks !== undefined) payload.current_sks = toInt(patch.currentSks, 0);
     if (patch.academicRequirements !== undefined) payload.academic_requirements = patch.academicRequirements;
-    if (patch.avatarUrl !== undefined) payload.avatar_url = patch.avatarUrl || '';
+    // avatar_url hanya diupdate jika berisi URL valid; skip jika null/kosong
+    // (PocketBase URL field menolak string kosong '')
+    if (patch.avatarUrl && String(patch.avatarUrl).startsWith('http')) {
+      payload.avatar_url = patch.avatarUrl;
+    } else if (patch.avatarUrl === null) {
+      payload.avatar_url = null; // eksplisit hapus
+    }
     if ((patch as any).pushToken !== undefined) payload.push_token = (patch as any).pushToken || '';
     if (patch.phone !== undefined) payload.phone = String(patch.phone).trim();
     const thesisFlag = patch.thesisUploaded ?? patch.hasUploadedThesis ?? (patch as any).has_uploaded_thesis;
