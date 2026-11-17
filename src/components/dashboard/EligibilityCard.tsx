@@ -13,12 +13,14 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Clock,
   FilePen,
   Lock,
+  Trash2,
   XCircle,
 } from 'lucide-react-native';
 import { useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // ─────────────────────────────────────────────────────────────
 // 1. EligibilityCard — Shown when student is INELIGIBLE (Orange Theme)
@@ -229,6 +231,97 @@ export function HeroSubmitCard({ onPress, titleCount = 3 }: HeroSubmitCardProps)
 }
 
 // ─────────────────────────────────────────────────────────────
+// 4. DraftNoticeCard — Shown when user has an active local draft
+// ─────────────────────────────────────────────────────────────
+interface DraftNoticeCardProps {
+  onContinue: () => void;
+  onDelete: () => void;
+  savedAt?: string;
+}
+
+export function DraftNoticeCard({ onContinue, onDelete, savedAt }: DraftNoticeCardProps) {
+  const dateFormatted = savedAt
+    ? new Date(savedAt).toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Hapus Draf Pengajuan',
+      'Apakah Anda yakin ingin menghapus draf ini? Pengajuan baru akan kembali dibuka.',
+      [
+        { text: 'Batal', style: 'cancel' },
+        { text: 'Ya, Hapus', style: 'destructive', onPress: onDelete },
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.whiteCardWrap}>
+      <View style={styles.whiteCard}>
+        {/* Top Header / Content */}
+        <TouchableOpacity onPress={onContinue} activeOpacity={0.85}>
+          <View style={styles.headerContainer}>
+            <View style={styles.draftIconCircleWhite}>
+              <FilePen size={22} color={Colors.primary} strokeWidth={2.3} />
+            </View>
+            <View style={styles.textContainer}>
+              <View style={styles.titleRow}>
+                <Text style={styles.draftTitleWhite} numberOfLines={1}>
+                  Draf Pengajuan Tersimpan
+                </Text>
+                <View style={styles.draftBadgeWhite}>
+                  <Text style={styles.draftBadgeTextWhite}>DRAF AKTIF</Text>
+                </View>
+              </View>
+              <Text style={styles.draftDescWhite} numberOfLines={2}>
+                Anda memiliki draf pengajuan judul yang belum dikirim. Selesaikan draf atau hapus untuk membuka pengajuan baru.
+              </Text>
+              {dateFormatted ? (
+                <View style={styles.draftMetaRow}>
+                  <Clock size={12} color="#64748B" strokeWidth={2} />
+                  <Text style={styles.draftMetaText}>
+                    Disimpan {dateFormatted} • Berlaku 1 bulan
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.chevronBox}>
+              <ChevronRight size={20} color={Colors.textTertiary} strokeWidth={2.4} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        {/* Action Row */}
+        <View style={styles.draftWhiteActionRow}>
+          <TouchableOpacity
+            onPress={onContinue}
+            activeOpacity={0.8}
+            style={styles.draftWhiteContinueBtn}
+          >
+            <Text style={styles.draftWhiteContinueBtnText}>Lanjutkan Pengisian Draf</Text>
+            <ChevronRight size={15} color="#FFFFFF" strokeWidth={2.5} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={confirmDelete}
+            activeOpacity={0.8}
+            style={styles.draftWhiteDeleteBtn}
+          >
+            <Trash2 size={14} color="#DC2626" strokeWidth={2.2} />
+            <Text style={styles.draftWhiteDeleteBtnText}>Hapus</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Styles (Consistent with Carousel Design System)
 // ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
@@ -367,5 +460,115 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: 'rgba(255, 255, 255, 0.85)',
     fontWeight: '500',
+  },
+  whiteCardWrap: {
+    marginBottom: 16,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8 },
+      android: { elevation: 3 },
+      web: { boxShadow: '0 4px 14px rgba(0, 0, 0, 0.05)' },
+    }),
+  },
+  whiteCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+  },
+  draftIconCircleWhite: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#E0F2FE',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  draftTitleWhite: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  draftBadgeWhite: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  draftBadgeTextWhite: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.4,
+  },
+  draftDescWhite: {
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 17,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  draftMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 6,
+  },
+  draftMetaText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  draftWhiteActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  draftWhiteContinueBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: Colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  draftWhiteContinueBtnText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  draftWhiteDeleteBtn: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  draftWhiteDeleteBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
 });

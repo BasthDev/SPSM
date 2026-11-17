@@ -11,6 +11,7 @@ import type { LecturerItem, OptionFormData } from '@/models/types';
 import { isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
+import { draftService } from '@/services/draftService';
 import { checkTitleSimilarity, type TitleMatch } from '@/services/geminiService';
 import { settingsService } from '@/services/settingsService';
 import { submissionService } from '@/services/submissionService';
@@ -34,6 +35,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -86,6 +88,11 @@ export default function CreateSubmissionScreen() {
   const titleCount = titles.length;
   const stepLabels = titles.map((_, i) => 'Judul ' + (i + 1)).concat(['Dosen', 'Kirim']);
   const [resubmitSource, setResubmitSource] = useState<string | null>(null);
+
+  // User ID and Draft state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isDraftRestored, setIsDraftRestored] = useState(false);
 
   // Scroll & focus management saat ganti step
   const scrollRef = useRef<any>(null);
@@ -153,6 +160,8 @@ export default function CreateSubmissionScreen() {
         const availableLecs = deptLecs.length > 0 ? deptLecs : allLecs;
         setLecturers(availableLecs);
 
+        setUserId(acct.$id);
+
         // Prefill dari pengajuan sebelumnya (mode ajukan ulang)
         if (resubmit && active) {
           try {
@@ -194,6 +203,46 @@ export default function CreateSubmissionScreen() {
           } catch (prefillErr) {
             console.warn('Gagal memuat data pengajuan sebelumnya:', prefillErr);
           }
+        } else if (!resubmit && active) {
+          // Muat draf tersimpan dari local storage
+          try {
+            const savedDraft = await draftService.getDraft(acct.$id);
+            if (savedDraft && Array.isArray(savedDraft.titles) && savedDraft.titles.length > 0) {
+              const prefilled = Array.from({ length: reqCount }, (_, i) => {
+                const dt = savedDraft.titles[i];
+                return dt
+                  ? {
+                      title: dt.title || '',
+                      background: dt.background || '',
+                      journalTitle: dt.journalTitle || '',
+                      journalAuthor: dt.journalAuthor || '',
+                      journalYear: dt.journalYear || '',
+                      relevanceVariable: dt.relevanceVariable || '',
+                      relevanceMethodology: dt.relevanceMethodology || '',
+                      relevanceNote: dt.relevanceNote || '',
+                    }
+                  : emptyTitle();
+              });
+              setTitles(prefilled);
+
+              const lecIds = new Set(availableLecs.map((l) => l.$id));
+              if (savedDraft.preferredAdvisor1 && lecIds.has(savedDraft.preferredAdvisor1)) {
+                setPreferredAdvisor1(savedDraft.preferredAdvisor1);
+              }
+              if (savedDraft.preferredAdvisor2 && lecIds.has(savedDraft.preferredAdvisor2)) {
+                setPreferredAdvisor2(savedDraft.preferredAdvisor2);
+              }
+              if (typeof savedDraft.step === 'number' && savedDraft.step >= 0) {
+                setStep(Math.min(savedDraft.step, reqCount + 1));
+              }
+              if (savedDraft.resubmitSource) {
+                setResubmitSource(savedDraft.resubmitSource);
+              }
+              setIsDraftRestored(true);
+            }
+          } catch (draftErr) {
+            console.warn('Gagal memuat data draf lokal:', draftErr);
+          }
         }
 
         // Check if student has previous revision or rejected submission
@@ -226,7 +275,10 @@ export default function CreateSubmissionScreen() {
       } catch (err) {
         console.error('Failed to initialize submission form', err);
       } finally {
-        if (active) setInitialLoading(false);
+        if (active) {
+          setInitialLoading(false);
+          setIsInitialized(true);
+        }
       }
     };
 
@@ -236,6 +288,63 @@ export default function CreateSubmissionScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  // Auto-save draft whenever form inputs change (debounced 700ms)
+  useEffect(() => {
+    if (!isInitialized || !userId) return;
+
+    const timer = setTimeout(() => {
+      void draftService.saveDraft(userId, {
+        titles,
+        preferredAdvisor1,
+        preferredAdvisor2,
+        resubmitSource,
+        step,
+      });
+
+      const hasContent =
+        titles.some(
+          (t) =>
+            t.title?.trim() ||
+            t.background?.trim() ||
+            t.journalTitle?.trim() ||
+            t.relevanceVariable?.trim()
+        ) ||
+        Boolean(preferredAdvisor1) ||
+        Boolean(preferredAdvisor2);
+
+      if (hasContent) {
+        setIsDraftRestored(true);
+      }
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [titles, preferredAdvisor1, preferredAdvisor2, resubmitSource, step, isInitialized, userId]);
+
+  const handleDiscardDraft = () => {
+    Alert.alert(
+      'Hapus Draf Pengajuan',
+      'Apakah Anda yakin ingin menghapus draf ini dan mengosongkan formulir?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Ya, Hapus Draf',
+          style: 'destructive',
+          onPress: async () => {
+            if (userId) {
+              await draftService.clearDraft(userId);
+            }
+            setTitles(Array.from({ length: titleCount }, () => emptyTitle()));
+            setPreferredAdvisor1('');
+            setPreferredAdvisor2('');
+            setStep(0);
+            setIsDraftRestored(false);
+            Alert.alert('Draf Dihapus', 'Formulir telah dikosongkan.');
+          },
+        },
+      ]
+    );
+  };
 
   if (initialLoading) {
     return <LoadingScreen message="Memeriksa periode pengajuan..." />;
@@ -371,6 +480,7 @@ export default function CreateSubmissionScreen() {
 
       if (resubmitSource) {
         await submissionService.resubmitRevision(resubmitSource, acct.$id, optionsData);
+        await draftService.clearDraft(acct.$id);
         Alert.alert('Berhasil!', 'Revisi pengajuan judul skripsi berhasil dikirim.', [
           { text: 'Buka Dashboard', onPress: () => router.replace('/dashboard') },
         ]);
@@ -383,6 +493,7 @@ export default function CreateSubmissionScreen() {
         preferredAdvisor1,
         preferredAdvisor2
       );
+      await draftService.clearDraft(acct.$id);
 
       Alert.alert('Berhasil!', `Pengajuan proposal ${titleCount} opsi judul skripsi berhasil dikirim.`, [
         { text: 'Buka Dashboard', onPress: () => router.replace('/dashboard') },
@@ -710,6 +821,25 @@ export default function CreateSubmissionScreen() {
                 penilaian.
               </Text>
             </View>
+          </View>
+        )}
+
+        {/* Banner Status Draf Lokal */}
+        {isDraftRestored && !resubmitSource && (
+          <View style={styles.draftBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.draftBannerTitle}>📝 Draf Pengajuan Tersimpan</Text>
+              <Text style={styles.draftBannerSub}>
+                Perubahan tersimpan otomatis di perangkat (aman s.d. 1 bulan).
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleDiscardDraft}
+              activeOpacity={0.7}
+              style={styles.draftResetButton}
+            >
+              <Text style={styles.draftResetButtonText}>Hapus Draf</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1045,5 +1175,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginTop: 18,
+  },
+  draftBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    gap: 10,
+  },
+  draftBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  draftBannerSub: {
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  draftResetButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  draftResetButtonText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#DC2626',
   },
 });

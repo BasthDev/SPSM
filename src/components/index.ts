@@ -20,5 +20,5 @@ export { EmptyState } from './EmptyState';
 export { GridNav } from './GridNav';
 export { Carousel } from './Carousel';
 export { PeriodInfoCard } from './dashboard/PeriodInfoCard';
-export { EligibilityCard, ClosedPeriodCard, HeroSubmitCard } from './dashboard/EligibilityCard';
+export { EligibilityCard, ClosedPeriodCard, HeroSubmitCard, DraftNoticeCard } from './dashboard/EligibilityCard';
 export { ConnectionBanner } from './ConnectionBanner';

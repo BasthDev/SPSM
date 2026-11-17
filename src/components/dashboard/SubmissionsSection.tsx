@@ -14,6 +14,7 @@ type Props = {
   onToggleExpand: (id: string) => void;
   canSubmitNew: boolean;
   requiredTitleCount: number;
+  onDeleteDraft?: () => void;
 };
 
 /** Section "Riwayat Pengajuan" — header + list kartu + empty state. */
@@ -24,6 +25,7 @@ export function SubmissionsSection({
   onToggleExpand,
   canSubmitNew,
   requiredTitleCount,
+  onDeleteDraft,
 }: Props) {
   const router = useRouter();
 
@@ -72,10 +74,11 @@ export function SubmissionsSection({
           <DashboardSubmissionCard
             key={sub.$id}
             sub={sub}
-            number={submissions.length - index}
+            number={sub.status === 'drafting' ? 'Draf' : submissions.length - index}
             expanded={Boolean(expandedCards[sub.$id])}
             resubmitDisabled={Boolean(activeSubmission)}
             onToggleExpand={onToggleExpand}
+            onDeleteDraft={sub.status === 'drafting' ? onDeleteDraft : undefined}
           />
         ))
       )}

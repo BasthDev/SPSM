@@ -1,24 +1,20 @@
 import {
-  Button,
   Carousel,
   ClosedPeriodCard,
+  DraftNoticeCard,
   EligibilityCard,
-  EmptyState,
   GridNav,
   HeroSubmitCard,
   HomeHeader,
   LoadingScreen,
-  // PeriodInfoCard,
-  Section,
-  StatusBadge
 } from '@/components';
-import { DashboardSubmissionCard } from '@/components/DashboardSubmissionCard';
 import { ActiveSubmissionCard } from '@/components/dashboard/ActiveSubmissionCard';
 import { SubmissionsSection } from '@/components/dashboard/SubmissionsSection';
 import type { DepartmentItem, ThesisSubmission, UserProfile } from '@/models/types';
 import { FALLBACK_DEPARTMENTS, isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
+import { draftService } from '@/services/draftService';
 import { syncPushRegistrationIfEnabled } from '@/services/notificationService';
 import { disconnectRealtime, onRealtimeEvent } from '@/services/realtimeService';
 import { settingsService, type SystemSettings } from '@/services/settingsService';
@@ -26,19 +22,12 @@ import { submissionService } from '@/services/submissionService';
 import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
-import {
-  FileText,
-  GraduationCap,
-} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Platform,
-
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -52,11 +41,20 @@ export default function DashboardScreen() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  const [draftSubmission, setDraftSubmission] = useState<ThesisSubmission | null>(null);
 
   // Load dashboard data: render from local cache instantly, then refresh from API
   const loadDashboardData = useCallback(async (isInitial = false) => {
     try {
       const acct = await authService.getCurrentAccount();
+
+      // Check for local draft in AsyncStorage (safe for 1 month)
+      const localDraft = await draftService.getDraft(acct.$id);
+      if (localDraft) {
+        setDraftSubmission(draftService.toThesisSubmission(localDraft));
+      } else {
+        setDraftSubmission(null);
+      }
 
       // 1. Serve cached snapshot immediately so UI renders without network wait
       const cached = await userDataCache.get(acct.$id);
@@ -228,10 +226,31 @@ export default function DashboardScreen() {
     [latestSub]
   );
 
+  const hasDraft = Boolean(draftSubmission);
+
+  const displayedSubmissions = useMemo(() => {
+    if (!draftSubmission) return submissions;
+    return [draftSubmission, ...submissions];
+  }, [draftSubmission, submissions]);
+
+  const handleDeleteDraft = useCallback(async () => {
+    try {
+      const acct = await authService.getCurrentAccount();
+      await draftService.clearDraft(acct.$id);
+      setDraftSubmission(null);
+      Alert.alert('Draf Dihapus', 'Draf pengajuan telah dihapus dari perangkat.');
+    } catch (err) {
+      console.warn('Gagal menghapus draf:', err);
+    }
+  }, []);
+
   const canSubmitNew = useMemo(
     () =>
-      !activeSubmission && eligibility.isEligible && (periodDisplay.isOpen || hasExemption),
-    [activeSubmission, eligibility.isEligible, periodDisplay.isOpen, hasExemption]
+      !activeSubmission &&
+      !hasDraft &&
+      eligibility.isEligible &&
+      (periodDisplay.isOpen || hasExemption),
+    [activeSubmission, hasDraft, eligibility.isEligible, periodDisplay.isOpen, hasExemption]
   );
 
   if (loading) return <LoadingScreen message="Memuat dashboard..." />;
@@ -282,11 +301,18 @@ export default function DashboardScreen() {
         ) : !eligibility.isEligible ? (
           /* Case B: Ineligible Warning — component handles course checklist & lock button */
           <EligibilityCard eligibility={eligibility} />
+        ) : hasDraft ? (
+          /* Case C: Draft Notice — disable pengajuan baru, arahkan untuk selesaikan atau hapus draf */
+          <DraftNoticeCard
+            onContinue={() => router.push('/submission/create' as any)}
+            onDelete={handleDeleteDraft}
+            savedAt={draftSubmission?.submitted_at}
+          />
         ) : !periodDisplay.isOpen && !hasExemption ? (
-          /* Case C: Period Closed — component shows disabled submission area */
+          /* Case D: Period Closed — component shows disabled submission area */
           <ClosedPeriodCard periodDisplay={periodDisplay} />
         ) : (
-          /* Case D: Eligible and Period Open (or has exemption) */
+          /* Case E: Eligible and Period Open (or has exemption) */
           <HeroSubmitCard
             onPress={() => router.push('/submission/create' as any)}
             titleCount={settings?.required_title_count ?? 3}
@@ -297,24 +323,15 @@ export default function DashboardScreen() {
         {/* Grid Navigation */}
         <GridNav />
 
-        {/* 2. SECTION HEADER */}
-        {/* <View style={styles.sectionHeaderRow}>
-          <View>
-            <Text style={styles.sectionTitle}>Riwayat Pengajuan</Text>
-            <Text style={styles.sectionSubtitle}>Daftar dan status terkini pengajuan skripsi Anda</Text>
-          </View>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{submissions.length}</Text>
-          </View>
-        </View> */}
         {/* 2-3. Riwayat Pengajuan — section header + list + empty state */}
         <SubmissionsSection
-          submissions={submissions}
+          submissions={displayedSubmissions}
           activeSubmission={activeSubmission ?? null}
           expandedCards={expandedCards}
           onToggleExpand={toggleCardExpansion}
           canSubmitNew={canSubmitNew}
           requiredTitleCount={settings?.required_title_count ?? 3}
+          onDeleteDraft={handleDeleteDraft}
         />
       </ScrollView>
     </View>
