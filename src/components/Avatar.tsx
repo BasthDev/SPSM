@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { User } from 'lucide-react-native';
 import { Colors } from '@/theme/theme';
@@ -33,11 +33,18 @@ export const Avatar: React.FC<AvatarProps> = ({
   style,
 }) => {
   const [imageError, setImageError] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Reset error state whenever source URL changes
+  // Reset error state + fade-in ulang setiap source URL berubah
   useEffect(() => {
     setImageError(false);
-  }, [source]);
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: true,
+    }).start();
+  }, [source, fadeAnim]);
 
   const showImage = !!source && !imageError;
   const fallbackBg = iconFallback ? '#FFFFFF' : backgroundColor;
@@ -61,14 +68,17 @@ export const Avatar: React.FC<AvatarProps> = ({
       ]}
     >
       {showImage ? (
-        <Image
-          source={{ uri: source! }}
-          style={{ width: size, height: size, borderRadius: size / 2 }}
-          contentFit="cover"
-          transition={150}
-          cachePolicy="memory-disk"
-          onError={() => setImageError(true)}
-        />
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <Image
+            key={source}
+            source={{ uri: source! }}
+            style={{ width: size, height: size, borderRadius: size / 2 }}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
+            onError={() => setImageError(true)}
+          />
+        </Animated.View>
       ) : iconFallback ? (
         <User size={size * 0.52} color={iconColor} strokeWidth={2} />
       ) : (

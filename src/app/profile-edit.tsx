@@ -170,6 +170,51 @@ export default function ProfileEditScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Kartu profil — avatar besar + aksi foto */}
+        <Section style={styles.profileCard}>
+          <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.85} disabled={avatarBusy}>
+            <View>
+              <Avatar
+                name={name || 'Mahasiswa'}
+                source={avatarUrl || null}
+                size={96}
+                backgroundColor={Colors.primary}
+                iconFallback
+              />
+              <View style={styles.avatarCameraBadge}>
+                <Camera size={16} color="#FFFFFF" strokeWidth={2.4} />
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.profileName} numberOfLines={1}>
+            {name || 'Nama Mahasiswa'}
+          </Text>
+          <Text style={styles.profileHint}>
+            Ketuk foto untuk mengganti dari galeri
+          </Text>
+
+          <View style={styles.photoActions}>
+            <Button
+              title={avatarBusy ? 'Mengunggah...' : 'Perbarui Foto'}
+              onPress={handlePickAvatar}
+              loading={avatarBusy}
+              variant="primary"
+              size="sm"
+              style={styles.photoBtn}
+            />
+            {avatarUrl ? (
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => setAvatarUrl('')}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.deleteBtnText}>Hapus</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </Section>
+
         <Section>
           <Text style={styles.sectionTitle}>Data Pribadi</Text>
 
@@ -197,34 +242,6 @@ export default function ProfileEditScreen() {
             keyboardType="phone-pad"
           />
 
-          {/* Avatar — tap untuk upload foto, disimpan base64 di avatar_url */}
-          <View style={styles.avatarRow}>
-            <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} disabled={avatarBusy}>
-              <View>
-                <Avatar
-                  name={name || 'Mahasiswa'}
-                  source={avatarUrl || null}
-                  size={72}
-                  backgroundColor={Colors.primary}
-                  iconFallback
-                />
-                <View style={styles.avatarCameraBadge}>
-                  <Camera size={14} color="#FFFFFF" strokeWidth={2.4} />
-                </View>
-              </View>
-            </TouchableOpacity>
-            <View style={styles.avatarTextCol}>
-              <Text style={styles.avatarLabel}>Foto Profil</Text>
-              <Text style={styles.avatarHint}>
-                Ketuk foto untuk mengganti dari galeri. Foto otomatis dikompres & disimpan aman.
-              </Text>
-              {avatarUrl ? (
-                <TouchableOpacity onPress={() => setAvatarUrl('')} activeOpacity={0.7}>
-                  <Text style={styles.avatarRemove}>Hapus foto</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
         </Section>
 
         <Section>
@@ -278,36 +295,43 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginBottom: 14,
   },
-  avatarRow: {
-    flexDirection: 'row',
+  profileCard: {
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 16,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: Colors.borderLight ?? '#F1F5F9',
+    paddingVertical: 24,
   },
-  avatarTextCol: {
-    flex: 1,
-  },
-  avatarLabel: {
-    fontSize: 14,
-    fontWeight: '700',
+  profileName: {
+    fontSize: 17,
+    fontWeight: '800',
     color: Colors.text,
+    marginTop: 12,
+    letterSpacing: -0.2,
   },
-  avatarHint: {
+  profileHint: {
     fontSize: 12,
     color: Colors.textTertiary,
-    marginTop: 3,
-    lineHeight: 17,
+    marginTop: 4,
   },
-  avatarRemove: {
-    fontSize: 12,
+  photoActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  photoBtn: {
+    flex: 1,
+  },
+  deleteBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+  },
+  deleteBtnText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#DC2626',
-    marginTop: 6,
   },
   avatarCameraBadge: {
     position: 'absolute',

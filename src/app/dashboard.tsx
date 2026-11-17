@@ -13,6 +13,8 @@ import {
   StatusBadge
 } from '@/components';
 import { DashboardSubmissionCard } from '@/components/DashboardSubmissionCard';
+import { ActiveSubmissionCard } from '@/components/dashboard/ActiveSubmissionCard';
+import { SubmissionsSection } from '@/components/dashboard/SubmissionsSection';
 import type { DepartmentItem, ThesisSubmission, UserProfile } from '@/models/types';
 import { FALLBACK_DEPARTMENTS, isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
@@ -45,6 +47,7 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [submissions, setSubmissions] = useState<ThesisSubmission[]>([]);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -235,21 +238,29 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.flex}>
-      {/* Formal Academic Header: Nama, NIM, Nama Lengkap Program Studi, Total SKS */}
-      <HomeHeader
-        userName={user?.name}
-        userNim={user?.nim_or_nip}
-        userDepartmentName={departmentFullName}
-        userSks={eligibility.studentSks}
-        avatarUrl={user?.avatar_url}
-        onProfilePress={() => router.push('/profile')}
-        onSignOutPress={handleSignOut}
-        collapsed={headerCollapsed}
-      />
+      {/* Formal Academic Header: overlay absolute agar collapse tidak mengubah layout scroll (no snap) */}
+      <View
+        style={styles.headerOverlay}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setHeaderHeight((prev) => Math.max(prev, h));
+        }}
+      >
+        <HomeHeader
+          userName={user?.name}
+          userNim={user?.nim_or_nip}
+          userDepartmentName={departmentFullName}
+          userSks={eligibility.studentSks}
+          avatarUrl={user?.avatar_url}
+          onProfilePress={() => router.push('/profile')}
+          onSignOutPress={handleSignOut}
+          collapsed={headerCollapsed}
+        />
+      </View>
 
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight + 14 }]}
         scrollEventThrottle={16}
         onScroll={(e) => {
           const y = e.nativeEvent.contentOffset.y;
@@ -266,97 +277,8 @@ export default function DashboardScreen() {
 
         {/* 1. HERO ACTION / INELIGIBLE WARNING / DISABLED SECTION / ACTIVE TRACKING */}
         {activeSubmission ? (
-          /* Case A: Live Status Card for Active Submission */
-          <TouchableOpacity
-            onPress={() => router.push(`/submission/${activeSubmission.$id}` as any)}
-            activeOpacity={0.7}
-          >
-            <Section style={styles.headerCard}>
-              <View style={styles.headerTopRow}>
-                <View style={styles.headerLeftCol}>
-                  <View style={styles.headerIconBox}>
-                    <GraduationCap size={20} color={Colors.primary} strokeWidth={2.2} />
-                  </View>
-                  <View style={styles.headerTexts}>
-                    <Text style={styles.headerTitle} numberOfLines={1}>Pengajuan Skripsi</Text>
-                    <Text style={styles.headerId} numberOfLines={1} ellipsizeMode="middle">
-                      NO. DOKUMEN:{' '}
-                      {activeSubmission.surat?.no_dokumen ||
-                        activeSubmission.surat?.noDokumen ||
-                        `SPSM_${activeSubmission.$id.toUpperCase().slice(0, 12)}`}
-                    </Text>
-                    {activeSubmission.nomor_surat && (
-                      <Text style={styles.headerSkId} numberOfLines={1} ellipsizeMode="middle">
-                        NO. SK: {activeSubmission.nomor_surat}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {/* Status Badge - Absolute Position */}
-              <View style={styles.headerBadgeAbsolute}>
-                <StatusBadge status={activeSubmission.status} size="sm" />
-              </View>
-
-              <View style={styles.headerDivider} />
-
-              <View style={styles.headerMetaRow}>
-                <View style={styles.headerMetaItem}>
-                  <View style={styles.dateContainer}>
-                    <View style={styles.dateItem}>
-                      <Text style={styles.headerMetaLabel}>Tanggal Pengajuan</Text>
-                      <Text style={styles.headerMetaValue}>
-                        {new Date(activeSubmission.submitted_at).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Text>
-                    </View>
-                    {activeSubmission.kaprodiApprovalDate && (
-                      <View style={styles.dateItem}>
-                        <Text style={styles.headerMetaLabel}>Tanggal Disahkan</Text>
-                        <Text style={styles.headerMetaValue}>
-                          {new Date(activeSubmission.kaprodiApprovalDate).toLocaleDateString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.headerMetaItem}>
-                  <Text style={styles.headerMetaLabel}>Status</Text>
-                  <Text style={styles.headerMetaValueHL}>
-                    {activeSubmission.status === 'sk_issued' ||
-                    activeSubmission.status === 'approved'
-                      ? 'SK Resmi Terbit'
-                      : activeSubmission.status === 'sk_process'
-                      ? 'Proses TTD Dekan'
-                      : activeSubmission.status === 'waiting_akademik'
-                      ? 'Menunggu Administrasi TU'
-                      : activeSubmission.status === 'waiting_kaprodi'
-                      ? 'Pleno Kaprodi'
-                      : activeSubmission.status === 'revision'
-                      ? 'Perlu Revisi'
-                      : activeSubmission.status === 'rejected'
-                      ? 'Ditolak'
-                      : activeSubmission.status === 'drafting'
-                      ? 'Draf'
-                      : 'Menunggu Review'}
-                  </Text>
-                </View>
-              </View>
-
-            </Section>
-          </TouchableOpacity>
+          /* Case A: Live Status Card untuk submission aktif */
+          <ActiveSubmissionCard submission={activeSubmission} />
         ) : !eligibility.isEligible ? (
           /* Case B: Ineligible Warning — component handles course checklist & lock button */
           <EligibilityCard eligibility={eligibility} />
@@ -385,56 +307,15 @@ export default function DashboardScreen() {
             <Text style={styles.countText}>{submissions.length}</Text>
           </View>
         </View> */}
-        {/* 2. SECTION HEADER */}
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionHeaderLeft}>
-            <View style={styles.sectionIconBox}>
-              <FileText size={18} color={Colors.primary} strokeWidth={2.4} />
-            </View>
-            <View>
-              <Text style={styles.sectionTitle}>Riwayat Pengajuan</Text>
-              <Text style={styles.sectionSubtitle}>Daftar dan status terkini pengajuan skripsi Anda</Text>
-            </View>
-          </View>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>{submissions.length}</Text>
-          </View>
-        </View>
-
-        {/* 3. SUBMISSIONS LIST */}
-        {submissions.length === 0 ? (
-          <EmptyState
-            title="Belum Ada Pengajuan"
-            subtitle={
-              canSubmitNew
-                ? `Anda belum memiliki riwayat pengajuan judul. Klik tombol di atas untuk mengajukan ${settings?.required_title_count ?? 3} usulan judul skripsi.`
-                : 'Belum ada riwayat pengajuan judul skripsi pada akun Anda.'
-            }
-            icon={<FileText size={32} color={Colors.primary} strokeWidth={2} />}
-            action={
-              canSubmitNew ? (
-                <Button
-                  title="Mulai Pengajuan Baru"
-                  onPress={() => router.push('/submission/create' as any)}
-                  variant="primary"
-                  size="sm"
-                  style={{ marginTop: 8 }}
-                />
-              ) : undefined
-            }
-          />
-        ) : (
-          submissions.map((sub, index) => (
-            <DashboardSubmissionCard
-              key={sub.$id}
-              sub={sub}
-              number={submissions.length - index}
-              expanded={Boolean(expandedCards[sub.$id])}
-              resubmitDisabled={Boolean(activeSubmission)}
-              onToggleExpand={toggleCardExpansion}
-            />
-          ))
-        )}
+        {/* 2-3. Riwayat Pengajuan — section header + list + empty state */}
+        <SubmissionsSection
+          submissions={submissions}
+          activeSubmission={activeSubmission ?? null}
+          expandedCards={expandedCards}
+          onToggleExpand={toggleCardExpansion}
+          canSubmitNew={canSubmitNew}
+          requiredTitleCount={settings?.required_title_count ?? 3}
+        />
       </ScrollView>
     </View>
   );
@@ -444,6 +325,14 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    elevation: 10,
   },
   scrollContent: {
     padding: 18,

@@ -1,5 +1,6 @@
 import { AppHeader, Section } from '@/components';
 import { Colors } from '@/theme/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   AlertTriangle,
   BookOpen,
@@ -133,7 +134,7 @@ export default function PanduanScreen() {
     },
     {
       question: 'Bagaimana cara mengunduh SK resmi?',
-      answer: 'Setelah pengajuan disetujui, Anda dapat mengunduh SK resmi dari halaman detail pengajuan dengan mengklik tombol "Unduh / Cetak Dokumen SK".',
+      answer: 'Setelah status pengajuan menjadi "SK Resmi Terbit", buka halaman detail pengajuan dan klik tombol unduh/cetak dokumen SK. Alurnya: disahkan Kaprodi → Administrasi TU → Tanda Tangan Dekan → SK terbit.',
     },
     {
       question: 'Apakah saya bisa mengajukan lebih dari satu judul?',
@@ -183,7 +184,7 @@ export default function PanduanScreen() {
             >
               <IconComponent
                 size={18}
-                color={isActive ? '#FFFFFF' : Colors.textSecondary}
+                color={isActive ? Colors.primary : Colors.textSecondary}
                 strokeWidth={2}
               />
               <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
@@ -195,6 +196,23 @@ export default function PanduanScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Hero gradient */}
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryLight ?? '#0EA5E9']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <Text style={styles.heroTitle}>
+            {activeTab === 'guide' ? 'Panduan Penggunaan' : 'Pertanyaan Umum'}
+          </Text>
+          <Text style={styles.heroSubtitle}>
+            {activeTab === 'guide'
+              ? 'Pelajari alur lengkap pengajuan, status, dan fitur SPSM.'
+              : 'Jawaban cepat untuk pertanyaan yang sering diajukan mahasiswa.'}
+          </Text>
+        </LinearGradient>
+
         {activeTab === 'guide' ? (
           <>
             {/* Introduction */}
@@ -306,23 +324,23 @@ export default function PanduanScreen() {
                 </View>
                 <View style={styles.stepItem}>
                   <View style={styles.stepNumber}>
-                    <Text style={styles.stepNumberText}>2</Text>
-                  </View>
-                  <View style={styles.stepContent}>
-                    <Text style={styles.stepTitle}>Klik &ldquo;Ajukan Judul Skripsi&rdquo;</Text>
-                    <Text style={styles.stepDesc}>
-                      Pada dashboard, klik tombol hero untuk memulai pengajuan baru.
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.stepItem}>
-                  <View style={styles.stepNumber}>
                     <Text style={styles.stepNumberText}>3</Text>
                   </View>
                   <View style={styles.stepContent}>
                     <Text style={styles.stepTitle}>Isi Data Diri & Pilih Prodi</Text>
                     <Text style={styles.stepDesc}>
                       Lengkapi data mahasiswa dan pilih program studi yang sesuai.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.stepItem}>
+                  <View style={styles.stepNumber}>
+                    <Text style={styles.stepNumberText}>2</Text>
+                  </View>
+                  <View style={styles.stepContent}>
+                    <Text style={styles.stepTitle}>Klik &ldquo;Ajukan Judul Skripsi&rdquo;</Text>
+                    <Text style={styles.stepDesc}>
+                      Pada dashboard, klik tombol hero untuk memulai pengajuan baru.
                     </Text>
                   </View>
                 </View>
@@ -407,63 +425,96 @@ export default function PanduanScreen() {
             {/* Status Pengajuan */}
             <AccordionItem
               title="Status Pengajuan"
-              subtitle="Arti dan arti dari setiap status"
+              subtitle="Arti setiap status dalam alur pengajuan"
               icon={<Clock size={22} color="#D97706" strokeWidth={2} />}
               iconBgColor="#FEF3C7"
             >
               <View style={styles.statusList}>
                 <View style={styles.statusItem}>
-                  <View style={styles.statusIcon}>
-                    <Clock size={18} color="#D97706" strokeWidth={2} />
+                  <View style={[styles.statusIcon, { backgroundColor: '#F1F5F9' }]}>
+                    <Clock size={18} color="#475569" strokeWidth={2} />
                   </View>
                   <View style={styles.statusContent}>
-                    <Text style={styles.statusTitle}>Menunggu Review</Text>
+                    <Text style={styles.statusTitle}>Draf / Belum Dikirim</Text>
                     <Text style={styles.statusDesc}>
-                      Pengajuan Anda sedang ditelaah oleh Dosen Penilai. Proses ini membutuhkan waktu 1-3 hari kerja.
+                      Pengajuan masih dalam tahap pengisian dan belum dikirim ke reviewer.
                     </Text>
                   </View>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={styles.statusIcon}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#EFF6FF' }]}>
+                    <Clock size={18} color={Colors.primary} strokeWidth={2} />
+                  </View>
+                  <View style={styles.statusContent}>
+                    <Text style={styles.statusTitle}>Menunggu Review Dosen</Text>
+                    <Text style={styles.statusDesc}>
+                      Usulan judul sedang ditelaah oleh Dosen Penilai yang ditugaskan. Proses ini membutuhkan waktu 1-3 hari kerja.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#EFF6FF' }]}>
                     <User size={18} color={Colors.primary} strokeWidth={2} />
                   </View>
                   <View style={styles.statusContent}>
-                    <Text style={styles.statusTitle}>Menunggu Kaprodi</Text>
+                    <Text style={styles.statusTitle}>Pleno Kaprodi</Text>
                     <Text style={styles.statusDesc}>
-                      Judul sudah disetujui oleh Dosen Penilai dan menunggu pengesahan final dari Kaprodi.
+                      Judul sudah lolos review Dosen Penilai dan menunggu pengesahan final dari Kaprodi.
                     </Text>
                   </View>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={styles.statusIcon}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#F5F3FF' }]}>
+                    <Clock size={18} color="#7C3AED" strokeWidth={2} />
+                  </View>
+                  <View style={styles.statusContent}>
+                    <Text style={styles.statusTitle}>Menunggu Administrasi TU</Text>
+                    <Text style={styles.statusDesc}>
+                      SK sudah disahkan Kaprodi dan menunggu diproses oleh bagian Administrasi Tata Usaha.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#FFF7ED' }]}>
+                    <Clock size={18} color="#EA580C" strokeWidth={2} />
+                  </View>
+                  <View style={styles.statusContent}>
+                    <Text style={styles.statusTitle}>Proses Tanda Tangan Dekan</Text>
+                    <Text style={styles.statusDesc}>
+                      SK sedang dicetak dan menunggu tanda tangan Dekan sebelum diterbitkan.
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#ECFDF5' }]}>
                     <CheckCircle2 size={18} color="#059669" strokeWidth={2} />
                   </View>
                   <View style={styles.statusContent}>
-                    <Text style={styles.statusTitle}>Disetujui</Text>
+                    <Text style={styles.statusTitle}>SK Resmi Terbit</Text>
                     <Text style={styles.statusDesc}>
-                      Pengajuan Anda telah resmi disahkan. Anda akan menerima SK resmi dan informasi Dosen Pembimbing.
+                      Pengajuan Anda telah resmi disahkan. SK resmi beserta informasi Dosen Pembimbing dapat diunduh dari halaman detail.
                     </Text>
                   </View>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={styles.statusIcon}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#FFFBEB' }]}>
                     <AlertTriangle size={18} color="#D97706" strokeWidth={2} />
                   </View>
                   <View style={styles.statusContent}>
                     <Text style={styles.statusTitle}>Perlu Revisi</Text>
                     <Text style={styles.statusDesc}>
-                      Dosen Penilai meminta perbaikan pada usulan judul Anda. Silakan periksa catatan dan ajukan ulang.
+                      Dosen Penilai meminta perbaikan pada usulan judul Anda. Periksa catatan lalu ajukan ulang kapan saja.
                     </Text>
                   </View>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={styles.statusIcon}>
+                  <View style={[styles.statusIcon, { backgroundColor: '#FEF2F2' }]}>
                     <XCircle size={18} color={Colors.error} strokeWidth={2} />
                   </View>
                   <View style={styles.statusContent}>
                     <Text style={styles.statusTitle}>Ditolak</Text>
                     <Text style={styles.statusDesc}>
-                      Usulan judul Anda tidak dapat diproses. Anda dapat membuat pengajuan baru dengan judul yang berbeda.
+                      Usulan judul Anda tidak dapat diproses. Anda dapat mengajukan ulang dengan data yang sama atau judul yang berbeda.
                     </Text>
                   </View>
                 </View>
@@ -660,12 +711,13 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    gap: 8,
-    backgroundColor: Colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    marginHorizontal: 18,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 4,
+    gap: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 14,
   },
   tab: {
     flex: 1,
@@ -673,21 +725,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: '#F1F5F9',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 11,
   },
   tabActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
   tabTextActive: {
+    color: Colors.primary,
+  },
+  heroCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  heroTitle: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  heroSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 6,
+    lineHeight: 18,
   },
   scrollView: {
     flex: 1,
@@ -699,6 +777,11 @@ const styles = StyleSheet.create({
   accordionSection: {
     marginBottom: 12,
     padding: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
   },
   accordionHeader: {
     flexDirection: 'row',

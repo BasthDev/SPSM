@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Colors } from '@/theme/theme';
+import React from 'react';
+import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 type EmptyStateProps = {
   title: string;
@@ -30,6 +30,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 const styles = StyleSheet.create({
   container: {
     padding: 32,
+    paddingVertical: 56,
+    minHeight: 240,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.card,
