@@ -8,7 +8,7 @@ DIST_DIR="${DIST_DIR:-/home/basth/apk-dist}"
 ANDROID_HOME="${ANDROID_HOME:-/home/basth/Android/Sdk}"
 JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
 export ANDROID_HOME JAVA_HOME
-export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:/home/basth/node22/bin:$PATH"
 
 # Auto-install komponen Android SDK yang dibutuhkan (sekali saja)
 ensure_sdk() {
