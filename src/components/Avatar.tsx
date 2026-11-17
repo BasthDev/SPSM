@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { User } from 'lucide-react-native';
 import { Colors } from '@/theme/theme';
 
@@ -33,6 +34,11 @@ export const Avatar: React.FC<AvatarProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false);
 
+  // Reset error state whenever source URL changes
+  useEffect(() => {
+    setImageError(false);
+  }, [source]);
+
   const showImage = !!source && !imageError;
   const fallbackBg = iconFallback ? '#FFFFFF' : backgroundColor;
   const iconColor = iconFallback ? '#94A3B8' : undefined;
@@ -58,8 +64,10 @@ export const Avatar: React.FC<AvatarProps> = ({
         <Image
           source={{ uri: source! }}
           style={{ width: size, height: size, borderRadius: size / 2 }}
+          contentFit="cover"
+          transition={150}
+          cachePolicy="memory-disk"
           onError={() => setImageError(true)}
-          resizeMode="cover"
         />
       ) : iconFallback ? (
         <User size={size * 0.52} color={iconColor} strokeWidth={2} />
