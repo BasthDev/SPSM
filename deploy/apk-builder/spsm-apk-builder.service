@@ -1,0 +1,17 @@
+[Unit]
+Description=SPSM APK Builder (mini EAS)
+After=network.target
+
+[Service]
+Type=simple
+User=basth
+Environment=PORT=8085
+Environment=BUILD_TOKEN=GANTI_DENGAN_TOKEN_RAHASIA
+Environment=REPO_DIR=/home/basth/spsm-app
+Environment=DIST_DIR=/home/basth/apk-dist
+ExecStart=/usr/bin/python3 /home/basth/apk-builder/apk_builder.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
