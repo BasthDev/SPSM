@@ -8,7 +8,7 @@ import {
   HeroSubmitCard,
   HomeHeader,
   LoadingScreen,
-  PeriodInfoCard,
+  // PeriodInfoCard,
   Section,
   StatusBadge
 } from '@/components';
@@ -17,14 +17,13 @@ import type { DepartmentItem, ThesisSubmission, UserProfile } from '@/models/typ
 import { FALLBACK_DEPARTMENTS, isActiveSubmissionStatus } from '@/models/types';
 import { academicService } from '@/services/academicService';
 import { authService } from '@/services/authService';
-import { settingsService, type SystemSettings } from '@/services/settingsService';
 import { syncPushRegistrationIfEnabled } from '@/services/notificationService';
 import { disconnectRealtime, onRealtimeEvent } from '@/services/realtimeService';
+import { settingsService, type SystemSettings } from '@/services/settingsService';
 import { submissionService } from '@/services/submissionService';
 import { userDataCache } from '@/services/userDataCache';
 import { Colors } from '@/theme/theme';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   FileText,
   GraduationCap,
@@ -185,11 +184,11 @@ export default function DashboardScreen() {
         ? settingsService.getPeriodDisplayStatus(settings)
         : {
             status: 'open' as const,
-            title: 'Masa Pengajuan Dibuka',
-            description: 'Pendaftaran judul skripsi aktif.',
+            title: 'Masa Pengajuan Ditutup',
+            description: 'Pendaftaran judul skripsi.',
             dateRangeText: '',
-            academicYear: '2025/2026 Ganjil',
-            isOpen: true,
+            academicYear: '----/----',
+            isOpen: false,
           },
     [settings]
   );
@@ -259,13 +258,11 @@ export default function DashboardScreen() {
         refreshControl={undefined}
       >
         {/* TOP INFO CARD: Dynamic period status — component handles open/upcoming/closed */}
-        <PeriodInfoCard periodDisplay={periodDisplay} />
+        {/* <PeriodInfoCard periodDisplay={periodDisplay} /> */}
 
         {/* Carousel info — auto-scroll slide terintegrasi periodWatcher */}
         <Carousel period={periodDisplay} height={108} autoPlayMs={4000} />
 
-        {/* Grid Navigation */}
-        <GridNav />
 
         {/* 1. HERO ACTION / INELIGIBLE WARNING / DISABLED SECTION / ACTIVE TRACKING */}
         {activeSubmission ? (
@@ -374,11 +371,30 @@ export default function DashboardScreen() {
           />
         )}
 
+        
+        {/* Grid Navigation */}
+        <GridNav />
+
         {/* 2. SECTION HEADER */}
-        <View style={styles.sectionHeaderRow}>
+        {/* <View style={styles.sectionHeaderRow}>
           <View>
             <Text style={styles.sectionTitle}>Riwayat Pengajuan</Text>
             <Text style={styles.sectionSubtitle}>Daftar dan status terkini pengajuan skripsi Anda</Text>
+          </View>
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>{submissions.length}</Text>
+          </View>
+        </View> */}
+        {/* 2. SECTION HEADER */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderLeft}>
+            <View style={styles.sectionIconBox}>
+              <FileText size={18} color={Colors.primary} strokeWidth={2.4} />
+            </View>
+            <View>
+              <Text style={styles.sectionTitle}>Riwayat Pengajuan</Text>
+              <Text style={styles.sectionSubtitle}>Daftar dan status terkini pengajuan skripsi Anda</Text>
+            </View>
           </View>
           <View style={styles.countBadge}>
             <Text style={styles.countText}>{submissions.length}</Text>
@@ -786,35 +802,88 @@ const styles = StyleSheet.create({
   },
 
   // Section Header
+  // sectionHeaderRow: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'space-between',
+  //   marginBottom: 14,
+  // },
+  // sectionTitle: {
+  //   fontSize: 18,
+  //   fontWeight: '800',
+  //   color: Colors.text,
+  //   letterSpacing: -0.4,
+  // },
+  // sectionSubtitle: {
+  //   fontSize: 12,
+  //   color: Colors.textSecondary,
+  //   marginTop: 2,
+  // },
+  // countBadge: {
+  //   backgroundColor: '#EFF6FF',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 4,
+  //   borderRadius: 9999,
+  // },
+  // countText: {
+  //   fontSize: 12,
+  //   fontWeight: '800',
+  //   color: Colors.primary,
+  // },
+
+  // Section Header
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 16,
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  sectionIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F0F9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0F2FE',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    color: Colors.text,
-    letterSpacing: -0.4,
+    color: '#0F172A',
+    letterSpacing: -0.3,
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
+    color: '#64748B',
+    marginTop: 1,
   },
   countBadge: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    position: 'absolute',
+    top: -3,
+    right: 0,
+    zIndex: 10,
   },
   countText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Colors.primary,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#475569',
   },
-
   // Submissions list card
   submissionCard: {
     marginBottom: 12,

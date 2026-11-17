@@ -1,3 +1,15 @@
+import type { PeriodDisplayStatus } from '@/services/settingsService';
+import { Colors } from '@/theme/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  BellRing,
+  CalendarCheck,
+  CalendarClock,
+  CalendarX2,
+  FileCheck2,
+  RefreshCcw,
+  Sparkles,
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -9,18 +21,6 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  BellRing,
-  CalendarCheck,
-  CalendarClock,
-  CalendarX2,
-  FileCheck2,
-  RefreshCcw,
-  Sparkles,
-} from 'lucide-react-native';
-import { Colors } from '@/theme/theme';
-import type { PeriodDisplayStatus } from '@/services/settingsService';
 
 export interface CarouselSlideData {
   id: string;
@@ -43,7 +43,8 @@ export function buildPeriodSlide(period?: PeriodDisplayStatus | null): CarouselS
       id: 'period_status',
       title: period?.title || 'Pengajuan Akan Datang',
       description: period?.dateRangeText
-        ? `Jadwal: ${period.dateRangeText} • Pantau tanggal mulai pengajuan.`
+        ? `Jadwal: ${period.dateRangeText}
+Pantau tanggal mulai pengajuan.`
         : (period?.description || 'Masa pengajuan judul skripsi akan segera dibuka. Pantau tanggal mulai pengajuan.'),
       icon: <CalendarClock size={22} color="#FFFFFF" strokeWidth={2.3} />,
       colors: ['#D97706', '#B45309'],
@@ -69,7 +70,8 @@ export function buildPeriodSlide(period?: PeriodDisplayStatus | null): CarouselS
     id: 'period_status',
     title: period?.title || 'Pengajuan Dibuka',
     description: period?.dateRangeText
-      ? `Aktif: ${period.dateRangeText} • Segera ajukan usulan judul Anda.`
+      ? `Aktif: ${period.dateRangeText}
+Segera ajukan usulan judul Anda.`
       : (period?.description || 'Masa pengajuan judul skripsi telah dibuka. Segera ajukan usulan judul Anda.'),
     icon: <CalendarCheck size={22} color="#FFFFFF" strokeWidth={2.3} />,
     colors: ['#059669', '#047857'],
@@ -83,7 +85,7 @@ export const BASE_FEATURE_SLIDES: CarouselSlideData[] = [
     title: 'Update Real-time',
     description: 'Status & notifikasi pengajuan berubah otomatis tanpa perlu reload.',
     icon: <BellRing size={22} color="#FFFFFF" strokeWidth={2.3} />,
-    colors: ['#0284C7', '#0369A1'],
+    colors: ['#0284C7', '#0369A1'], // Tetap biru terang yang bersih
     badge: 'LIVE',
   },
   {
@@ -91,7 +93,8 @@ export const BASE_FEATURE_SLIDES: CarouselSlideData[] = [
     title: 'Ajukan Ulang Cepat',
     description: 'Data dan dokumen judul otomatis terisi saat pengajuan revisi.',
     icon: <RefreshCcw size={22} color="#FFFFFF" strokeWidth={2.3} />,
-    colors: ['#2563EB', '#1D4ED8'],
+    // Diubah ke soft blue-cyan yang lebih cerah dan modern
+    colors: ['#0EA5E9', '#0284C7'], 
     badge: 'PRAKTIS',
   },
   {
@@ -99,7 +102,7 @@ export const BASE_FEATURE_SLIDES: CarouselSlideData[] = [
     title: 'SK & Surat Digital',
     description: 'Pantau nomor dokumen dan unduh berkas resmi langsung dari aplikasi.',
     icon: <FileCheck2 size={22} color="#FFFFFF" strokeWidth={2.3} />,
-    colors: ['#0D9488', '#0F766E'],
+    colors: ['#0D9488', '#0F766E'], // Hijau teal yang segar
     badge: 'RESMI',
   },
   {
@@ -107,7 +110,8 @@ export const BASE_FEATURE_SLIDES: CarouselSlideData[] = [
     title: 'Cek Kemiripan AI',
     description: 'Pemeriksaan orisinalitas judul terintegrasi untuk mencegah duplikasi.',
     icon: <Sparkles size={22} color="#FFFFFF" strokeWidth={2.3} />,
-    colors: ['#4F46E5', '#3730A3'],
+    // Diubah ke soft violet/purple yang elegan dan tidak terlalu gelap
+    colors: ['#8B5CF6', '#6D28D9'], 
     badge: 'SMART',
   },
 ];
