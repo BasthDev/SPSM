@@ -14,8 +14,19 @@ import type { UserProfile } from '@/models/types';
 import { Colors } from '@/theme/theme';
 import { BookOpen, Hash, Calendar, Shield, LogOut, Phone, Settings, ChevronRight, Pencil } from 'lucide-react-native';
 
-export default function ProfileScreen() {
-  const router = useRouter();
+const ROLE_LABELS: Record<string, string> = {
+  student: 'MAHASISWA AKTIF',
+  lecturer: 'DOSEN PEMBIMBING',
+  reviewer: 'REVIEWER',
+  kaprodi: 'KAPRODI',
+  akademik: 'STAF AKADEMIK',
+  admin: 'ADMINISTRATOR',
+};
+function getRoleLabel(role?: string | null): string {
+  return ROLE_LABELS[role ?? ''] ?? 'PENGGUNA';
+}
+
+export default function ProfileScreen() {  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [deptName, setDeptName] = useState('');
@@ -94,7 +105,7 @@ export default function ProfileScreen() {
           <Text style={styles.name}>{user?.name ?? 'Mahasiswa'}</Text>
           <Text style={styles.email}>{user?.email ?? '-'}</Text>
           <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>MAHASISWA AKTIF</Text>
+            <Text style={styles.roleText}>{getRoleLabel(user?.role)}</Text>
           </View>
         </View>
 

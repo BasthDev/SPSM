@@ -115,6 +115,7 @@ export default function ProfileEditScreen() {
       const newUrl = updated?.avatarUrl || updated?.avatar_url || '';
       console.log('[avatar] upload berhasil, avatar_url:', newUrl ? 'tersimpan' : '(kosong)');
       setAvatarUrl(newUrl);
+      userDataCache.clear(userId).catch(() => {});
       Alert.alert('Berhasil', 'Foto profil berhasil diunggah.');
     } catch (e: any) {
       console.error('[avatar] upload GAGAL:', e?.message || e);

@@ -1,5 +1,7 @@
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 
 /**
  * Determine default API URL:
@@ -440,16 +442,60 @@ export const apiClient = {
     },
     /** Upload foto profil (file) → disimpan di file field users.avatar, avatar_url diisi URL file. */
     async uploadAvatar(userId: string, asset: { uri: string; fileName?: string | null; mimeType?: string | null }) {
-      const formData = new FormData();
-      const ext = (asset.mimeType || 'image/jpeg').split('/')[1] || 'jpg';
-      formData.append('avatar', {
-        uri: asset.uri,
-        name: asset.fileName || `avatar-${Date.now()}.${ext}`,
-        type: asset.mimeType || 'image/jpeg',
-      } as any);
-
       const url = `${API_BASE_URL}/users/${userId}/avatar`;
       const token = await getAuthToken();
+      const ext = (asset.mimeType || 'image/jpeg').split('/')[1] || 'jpg';
+      const fileName = asset.fileName || `avatar-${Date.now()}.${ext}`;
+      const mimeType = asset.mimeType || 'image/jpeg';
+
+      // 1. Pada perangkat Native (iOS & Android):
+      // Gunakan FileSystem.uploadAsync untuk menghindari bug Expo "Unsupported FormDataPart implementation"
+      if (Platform.OS !== 'web') {
+        try {
+          const result = await FileSystem.uploadAsync(url, asset.uri, {
+            fieldName: 'avatar',
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            mimeType,
+          });
+
+          notifyConnectionSuccess();
+
+          let json: any = {};
+          try {
+            json = JSON.parse(result.body || '{}');
+          } catch {}
+
+          if (result.status < 200 || result.status >= 300) {
+            throw new ApiError(json?.error || `Upload avatar gagal (${result.status})`, result.status);
+          }
+          return json?.data;
+        } catch (netErr: any) {
+          if (netErr instanceof ApiError) throw netErr;
+          console.warn(`[apiClient] Avatar upload failed for ${url}:`, netErr?.message);
+          notifyConnectionError('Tidak dapat terhubung ke server');
+          throw new ApiError(netErr?.message || 'Tidak dapat terhubung ke server.', 503, { isNetworkError: true });
+        }
+      }
+
+      // 2. Pada Web: Convert uri to Blob dan gunakan FormData standar
+      const formData = new FormData();
+      try {
+        const fileRes = await fetch(asset.uri);
+        const blob = await fileRes.blob();
+        formData.append('avatar', blob, fileName);
+      } catch {
+        // Fallback jika fetch blob gagal
+        formData.append('avatar', {
+          uri: asset.uri,
+          name: fileName,
+          type: mimeType,
+        } as any);
+      }
+
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 

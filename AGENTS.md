@@ -50,3 +50,29 @@ Docs: https://docs.expo.dev/eas/index.md
   - `services/`: Alur logika bisnis dan orkestrasi.
   - `database/`: Universal Database Adapter (`IDatabaseAdapter`). Migrasi database hanya boleh memodifikasi adapter ini tanpa mengubah UI maupun layer lainnya.
 
+## Server Access (Windows → Linux Remote)
+
+SSH ke server remote dari Windows PowerShell **selalu** menggunakan:
+```powershell
+powershell -Command "ssh -o StrictHostKeyChecking=no -p 2222 basth@localhost '<perintah>'"
+```
+- **JANGAN** pakai `sshpass` (tidak tersedia di Windows)
+- **JANGAN** pakai `&&` sebagai separator di PowerShell — gunakan `;`
+- Untuk pencarian file/text di PowerShell, gunakan `Select-String` atau Python one-liner
+- Password server: `@Maulidia05`
+
+## Security Rules (Backend)
+
+- **CORS**: Selalu pakai whitelist domain eksplisit via env var `CORS_ORIGINS`. **JANGAN** `app.use(cors())` tanpa opsi di production.
+  ```ts
+  const origins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map(s => s.trim());
+  ```
+- **JWT Secret**: Wajib throw error saat startup jika `JWT_SECRET` tidak di-set di production. Jangan ada fallback default.
+- **Rate Limiter AI**: Setiap endpoint yang memanggil external AI API (Gemini dll) wajib pakai `similarityLimiter` (strict rate limit).
+- **PocketBase URL field**: Jangan kirim string kosong `''` ke field bertipe URL — PocketBase akan mengembalikan 400. Skip update atau kirim `null`.
+
+## Realtime WebSocket Rules
+
+- Saat menerima event `auth_error` dari WebSocket/SSE server, **jangan reconnect**. Set `intentionalClose = true` sebelum `socket.close()`. Redirect user ke halaman login.
+- Auto-reconnect hanya untuk disconnect tidak disengaja (`code !== 1000` dan bukan `intentionalClose`).
+
