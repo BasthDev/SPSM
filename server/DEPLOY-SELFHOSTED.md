@@ -1,6 +1,6 @@
-# Deploy SPSM-KU Self-Hosted: Appwrite + Backend dalam 1 Server (Docker, Ubuntu)
+# Deploy SPSM Self-Hosted: Appwrite + Backend dalam 1 Server (Docker, Ubuntu)
 
-Target: satu server **Ubuntu** menjalankan **Appwrite self-hosted** + **backend API SPSM-KU** dalam Docker. Deploy via **git clone dari GitHub**.
+Target: satu server **Ubuntu** menjalankan **Appwrite self-hosted** + **backend API SPSM** dalam Docker. Deploy via **git clone dari GitHub**.
 
 ```
 Internet
@@ -8,7 +8,7 @@ Internet
    ▼
 Traefik (bawaan installer Appwrite)  :80 / :443
    ├── app-spsm.unmuha.ac.id   → Appwrite Console + API (/v1)
-   └── api-spsm.unmuha.ac.id   → Backend SPSM-KU (container spsm-api)
+   └── api-spsm.unmuha.ac.id   → Backend SPSM (container spsm-api)
                                       │
                                       ▼
                                Appwrite API (project, DB, storage)

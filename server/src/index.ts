@@ -15,7 +15,7 @@ startPeriodWatcher();
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`===============================================`);
-  console.log(`🚀 SPSM-KU Backend API Server running on port ${PORT}`);
+  console.log(`🚀 SPSM Backend API Server running on port ${PORT}`);
   console.log(`📍 Health Check: http://localhost:${PORT}/health`);
   console.log(`📍 Base API URL: http://localhost:${PORT}/api`);
   console.log(`===============================================`);

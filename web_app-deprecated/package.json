@@ -24,7 +24,7 @@
   "dependencies": {
     "@hummingbirdui/hummingbird": "^1.4.1",
     "echarts": "^6.1.0",
-    "spsm-ku": "file:.."
+    "spsm": "file:.."
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.4",

@@ -1,4 +1,4 @@
-# SPSM-KU — Dokumentasi Project
+# SPSM — Dokumentasi Project
 
 Sistem Pengajuan Judul Skripsi Mahasiswa — aplikasi mobile (Expo/React Native) untuk mahasiswa mengajukan judul skripsi, tracking status review dosen & Kaprodi, upload file skripsi, dan repository file.
 

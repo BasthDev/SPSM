@@ -1,4 +1,4 @@
-# Backend SPSM-KU — jalan di server yang sama dengan Appwrite self-hosted.
+# Backend SPSM — jalan di server yang sama dengan Appwrite self-hosted.
 #
 # PRASYARAT: Appwrite sudah diinstall via installer resmi
 #   docker run -it --rm --publish 20080:20080 \

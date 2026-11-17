@@ -1,4 +1,4 @@
-# Setup Backend SPSM-KU di Server Sendiri
+# Setup Backend SPSM di Server Sendiri
 
 Panduan deploy `server/` ke server hardware milik sendiri (Linux disarankan; Windows Server juga bisa).
 
@@ -71,7 +71,7 @@ Alternatif systemd (`/etc/systemd/system/spsm-api.service`):
 
 ```ini
 [Unit]
-Description=SPSM-KU API
+Description=SPSM API
 After=network.target
 
 [Service]

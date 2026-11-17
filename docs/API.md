@@ -1,13 +1,13 @@
-# SPSM-KU — Dokumentasi API & Arsitektur (untuk Developer)
+# SPSM — Dokumentasi API & Arsitektur (untuk Developer)
 
-Dokumen ini adalah referensi lengkap untuk developer yang melanjutkan proyek SPSM-KU: struktur repo, semua service/API beserta cara pakai, skema database Appwrite, konvensi storage, dan alur status.
+Dokumen ini adalah referensi lengkap untuk developer yang melanjutkan proyek SPSM: struktur repo, semua service/API beserta cara pakai, skema database Appwrite, konvensi storage, dan alur status.
 
 ---
 
 ## 1. Gambaran Repo
 
 ```
-D:\SPSM-KU
+D:\SPSM
 ├── src/                  # Mobile app mahasiswa (Expo SDK ~58, Expo Router, TS)
 │   ├── app/              # Routes: dashboard, submission/create, submission/[id],
 │   │                     #   skripsiku, repo, profil, panduan, login, onboarding

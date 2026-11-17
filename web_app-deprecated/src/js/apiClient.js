@@ -1,5 +1,5 @@
 /**
- * Universal API Client for SPSM-KU Web App
+ * Universal API Client for SPSM Web App
  * Communicates with the Backend API Server (Node.js/Express)
  * No direct database calls to Appwrite!
  */

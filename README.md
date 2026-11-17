@@ -1,4 +1,4 @@
-# SPSM-KU — Sarana Pengajuan Skripsi Mahasiswa
+# SPSM — Sarana Pengajuan Skripsi Mahasiswa
 
 Sistem digitalisasi pengajuan judul skripsi mahasiswa: dari pengajuan N opsi judul (jumlah dinamis via `system_settings.required_title_count`), screening Dosen Penilai, plenokan Kaprodi, penerbitan SK berlapis (TU → TTD Dekan → scan SK), hingga repository file skripsi.
 

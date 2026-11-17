@@ -1,7 +1,7 @@
 {
   "name": "spsm-api-server",
   "version": "1.0.0",
-  "description": "Universal Backend API Server for SPSM-KU with Controller, Validator, and Service layers",
+  "description": "Universal Backend API Server for SPSM with Controller, Validator, and Service layers",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
@@ -20,7 +20,7 @@
     "multer": "^1.4.5-lts.1",
     "node-appwrite": "^14.1.0",
     "pocketbase": "^0.29.0",
-    "spsm-ku": "file:..",
+    "spsm": "file:..",
     "ws": "^8.23.0"
   },
   "devDependencies": {

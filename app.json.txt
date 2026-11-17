@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SPSM-KU",
-    "slug": "SPSM-KU",
+    "name": "SPSM",
+    "slug": "SPSM",
     "scheme": [
       "appwrite-callback-6af9b97e002cf5c78067",
       "spsm"

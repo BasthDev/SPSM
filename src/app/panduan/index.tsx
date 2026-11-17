@@ -199,7 +199,7 @@ export default function PanduanScreen() {
           <>
             {/* Introduction */}
             <AccordionItem
-              title="Tentang Aplikasi SPSM-KU"
+              title="Tentang Aplikasi SPSM"
               subtitle="Sarana Pengajuan Judul Skripsi Mahasiswa"
               icon={<BookOpen size={22} color={Colors.primary} strokeWidth={2} />}
               iconBgColor="#EFF6FF"
