@@ -1,5 +1,8 @@
 import { ConnectionBanner } from '@/components';
-import { setupNotificationHandler } from '@/services/notificationService';
+import {
+  promptNotificationPermissionOnStart,
+  setupNotificationHandler,
+} from '@/services/notificationService';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { LogBox } from 'react-native';
@@ -16,6 +19,8 @@ LogBox.ignoreLogs([
 export default function RootLayout() {
   useEffect(() => {
     setupNotificationHandler();
+    // Minta izin notifikasi sekali saat app pertama dibuka
+    void promptNotificationPermissionOnStart();
   }, []);
 
   return (

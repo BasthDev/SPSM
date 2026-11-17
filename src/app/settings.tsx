@@ -1,7 +1,6 @@
 import { AppHeader, Section } from '@/components';
 import {
   getNotificationPermission,
-  getStoredDeviceToken,
   isNotificationsEnabled,
   sendTestNotification,
   setNotificationsEnabled,
@@ -19,7 +18,6 @@ import {
   Heart,
   Info,
   Send,
-  ShieldCheck,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -37,18 +35,15 @@ import {
 export default function SettingsScreen() {
   const [enabled, setEnabled] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('undetermined');
-  const [pushToken, setPushToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [on, perm, token] = await Promise.all([
+    const [on, perm] = await Promise.all([
       isNotificationsEnabled(),
       getNotificationPermission(),
-      getStoredDeviceToken(),
     ]);
     setEnabled(on);
     setPermission(perm);
-    setPushToken(token);
   }, []);
 
   useEffect(() => {
@@ -139,7 +134,7 @@ export default function SettingsScreen() {
 
           {/* Status izin chip */}
           <View style={styles.statusRow}>
-            <ShieldCheck size={13} color={permissionMeta.fg} strokeWidth={2.4} />
+            <View style={[styles.statusDot, { backgroundColor: permissionMeta.fg }]} />
             <Text style={[styles.statusText, { color: permissionMeta.fg }]}>
               Izin sistem: {permissionMeta.label}
             </Text>
@@ -174,14 +169,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           ) : null}
 
-          {enabled && pushToken ? (
-            <View style={styles.tokenBox}>
-              <Text style={styles.tokenLabel}>FCM DEVICE TOKEN</Text>
-              <Text style={styles.tokenText} numberOfLines={1}>
-                {pushToken}
-              </Text>
-            </View>
-          ) : null}
+          {/* FCM device token disembunyikan — tidak perlu ditampilkan ke user */}
         </Section>
 
         {/* ── Tentang ────────────────────────────────── */}
@@ -241,6 +229,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 18,
     backgroundColor: Colors.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -312,6 +305,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight ?? '#F1F5F9',
   },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
   statusText: {
     fontSize: 12,
     fontWeight: '700',
@@ -353,26 +351,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  tokenBox: {
-    marginTop: 12,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.borderLight ?? '#F1F5F9',
-    padding: 10,
-  },
-  tokenLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: Colors.textTertiary,
-    letterSpacing: 0.6,
-    marginBottom: 4,
-  },
-  tokenText: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   infoGrid: {
     gap: 12,

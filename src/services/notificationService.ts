@@ -143,6 +143,39 @@ export async function syncPushRegistrationIfEnabled() {
   }
 }
 
+/**
+ * Minta izin notifikasi saat app start (hanya jika belum pernah ditanya).
+ * Kalau diizinkan → aktifkan flag + register token (gagal diam-diam jika
+ * belum login — akan di-sync ulang oleh syncPushRegistrationIfEnabled).
+ */
+export async function promptNotificationPermissionOnStart() {
+  try {
+    await ensureAndroidChannel();
+    const perm = await getNotificationPermission();
+    if (perm === 'undetermined') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status === 'granted') {
+        await AsyncStorage.setItem(ENABLED_KEY, 'true');
+        const token = await getFcmDeviceToken();
+        if (token) {
+          try {
+            await apiClient.notifications.register(token);
+          } catch {
+            // Belum login — abaikan, sync nanti setelah auth
+          }
+        }
+      } else {
+        await AsyncStorage.setItem(ENABLED_KEY, 'false');
+      }
+      return;
+    }
+    // Sudah pernah dijawab — cukup sync ulang kalau aktif
+    await syncPushRegistrationIfEnabled();
+  } catch (e) {
+    console.warn('[notifications] prompt on start gagal:', e);
+  }
+}
+
 /** Kirim notifikasi lokal untuk testing (debug). */
 export async function sendTestNotification() {
   await ensureAndroidChannel();
