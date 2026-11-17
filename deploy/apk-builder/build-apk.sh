@@ -55,7 +55,24 @@ chmod +x gradlew
 ./gradlew assembleRelease --console=plain
 
 APK="app/build/outputs/apk/release/app-release.apk"
-[ -f "$APK" ] || APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+# Release tanpa signing config → APK unsigned, sign pakai debug keystore agar bisa diinstall
+if [ ! -f "$APK" ]; then
+  UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+  if [ -f "$UNSIGNED" ]; then
+    BT="$ANDROID_HOME/build-tools/36.0.0"
+    KEYSTORE="$HOME/.android/debug.keystore"
+    if [ ! -f "$KEYSTORE" ]; then
+      mkdir -p "$HOME/.android"
+      keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey \
+        -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
+    fi
+    "$BT/zipalign" -f -p 4 "$UNSIGNED" "$DIST_DIR/signed-aligned.apk"
+    "$BT/apksigner" sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android \
+      --out "$APK" "$DIST_DIR/signed-aligned.apk"
+    rm -f "$DIST_DIR/signed-aligned.apk"
+    echo "=== APK di-sign dengan debug keystore ==="
+  fi
+fi
 if [ ! -f "$APK" ]; then
   echo "ERROR: APK tidak ditemukan di $APK"
   exit 1
