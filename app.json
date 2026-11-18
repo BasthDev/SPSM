@@ -7,7 +7,7 @@
     ],
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "id.my.basthdev.spsm",
@@ -18,7 +18,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/logo.png"
+        "foregroundImage": "./assets/images/icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -32,7 +32,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
-          "image": "./assets/images/logo.png",
+          "image": "./assets/images/splash.png",
           "resizeMode": "contain"
         }
       ],
@@ -40,7 +40,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.png",
+          "icon": "./assets/images/icon.png",
           "color": "#0A4C8F"
         }
       ]
