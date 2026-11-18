@@ -29,7 +29,10 @@ ensure_sdk() {
   echo "=== sdkmanager install platform/build-tools/ndk ==="
   "$sdkmanager" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "cmake;3.22.1"
 }
-[ -d "$ANDROID_HOME" ] && { mark "sdk"; ensure_sdk; }
+if [ ! -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ] || [ ! -d "$ANDROID_HOME/platform-tools" ]; then
+  mark "sdk"
+  ensure_sdk
+fi
 
 mkdir -p "$DIST_DIR"
 cd "$REPO_DIR"
@@ -48,12 +51,11 @@ mark "git"
 echo "=== git pull ==="
 git pull --ff-only
 
-# android/ adalah CNG (gitignored) — generate via expo prebuild jika belum ada
-if [ ! -d android ]; then
-  mark "prebuild"
-  echo "=== expo prebuild --platform android ==="
-  npx expo prebuild --platform android
-fi
+# android/ adalah CNG (gitignored) — selalu jalankan prebuild (tanpa --clean)
+# agar native config selalu fresh mengikuti app.json/plugins terbaru.
+mark "prebuild"
+echo "=== expo prebuild --platform android ==="
+npx expo prebuild --platform android
 
 mark "gradle"
 echo "=== gradlew assembleRelease ==="

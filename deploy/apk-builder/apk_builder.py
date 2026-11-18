@@ -155,7 +155,7 @@ const LABEL={idle:'IDLE',building:'BUILDING…',success:'SUCCESS',failed:'FAILED
 let t0=null,lastLogLen=0,logEl=document.getElementById('log');
 function fmtDur(s){s=Math.max(0,Math.floor(s));const m=Math.floor(s/60),ss=s%60;return m+'m '+String(ss).padStart(2,'0')+'s'}
 function stageIdx(st,prog){
- if(prog){const i=STAGES.findIndex(x=>x[0]===prog);if(i>=0)return i}
+ if(prog){const i=STAGES.findIndex(x=>x[0]!==''&&prog.includes(x[0]));if(i>=0)return i}
  const m={sdk:1,npm:2,git:3,prebuild:4,gradle:5,sign:6,done:7};return m[st]!==undefined?m[st]:st==='building'?0:-1;
 }
 function renderSteps(idx,status){
