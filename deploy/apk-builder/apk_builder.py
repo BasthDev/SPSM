@@ -81,6 +81,7 @@ def run_build(mode="release"):
         )
         with open(LOG_FILE, "a") as log:
             log.write(f"===== BUILD END rc={rc} {'OK' if ok else 'FAIL'} =====\n")
+        build_proc["proc"] = None
 
 
 INDEX_HTML = r"""<!doctype html><html lang=id><head><meta charset=utf-8>
@@ -115,6 +116,7 @@ h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
 .btn.prebuild{background:linear-gradient(135deg,#8b5cf6,#a855f7);border:0;color:#fff}
 .btn.debug{background:linear-gradient(135deg,#10b981,#059669);border:0;color:#fff}
 .btn.release{background:linear-gradient(135deg,#f59e0b,#d97706);border:0;color:#fff}
+.btn.stop{background:linear-gradient(135deg,#ef4444,#dc2626);border:0;color:#fff}
 .steps{display:flex;flex-direction:column;gap:0}
 .step{display:flex;align-items:center;gap:14px;padding:10px 0;position:relative}
 .step:not(:last-child)::before{content:'';position:absolute;left:17px;top:38px;bottom:-10px;width:2px;background:#334155}
@@ -155,6 +157,7 @@ h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
    <button class="btn debug" id=debugbtn disabled>🐛 Debug</button>
    <button class="btn release" id=relbtn disabled>🚀 Release</button>
   </div>
+  <button class="btn stop" id=stopbtn style="display:none;margin-bottom:16px">⏹ Stop Build</button>
   <div class=steps id=steps></div>
   <div class=elapsed id=elapsed></div>
   <div class=bar><i id=bar></i></div>
@@ -208,6 +211,15 @@ async function runCmd(mode){
   alert('Gagal menjalankan command: '+e.message);
  }
 }
+async function stopBuild(){
+ try{
+  const r=await fetch('/stop?token=__TOKEN__',{method:'POST'});
+  if(!r.ok)throw new Error(await r.text());
+  return await r.text();
+ }catch(e){
+  alert('Gagal stop build: '+e.message);
+ }
+}
 async function poll(){
  try{
   const s=await fetch('/status.json').then(r=>r.json());
@@ -224,6 +236,8 @@ async function poll(){
   document.getElementById('prebtn').disabled=!canBuild;
   document.getElementById('debugbtn').disabled=!canBuild;
   document.getElementById('relbtn').disabled=!canBuild;
+  const stopBtn=document.getElementById('stopbtn');
+  stopBtn.style.display=s.building?'block':'none';
   const dw=document.getElementById('dlsec');
   if(s.status==='success'){dw.style.display='block';document.getElementById('dlmeta').textContent='Debug: '+(s.debug_size?fmtSize(s.debug_size):'-')+' | Release: '+(s.apk_size?fmtSize(s.apk_size):'-');}
   else dw.style.display='none';
@@ -238,6 +252,7 @@ function fmtSize(b){if(!b)return'-';b=Number(b);const k=1024,s=['B','KB','MB','G
 document.getElementById('prebtn').onclick=()=>runCmd('prebuild');
 document.getElementById('debugbtn').onclick=()=>runCmd('debug');
 document.getElementById('relbtn').onclick=()=>runCmd('release');
+document.getElementById('stopbtn').onclick=()=>stopBuild();
 poll();
 </script></body></html>"""
 
@@ -318,22 +333,44 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         u = urlparse(self.path)
-        if u.path != "/build":
+        if u.path == "/build":
+            token = parse_qs(u.query).get("token", [""])[0]
+            if not BUILD_TOKEN or token != BUILD_TOKEN:
+                self._send(403, "token salah")
+                return
+            if is_building():
+                self._send(409, "build sedang berjalan")
+                return
+            mode = parse_qs(u.query).get("mode", ["release"])[0]
+            if mode not in ("prebuild", "debug", "release"):
+                self._send(400, "mode tidak valid: gunakan prebuild|debug|release")
+                return
+            threading.Thread(target=run_build, kwargs={"mode": mode}, daemon=True).start()
+            self._send(200, f"build {mode} dimulai — pantau di /status.json", "text/plain; charset=utf-8")
+        elif u.path == "/stop":
+            token = parse_qs(u.query).get("token", [""])[0]
+            if not BUILD_TOKEN or token != BUILD_TOKEN:
+                self._send(403, "token salah")
+                return
+            if not is_building():
+                self._send(409, "tidak ada build yang berjalan")
+                return
+            proc = build_proc["proc"]
+            if proc:
+                try:
+                    proc.terminate()
+                    time.sleep(2)
+                    if proc.poll() is None:
+                        proc.kill()
+                except Exception:
+                    pass
+                with open(LOG_FILE, "a") as log:
+                    log.write(f"\n===== BUILD STOPPED =====\n")
+                write_state(status="failed", finished_at=int(time.time()), returncode=-9)
+                build_proc["proc"] = None
+            self._send(200, "build dihentikan", "text/plain; charset=utf-8")
+        else:
             self._send(404, "not found")
-            return
-        token = parse_qs(u.query).get("token", [""])[0]
-        if not BUILD_TOKEN or token != BUILD_TOKEN:
-            self._send(403, "token salah")
-            return
-        if is_building():
-            self._send(409, "build sedang berjalan")
-            return
-        mode = parse_qs(u.query).get("mode", ["release"])[0]
-        if mode not in ("prebuild", "debug", "release"):
-            self._send(400, "mode tidak valid: gunakan prebuild|debug|release")
-            return
-        threading.Thread(target=run_build, kwargs={"mode": mode}, daemon=True).start()
-        self._send(200, f"build {mode} dimulai — pantau di /status.json", "text/plain; charset=utf-8")
 
 
 if __name__ == "__main__":
