@@ -76,3 +76,32 @@ powershell -Command "ssh -o StrictHostKeyChecking=no -p 2222 basth@localhost '<p
 - Saat menerima event `auth_error` dari WebSocket/SSE server, **jangan reconnect**. Set `intentionalClose = true` sebelum `socket.close()`. Redirect user ke halaman login.
 - Auto-reconnect hanya untuk disconnect tidak disengaja (`code !== 1000` dan bukan `intentionalClose`).
 
+## Building APK on Server (Self-hosted Mini-EAS)
+
+Server runs a self-hosted APK builder at `https://apk.basthstudio.my.id` (deployed on `Nyx-Server` 192.168.18.194).
+
+**Workflow:**
+1. Push changes to GitHub `main` branch (icon, config, code changes, etc.)
+2. Open https://apk.basthstudio.my.id — realtime UI shows build progress (stepper, live log, elapsed time)
+3. Click "Build APK Sekarang" — builder will:
+   - `git pull` latest main
+   - `npm install` (if needed)
+   - `npx expo prebuild --platform android` (always, no --clean — fresh native config)
+   - `./gradlew assembleRelease`
+   - Auto-sign unsigned APK with debug keystore
+4. Wait ~10-20 minutes (first build downloads SDK; subsequent builds faster)
+5. When status becomes "SUCCESS", download APK via tombol "Download APK Terbaru"
+
+**API (optional):**
+- `GET /status.json` — JSON build status
+- `GET /log` — live build log
+- `GET /download` — latest APK
+- `POST /build?token=spsm-build-2026` — trigger build
+
+**Server setup:**
+- Repo clone: `/home/basth/apbuilder` (auto-pulls on build)
+- APK output: `/home/basth/apk-dist/latest.apk`
+- Service: `spsm-apk-builder` (systemd, auto-restart)
+- Cloudflare Tunnel: `apk.basthstudio.my.id` → `localhost:8085`
+- Builder files: `deploy/apk-builder/` (build-apk.sh, apk_builder.py, systemd unit)
+
