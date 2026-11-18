@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# build-apk.sh — git pull → gradlew assembleRelease → publish APK
-# Jalan di VM Ubuntu. Output: /home/basth/apk-dist/latest.apk + timestamped copies.
+# build-apk.sh — multi-command: prebuild, assembleDebug, assembleRelease
+# Mode via env BUILD_MODE: prebuild|debug|release (default: release)
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-/home/basth/apbuilder}"
 DIST_DIR="${DIST_DIR:-/home/basth/apk-dist}"
 PROGRESS_FILE="${PROGRESS_FILE:-/home/basth/apk-builder/progress.txt}"
+BUILD_MODE="${BUILD_MODE:-release}"
 mark() { echo "$1" > "$PROGRESS_FILE"; }
 mark "start"
 ANDROID_HOME="${ANDROID_HOME:-/home/basth/Android/Sdk}"
@@ -13,7 +14,6 @@ JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
 export ANDROID_HOME JAVA_HOME
 export PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:/home/basth/node22/bin:$PATH"
 
-# Auto-install komponen Android SDK yang dibutuhkan (sekali saja)
 ensure_sdk() {
   local sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
   if [ ! -x "$sdkmanager" ]; then
@@ -37,7 +37,6 @@ fi
 mkdir -p "$DIST_DIR"
 cd "$REPO_DIR"
 
-# Node deps untuk Metro bundling (sekali saja, incremental setelahnya)
 if [ ! -d node_modules ]; then
   mark "npm"
   echo "=== npm install (deps untuk Metro bundle) ==="
@@ -51,48 +50,71 @@ mark "git"
 echo "=== git pull ==="
 git pull --ff-only
 
-# android/ adalah CNG (gitignored) — selalu jalankan prebuild (tanpa --clean)
-# agar native config selalu fresh mengikuti app.json/plugins terbaru.
-mark "prebuild"
-echo "=== expo prebuild --platform android ==="
-npx expo prebuild --platform android
-
-mark "gradle"
-echo "=== gradlew assembleRelease ==="
-cd android
-chmod +x gradlew
-./gradlew assembleRelease --console=plain
-
-APK="app/build/outputs/apk/release/app-release.apk"
-mark "sign"
-# Release tanpa signing config → APK unsigned, sign pakai debug keystore agar bisa diinstall
-if [ ! -f "$APK" ]; then
-  UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
-  if [ -f "$UNSIGNED" ]; then
-    BT="$ANDROID_HOME/build-tools/36.0.0"
-    KEYSTORE="$HOME/.android/debug.keystore"
-    if [ ! -f "$KEYSTORE" ]; then
-      mkdir -p "$HOME/.android"
-      keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey \
-        -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
+case "$BUILD_MODE" in
+  prebuild)
+    mark "prebuild"
+    echo "=== expo prebuild --platform android ==="
+    npx expo prebuild --platform android
+    mark "done"
+    echo "=== PREBUILD DONE ==="
+    ;;
+  debug)
+    mark "prebuild"
+    echo "=== expo prebuild --platform android ==="
+    npx expo prebuild --platform android
+    mark "gradle"
+    echo "=== gradlew assembleDebug ==="
+    cd android
+    chmod +x gradlew
+    ./gradlew assembleDebug --console=plain
+    APK="app/build/outputs/apk/debug/app-debug.apk"
+    TS="$(date +%Y%m%d-%H%M%S)"
+    cp "$APK" "$DIST_DIR/app-debug-$TS.apk"
+    cp "$APK" "$DIST_DIR/latest-debug.apk"
+    mark "done"
+    echo "=== DONE: $DIST_DIR/latest-debug.apk ($(du -h "$DIST_DIR/latest-debug.apk" | cut -f1)) ==="
+    ;;
+  release)
+    mark "prebuild"
+    echo "=== expo prebuild --platform android ==="
+    npx expo prebuild --platform android
+    mark "gradle"
+    echo "=== gradlew assembleRelease ==="
+    cd android
+    chmod +x gradlew
+    ./gradlew assembleRelease --console=plain
+    APK="app/build/outputs/apk/release/app-release.apk"
+    mark "sign"
+    if [ ! -f "$APK" ]; then
+      UNSIGNED="app/build/outputs/apk/release/app-release-unsigned.apk"
+      if [ -f "$UNSIGNED" ]; then
+        BT="$ANDROID_HOME/build-tools/36.0.0"
+        KEYSTORE="$HOME/.android/debug.keystore"
+        if [ ! -f "$KEYSTORE" ]; then
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey \
+            -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
+        fi
+        "$BT/zipalign" -f -p 4 "$UNSIGNED" "$DIST_DIR/signed-aligned.apk"
+        "$BT/apksigner" sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android \
+          --out "$APK" "$DIST_DIR/signed-aligned.apk"
+        rm -f "$DIST_DIR/signed-aligned.apk"
+        echo "=== APK di-sign dengan debug keystore ==="
+      fi
     fi
-    "$BT/zipalign" -f -p 4 "$UNSIGNED" "$DIST_DIR/signed-aligned.apk"
-    "$BT/apksigner" sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android \
-      --out "$APK" "$DIST_DIR/signed-aligned.apk"
-    rm -f "$DIST_DIR/signed-aligned.apk"
-    echo "=== APK di-sign dengan debug keystore ==="
-  fi
-fi
-if [ ! -f "$APK" ]; then
-  echo "ERROR: APK tidak ditemukan di $APK"
-  exit 1
-fi
-
-TS="$(date +%Y%m%d-%H%M%S)"
-cp "$APK" "$DIST_DIR/app-release-$TS.apk"
-cp "$APK" "$DIST_DIR/latest.apk"
-# Simpan max 5 versi lama
-ls -t "$DIST_DIR"/app-release-*.apk | tail -n +6 | xargs -r rm -f
-
-mark "done"
-echo "=== DONE: $DIST_DIR/latest.apk ($(du -h "$DIST_DIR/latest.apk" | cut -f1)) ==="
+    if [ ! -f "$APK" ]; then
+      echo "ERROR: APK tidak ditemukan di $APK"
+      exit 1
+    fi
+    TS="$(date +%Y%m%d-%H%M%S)"
+    cp "$APK" "$DIST_DIR/app-release-$TS.apk"
+    cp "$APK" "$DIST_DIR/latest.apk"
+    ls -t "$DIST_DIR"/app-release-*.apk | tail -n +6 | xargs -r rm -f
+    mark "done"
+    echo "=== DONE: $DIST_DIR/latest.apk ($(du -h "$DIST_DIR/latest.apk" | cut -f1)) ==="
+    ;;
+  *)
+    echo "Unknown BUILD_MODE: $BUILD_MODE (use: prebuild|debug|release)"
+    exit 1
+    ;;
+esac

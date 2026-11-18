@@ -50,26 +50,34 @@ def is_building():
     return p is not None and p.poll() is None
 
 
-def run_build():
+def run_build(mode="release"):
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, "a") as log:
-        log.write(f"\n===== BUILD START {time.strftime('%Y-%m-%d %H:%M:%S')} =====\n")
+        log.write(f"\n===== BUILD START {time.strftime('%Y-%m-%d %H:%M:%S')} (mode={mode}) =====\n")
         log.flush()
-        write_state(status="building", started_at=int(time.time()))
+        write_state(status="building", started_at=int(time.time()), build_mode=mode)
+        env = os.environ.copy()
+        env["BUILD_MODE"] = mode
         proc = subprocess.Popen(
             ["bash", str(BUILD_SCRIPT)],
             stdout=log, stderr=subprocess.STDOUT,
+            env=env,
         )
         build_proc["proc"] = proc
         build_proc["started"] = int(time.time())
         rc = proc.wait()
-        apk = DIST_DIR / "latest.apk"
-        ok = rc == 0 and apk.exists()
+        if mode == "release":
+            apk = DIST_DIR / "latest.apk"
+        elif mode == "debug":
+            apk = DIST_DIR / "latest-debug.apk"
+        else:
+            apk = None
+        ok = rc == 0 and (apk is None or apk.exists())
         write_state(
             status="success" if ok else "failed",
             finished_at=int(time.time()),
             returncode=rc,
-            apk_size=apk.stat().st_size if ok else None,
+            apk_size=apk.stat().st_size if ok and apk else None,
         )
         with open(LOG_FILE, "a") as log:
             log.write(f"===== BUILD END rc={rc} {'OK' if ok else 'FAIL'} =====\n")
@@ -80,79 +88,94 @@ INDEX_HTML = r"""<!doctype html><html lang=id><head><meta charset=utf-8>
 <title>SPSM APK Builder</title>
 <style>
 *{box-sizing:border-box;margin:0}
-body{font-family:ui-sans-serif,system-ui;background:#070b14;color:#e2e8f0;min-height:100vh;padding:32px 16px;
+body{font-family:ui-sans-serif,system-ui;background:#0f172a;color:#e2e8f0;min-height:100vh;padding:32px 16px;
  background-image:radial-gradient(600px 300px at 15% -5%,rgba(14,165,233,.18),transparent),radial-gradient(700px 350px at 90% 0%,rgba(139,92,246,.15),transparent),radial-gradient(500px 400px at 50% 110%,rgba(16,185,129,.10),transparent)}
-.wrap{max-width:860px;margin:0 auto}
-header{display:flex;align-items:center;gap:14px;margin-bottom:24px}
-.logo{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,#0ea5e9,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 8px 24px rgba(14,165,233,.35)}
-h1{font-size:22px;font-weight:800;letter-spacing:-.02em}
-.sub{color:#64748b;font-size:13px}
-.grid{display:grid;grid-template-columns:1fr;gap:16px}
-@media(min-width:820px){.grid{grid-template-columns:340px 1fr}}
-.card{background:rgba(30,41,59,.72);border:1px solid rgba(148,163,184,.12);border-radius:18px;padding:22px;backdrop-filter:blur(8px)}
-.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;margin-bottom:16px}
-.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:999px;font-weight:700;font-size:13px;margin-bottom:18px}
-.pill .dot{width:9px;height:9px;border-radius:50%;background:currentColor}
+.wrap{max-width:940px;margin:0 auto}
+header{display:flex;align-items:center;gap:16px;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid rgba(148,163,184,.2)}
+.logo{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,#0ea5e9,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 8px 32px rgba(14,165,233,.4)}
+h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
+.sub{color:#64748b;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr;gap:20px}
+@media(min-width:880px){.grid{grid-template-columns:380px 1fr}}
+.card{background:rgba(30,41,59,.85);border:1px solid rgba(148,163,184,.18);border-radius:20px;padding:24px;backdrop-filter:blur(12px)}
+.card h2{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#94a3b8;margin-bottom:20px}
+.pill{display:inline-flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;font-weight:700;font-size:13px;margin-bottom:20px}
+.pill .dot{width:10px;height:10px;border-radius:50%;background:currentColor}
 .building .dot{animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.3;transform:scale(.75)}}
-.building{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.35)}
-.success{background:rgba(5,150,105,.15);color:#34d399;border:1px solid rgba(5,150,105,.35)}
-.failed{background:rgba(220,38,38,.15);color:#f87171;border:1px solid rgba(220,38,38,.35)}
-.idle{background:rgba(71,85,105,.3);color:#94a3b8;border:1px solid rgba(71,85,105,.5)}
+.building{background:rgba(245,158,11,.18);color:#fbbf24;border:1px solid rgba(245,158,11,.4)}
+.success{background:rgba(5,150,105,.18);color:#34d399;border:1px solid rgba(5,150,105,.4)}
+.failed{background:rgba(220,38,38,.18);color:#f87171;border:1px solid rgba(220,38,38,.4)}
+.idle{background:rgba(71,85,105,.4);color:#94a3b8;border:1px solid rgba(71,85,105,.6)}
+.cmds{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.btn{padding:14px;border-radius:14px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-weight:700;font-size:14px;cursor:pointer;text-align:center;transition:.2s}
+.btn:hover:not(:disabled){border-color:#0ea5e9;color:#fff;transform:translateY(-2px)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.primary{background:linear-gradient(135deg,#0ea5e9,#2563eb);border:0;color:#fff}
+.btn.prebuild{background:linear-gradient(135deg,#8b5cf6,#a855f7);border:0;color:#fff}
+.btn.debug{background:linear-gradient(135deg,#10b981,#059669);border:0;color:#fff}
+.btn.release{background:linear-gradient(135deg,#f59e0b,#d97706);border:0;color:#fff}
 .steps{display:flex;flex-direction:column;gap:0}
-.step{display:flex;align-items:center;gap:12px;padding:9px 0;position:relative}
-.step:not(:last-child)::before{content:'';position:absolute;left:15px;top:34px;bottom:-9px;width:2px;background:#334155}
+.step{display:flex;align-items:center;gap:14px;padding:10px 0;position:relative}
+.step:not(:last-child)::before{content:'';position:absolute;left:17px;top:38px;bottom:-10px;width:2px;background:#334155}
 .step.done:not(:last-child)::before{background:#059669}
-.step .ic{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;background:#1e293b;border:2px solid #334155;color:#64748b;z-index:1}
+.step .ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;background:#1e293b;border:2px solid #334155;color:#64748b;z-index:1}
 .step.done .ic{background:#059669;border-color:#059669;color:#fff}
 .step.active .ic{background:#0ea5e9;border-color:#0ea5e9;color:#fff;animation:pulse 1.2s infinite}
 .step .lb{font-size:14px;color:#64748b;font-weight:600}
 .step.done .lb{color:#cbd5e1}
 .step.active .lb{color:#fff}
-.elapsed{margin-top:16px;font-size:12px;color:#64748b}
-.bar{height:6px;border-radius:99px;background:#1e293b;overflow:hidden;margin-top:10px}
+.elapsed{margin-top:18px;font-size:12px;color:#64748b}
+.bar{height:6px;border-radius:99px;background:#1e293b;overflow:hidden;margin-top:12px}
 .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#0ea5e9,#8b5cf6);transition:width .6s}
 .building .bar i{width:100%!important;animation:slide 1.6s ease-in-out infinite}
 @keyframes slide{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
-.dl{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:18px;padding:14px;border-radius:12px;background:linear-gradient(135deg,#059669,#0d9488);color:#fff;font-weight:800;text-decoration:none;font-size:15px;box-shadow:0 8px 24px rgba(5,150,105,.3);transition:transform .15s}
+.dl-section{margin-top:20px;padding-top:20px;border-top:1px solid rgba(148,163,184,.18)}
+.dl-row{display:flex;gap:10px;margin-bottom:10px}
+.dl{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:12px;background:linear-gradient(135deg,#059669,#0d9488);color:#fff;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 6px 20px rgba(5,150,105,.3);transition:.15s}
 .dl:hover{transform:translateY(-2px)}
-.meta{font-size:12px;color:#64748b;margin-top:10px;text-align:center}
-.log{background:#0b1120;border:1px solid rgba(148,163,184,.12);border-radius:14px;padding:14px;height:430px;overflow-y:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;color:#94a3b8;white-space:pre-wrap;word-break:break-all}
+.dl.debug{background:linear-gradient(135deg,#10b981,#059669)}
+.dl.release{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.meta{font-size:12px;color:#64748b;margin-top:8px;text-align:center}
+.log{background:#0b1120;border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:16px;height:420px;overflow-y:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;color:#94a3b8;white-space:pre-wrap;word-break:break-all}
 .log .ln{display:block}
 .log .hl{color:#7dd3fc}.log .ok{color:#34d399}.log .err{color:#f87171}
 .log::-webkit-scrollbar{width:8px}.log::-webkit-scrollbar-thumb{background:#334155;border-radius:8px}
-.actions{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
-button, .ghost{flex:1;padding:12px;border-radius:12px;border:1px solid #334155;background:#1e293b;color:#e2eef7;font-weight:700;font-size:14px;cursor:pointer;text-decoration:none;text-align:center;transition:.15s}
-button:hover,.ghost:hover{border-color:#0ea5e9;color:#fff}
-button.primary{background:linear-gradient(135deg,#0ea5e9,#2563eb);border:0;color:#fff}
-button:disabled{opacity:.4;cursor:not-allowed}
-.foot{margin-top:22px;text-align:center;font-size:12px;color:#475569}
+.foot{margin-top:24px;text-align:center;font-size:12px;color:#475569}
 .foot a{color:#38bdf8;text-decoration:none}
+.badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#334155;color:#94a3b8;margin-left:8px}
 </style></head><body><div class=wrap>
-<header><div class=logo>🤖</div><div><h1>SPSM APK Builder</h1><div class=sub>Self-hosted build server • assembleRelease</div></div></header>
+<header><div class=logo>🤖</div><div><h1>SPSM APK Builder</h1><div class=sub>Self-hosted build server • multi-command EAS-style</div></div></header>
 <div class=grid>
  <div class=card>
-  <h2>Status Build</h2>
+  <h2>Build Commands</h2>
   <div class="pill idle" id=pill><span class=dot></span><span id=pilltxt>IDLE</span></div>
+  <div class=cmds>
+   <button class="btn prebuild" id=prebtn disabled>📦 Prebuild</button>
+   <button class="btn debug" id=debugbtn disabled>🐛 Debug</button>
+   <button class="btn release" id=relbtn disabled>🚀 Release</button>
+  </div>
   <div class=steps id=steps></div>
   <div class=elapsed id=elapsed></div>
   <div class=bar><i id=bar></i></div>
-  <div id=dlwrap style="display:none"><a class=dl href="/download">⬇ Download APK Terbaru</a><div class=meta id=dlmeta></div></div>
-  <div class=actions>
-   <form method=post action="/build?token=__TOKEN__" style="flex:1;display:flex"><button class=primary id=buildbtn type=submit>▶ Build APK Sekarang</button></form>
-   <a class=ghost href="/download">APK</a>
+  <div class=dl-section" id=dlsec style="display:none">
+   <div class=dl-row>
+    <a class="dl debug" id=dldbg href="/download?file=debug">⬇ Debug APK</a>
+    <a class="dl release" id=dlrel href="/download?file=release">⬇ Release APK</a>
+   </div>
+   <div class=meta id=dlmeta></div>
   </div>
  </div>
  <div class=card>
   <h2>Live Build Log</h2>
-  <div class=log id=log>Menunggu build…</div>
+  <div class=log id=log>Menunggu command…</div>
  </div>
 </div>
 <div class=foot>Realtime • <a href="/status.json">status.json</a> • <a href="/log">/log</a></div>
 </div><script>
 const STAGES=[['start','Persiapan'],['sdk','Android SDK'],['npm','npm install'],['git','Git Pull'],['prebuild','Expo Prebuild'],['gradle','Gradle Build'],['sign','Signing'],['done','Publish APK']];
 const LABEL={idle:'IDLE',building:'BUILDING…',success:'SUCCESS',failed:'FAILED'};
-let t0=null,lastLogLen=0,logEl=document.getElementById('log');
+let t0=null,logEl=document.getElementById('log');
 function fmtDur(s){s=Math.max(0,Math.floor(s));const m=Math.floor(s/60),ss=s%60;return m+'m '+String(ss).padStart(2,'0')+'s'}
 function stageIdx(st,prog){
  if(prog){const i=STAGES.findIndex(x=>x[0]!==''&&prog.includes(x[0]));if(i>=0)return i}
@@ -176,20 +199,33 @@ function hl(line){
  if(/^=|Task:|> Task/i.test(line))return '<span class=hl>'+line+'</span>';
  return line;
 }
+async function runCmd(mode){
+ try{
+  const r=await fetch('/build?token=__TOKEN__&mode='+mode,{method:'POST'});
+  if(!r.ok)throw new Error(await r.text());
+  return await r.text();
+ }catch(e){
+  alert('Gagal menjalankan command: '+e.message);
+ }
+}
 async function poll(){
  try{
-  const [s,p]=await Promise.all([fetch('/status.json').then(r=>r.json()),fetch('/progress').then(r=>r.json()).catch(()=>({stage:''}))]);
+  const s=await fetch('/status.json').then(r=>r.json());
+  const p=await fetch('/progress').then(r=>r.json()).catch(()=>({stage:''}));
   const pill=document.getElementById('pill'),pt=document.getElementById('pilltxt');
   pill.className='pill '+(s.building?'building':s.status||'idle');
   pt.textContent=LABEL[s.building?'building':s.status]||s.status;
   const idx=stageIdx(s.building?'building':s.status,p.stage);
   renderSteps(idx,s.building?'building':s.status);
   const el=document.getElementById('elapsed');
-  if(s.building){if(!t0)t0=Date.now();el.textContent='Elapsed: '+fmtDur((Date.now()-t0)/1000)+' — estimasi 10-30 menit untuk build pertama'}
+  if(s.building){if(!t0)t0=Date.now();el.textContent='Elapsed: '+fmtDur((Date.now()-t0)/1000)+' — '+s.build_mode?.toUpperCase()||'BUILD'}
   else{t0=null;el.textContent=s.finished_at?'Finished: '+new Date(s.finished_at*1000).toLocaleString('id-ID'):''}
-  document.getElementById('buildbtn').disabled=!!s.building;
-  const dw=document.getElementById('dlwrap');
-  if(s.status==='success'){dw.style.display='block';document.getElementById('dlmeta').textContent=s.apk_size?('Size: '+(s.apk_size/1048576).toFixed(1)+' MB'):'APK siap di-download';}
+  const canBuild=!s.building;
+  document.getElementById('prebtn').disabled=!canBuild;
+  document.getElementById('debugbtn').disabled=!canBuild;
+  document.getElementById('relbtn').disabled=!canBuild;
+  const dw=document.getElementById('dlsec');
+  if(s.status==='success'){dw.style.display='block';document.getElementById('dlmeta').textContent='Debug: '+(s.debug_size?fmtSize(s.debug_size):'-')+' | Release: '+(s.apk_size?fmtSize(s.apk_size):'-');}
   else dw.style.display='none';
   const txt=await fetch('/log').then(r=>r.text());
   const lines=txt.split('\n');
@@ -198,6 +234,10 @@ async function poll(){
  }catch(e){}
  setTimeout(poll,2000);
 }
+function fmtSize(b){if(!b)return'-';b=Number(b);const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return parseFloat((b/Math.pow(k,i)).toFixed(1))+' '+s[i];}
+document.getElementById('prebtn').onclick=()=>runCmd('prebuild');
+document.getElementById('debugbtn').onclick=()=>runCmd('debug');
+document.getElementById('relbtn').onclick=()=>runCmd('release');
 poll();
 </script></body></html>"""
 
@@ -234,6 +274,9 @@ class Handler(BaseHTTPRequestHandler):
             if apk.exists():
                 st["apk_size"] = apk.stat().st_size
                 st["apk_mtime"] = int(apk.stat().st_mtime)
+            apk_debug = DIST_DIR / "latest-debug.apk"
+            if apk_debug.exists():
+                st["debug_size"] = apk_debug.stat().st_size
             self._send(200, json.dumps(st), "application/json")
         elif u.path == "/progress":
             stage = ""
@@ -257,12 +300,19 @@ class Handler(BaseHTTPRequestHandler):
                 data = b"(no log yet)"
             self._send(200, data, "text/plain; charset=utf-8")
         elif u.path == "/download":
-            apk = DIST_DIR / "latest.apk"
+            qs = parse_qs(u.query)
+            file_type = qs.get("file", ["release"])[0]
+            if file_type == "debug":
+                apk = DIST_DIR / "latest-debug.apk"
+                name = "spsm-debug.apk"
+            else:
+                apk = DIST_DIR / "latest.apk"
+                name = "spsm-release.apk"
             if not apk.exists():
-                self._send(404, "APK belum ada — jalankan build dulu.")
+                self._send(404, f"APK {file_type} belum ada — jalankan build dulu.")
                 return
             self._send(200, apk.read_bytes(), "application/vnd.android.package-archive",
-                       {"Content-Disposition": 'attachment; filename="spsm-latest.apk"'})
+                       {"Content-Disposition": f'attachment; filename="{name}"'})
         else:
             self._send(404, "not found")
 
@@ -278,8 +328,12 @@ class Handler(BaseHTTPRequestHandler):
         if is_building():
             self._send(409, "build sedang berjalan")
             return
-        threading.Thread(target=run_build, daemon=True).start()
-        self._send(200, "build dimulai — pantau di /status.json", "text/plain; charset=utf-8")
+        mode = parse_qs(u.query).get("mode", ["release"])[0]
+        if mode not in ("prebuild", "debug", "release"):
+            self._send(400, "mode tidak valid: gunakan prebuild|debug|release")
+            return
+        threading.Thread(target=run_build, kwargs={"mode": mode}, daemon=True).start()
+        self._send(200, f"build {mode} dimulai — pantau di /status.json", "text/plain; charset=utf-8")
 
 
 if __name__ == "__main__":
